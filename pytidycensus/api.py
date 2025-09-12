@@ -2,15 +2,16 @@
 Core Census API client for making requests to the US Census Bureau APIs.
 """
 
-import os
 import json
+import os
 import time
-from typing import Dict, List, Optional, Union, Any
-from urllib.parse import urljoin, urlencode
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlencode, urljoin
+
+import appdirs
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import appdirs
 
 
 class CensusAPI:

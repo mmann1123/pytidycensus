@@ -2,12 +2,14 @@
 Census variable loading and caching functionality.
 """
 
-import os
 import json
+import os
 import pickle
-from typing import Optional, Dict, Any
-import pandas as pd
+from typing import Any, Dict, Optional
+
 import appdirs
+import pandas as pd
+
 from .api import CensusAPI
 
 

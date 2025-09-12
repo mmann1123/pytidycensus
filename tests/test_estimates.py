@@ -2,14 +2,16 @@
 Tests for population estimates data retrieval functions.
 """
 
-import pytest
-import pandas as pd
+from unittest.mock import MagicMock, Mock, patch
+
 import geopandas as gpd
-from unittest.mock import Mock, patch, MagicMock
+import pandas as pd
+import pytest
+
 from pytidycensus.estimates import (
+    _add_breakdown_labels,
     get_estimates,
     get_estimates_variables,
-    _add_breakdown_labels,
 )
 
 

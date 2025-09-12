@@ -2,10 +2,12 @@
 Tests for decennial Census data retrieval functions.
 """
 
-import pytest
-import pandas as pd
+from unittest.mock import MagicMock, Mock, patch
+
 import geopandas as gpd
-from unittest.mock import Mock, patch, MagicMock
+import pandas as pd
+import pytest
+
 from pytidycensus.decennial import get_decennial, get_decennial_variables
 
 

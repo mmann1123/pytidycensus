@@ -2,23 +2,24 @@
 Tests for geography module functionality.
 """
 
-import pytest
 import os
 import tempfile
 import zipfile
-import pandas as pd
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
 import geopandas as gpd
-from unittest.mock import Mock, patch, MagicMock, mock_open
+import pandas as pd
+import pytest
 import requests
 from shapely.geometry import Point, Polygon
 
 from pytidycensus.geography import (
     TigerDownloader,
+    get_block_group_boundaries,
+    get_county_boundaries,
     get_geography,
     get_state_boundaries,
-    get_county_boundaries,
     get_tract_boundaries,
-    get_block_group_boundaries,
 )
 
 

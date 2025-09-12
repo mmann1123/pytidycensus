@@ -2,19 +2,21 @@
 Decennial Census data retrieval functions.
 """
 
-from typing import List, Optional, Union, Dict, Any
-import pandas as pd
-import geopandas as gpd
 import warnings
+from typing import Any, Dict, List, Optional, Union
+
+import geopandas as gpd
+import pandas as pd
+
 from .api import CensusAPI
+from .geography import get_geography
 from .utils import (
-    validate_state,
-    validate_year,
-    validate_geography,
     build_geography_params,
     process_census_data,
+    validate_geography,
+    validate_state,
+    validate_year,
 )
-from .geography import get_geography
 
 
 def get_decennial(

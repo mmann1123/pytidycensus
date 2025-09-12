@@ -2,20 +2,22 @@
 American Community Survey (ACS) data retrieval functions.
 """
 
-from typing import List, Optional, Union, Dict, Any
-import pandas as pd
-import geopandas as gpd
 import warnings
+from typing import Any, Dict, List, Optional, Union
+
+import geopandas as gpd
+import pandas as pd
+
 from .api import CensusAPI
+from .geography import get_geography
 from .utils import (
-    validate_state,
-    validate_year,
-    validate_geography,
+    add_margin_of_error,
     build_geography_params,
     process_census_data,
-    add_margin_of_error,
+    validate_geography,
+    validate_state,
+    validate_year,
 )
-from .geography import get_geography
 
 
 def get_acs(

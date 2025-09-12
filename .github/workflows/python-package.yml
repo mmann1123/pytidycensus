@@ -42,10 +42,10 @@ jobs:
       run: |
         isort --check-only --diff .
     
-    - name: Type check with mypy
-      run: |
-        mypy pytidycensus --ignore-missing-imports
-      continue-on-error: true  # Allow mypy failures for now
+    # - name: Type check with mypy
+    #   run: |
+    #     mypy pytidycensus --ignore-missing-imports
+    #   continue-on-error: true  # Allow mypy failures for now
     
     - name: Test with pytest
       run: |

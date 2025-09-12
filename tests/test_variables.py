@@ -2,20 +2,21 @@
 Tests for variables module functionality.
 """
 
-import pytest
-import pandas as pd
-import tempfile
 import os
-from unittest.mock import Mock, patch, mock_open
 import pickle
+import tempfile
+from unittest.mock import Mock, mock_open, patch
+
+import pandas as pd
+import pytest
 
 from pytidycensus.variables import (
+    _parse_variables,
+    clear_cache,
+    get_table_variables,
+    list_available_datasets,
     load_variables,
     search_variables,
-    get_table_variables,
-    clear_cache,
-    list_available_datasets,
-    _parse_variables,
 )
 
 

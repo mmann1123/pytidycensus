@@ -7,10 +7,11 @@ They test the complete functionality with real data.
 
 import os
 import sys
-import pytest
-import pandas as pd
-import geopandas as gpd
 from getpass import getpass
+
+import geopandas as gpd
+import pandas as pd
+import pytest
 
 import pytidycensus as tc
 

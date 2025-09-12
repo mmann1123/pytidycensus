@@ -2,11 +2,13 @@
 Tests for the Census API client.
 """
 
-import os
 import json
+import os
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
 import requests
-from unittest.mock import Mock, patch, MagicMock
+
 from pytidycensus.api import CensusAPI, set_census_api_key
 
 

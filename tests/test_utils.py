@@ -2,16 +2,17 @@
 Tests for utility functions.
 """
 
-import pytest
 import pandas as pd
+import pytest
+
 from pytidycensus.utils import (
-    validate_state,
-    validate_county,
-    validate_year,
-    validate_geography,
+    add_margin_of_error,
     build_geography_params,
     process_census_data,
-    add_margin_of_error,
+    validate_county,
+    validate_geography,
+    validate_state,
+    validate_year,
 )
 
 

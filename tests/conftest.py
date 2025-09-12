@@ -2,11 +2,12 @@
 Pytest configuration and fixtures for pytidycensus tests.
 """
 
-import pytest
 import os
-import tempfile
 import shutil
+import tempfile
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture
@@ -102,8 +103,8 @@ class MockGeometry:
 @pytest.fixture
 def sample_geodataframe():
     """Sample GeoDataFrame for testing geometry functionality."""
-    import pandas as pd
     import geopandas as gpd
+    import pandas as pd
     from shapely.geometry import Point
 
     # Create sample data with mock geometry

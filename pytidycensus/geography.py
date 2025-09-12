@@ -5,13 +5,15 @@ Geographic boundary data retrieval and processing using TIGER shapefiles.
 import os
 import tempfile
 import zipfile
-from typing import Optional, Union, List, Dict, Any
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
-import requests
+
 import certifi
 import geopandas as gpd
 import pandas as pd
-from .utils import validate_state, validate_county
+import requests
+
+from .utils import validate_county, validate_state
 
 
 class TigerDownloader:
