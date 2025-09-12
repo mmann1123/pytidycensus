@@ -2,52 +2,53 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
-project = 'pytidycensus'
-copyright = '2024, pytidycensus contributors'
-author = 'pytidycensus contributors'
-release = '0.1.0'
+project = "pytidycensus"
+copyright = "2024, pytidycensus contributors"
+author = "pytidycensus contributors"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx',
-    'myst_parser',
-    'sphinx_autodoc_typehints',
-    'nbsphinx',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "myst_parser",
+    "sphinx_autodoc_typehints",
+    "nbsphinx",
 ]
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 
 # -- nbsphinx configuration --
-nbsphinx_execute = 'never'  # Don't execute notebooks during build
+nbsphinx_execute = "never"  # Don't execute notebooks during build
 nbsphinx_allow_errors = True
 nbsphinx_timeout = 300
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
-html_title = 'pytidycensus Documentation'
-html_short_title = 'pytidycensus'
+html_theme = "sphinx_rtd_theme"
+html_static_path = ["_static"]
+html_title = "pytidycensus Documentation"
+html_short_title = "pytidycensus"
 
 # -- Extension configuration -------------------------------------------------
 
 # Autodoc settings
 autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'show-inheritance': True,
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+    "undoc-members": True,
+    "show-inheritance": True,
 }
 
 # Napoleon settings (for Google/NumPy style docstrings)
@@ -65,10 +66,10 @@ napoleon_use_rtype = True
 
 # Intersphinx mapping
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'pandas': ('https://pandas.pydata.org/docs/', None),
-    'geopandas': ('https://geopandas.org/', None),
-    'numpy': ('https://numpy.org/doc/stable/', None),
+    "python": ("https://docs.python.org/3/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "geopandas": ("https://geopandas.org/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
 }
 
 # MyST settings

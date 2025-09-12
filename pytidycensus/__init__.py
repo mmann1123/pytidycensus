@@ -20,7 +20,7 @@ from .variables import load_variables, search_variables, get_table_variables
 __all__ = [
     "CensusAPI",
     "set_census_api_key",
-    "get_acs", 
+    "get_acs",
     "get_decennial",
     "get_estimates",
     "get_geography",

@@ -7,8 +7,11 @@ import pandas as pd
 import geopandas as gpd
 from .api import CensusAPI
 from .utils import (
-    validate_state, validate_year, validate_geography,
-    build_geography_params, process_census_data
+    validate_state,
+    validate_year,
+    validate_geography,
+    build_geography_params,
+    process_census_data,
 )
 from .geography import get_geography
 
@@ -27,11 +30,11 @@ def get_estimates(
     keep_geo_vars: bool = False,
     api_key: Optional[str] = None,
     show_call: bool = False,
-    **kwargs
+    **kwargs,
 ) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
     """
     Obtain data from the US Census Bureau Population Estimates Program.
-    
+
     Parameters
     ----------
     geography : str
@@ -39,7 +42,7 @@ def get_estimates(
     variables : str or list of str, optional
         Variable ID(s) to retrieve. Common variables include:
         - "POP" (total population)
-        - "DENSITY" (population density)  
+        - "DENSITY" (population density)
         - "BIRTHS" (births)
         - "DEATHS" (deaths)
         - "DOMESTICMIG" (domestic migration)
@@ -68,24 +71,24 @@ def get_estimates(
         Whether to print the API call URL.
     **kwargs
         Additional parameters passed to geography functions.
-    
+
     Returns
     -------
     pandas.DataFrame or geopandas.GeoDataFrame
         Population estimates data, optionally with geometry.
-    
+
     Examples
     --------
     >>> import pytidycensus as tc
     >>> tc.set_census_api_key("your_key_here")
-    >>> 
+    >>>
     >>> # Get total population estimates by state
     >>> state_pop = tc.get_estimates(
     ...     geography="state",
     ...     variables="POP",
     ...     year=2022
     ... )
-    >>> 
+    >>>
     >>> # Get population by age and sex for counties in Texas
     >>> tx_pop_demo = tc.get_estimates(
     ...     geography="county",
@@ -98,51 +101,51 @@ def get_estimates(
     # Validate inputs
     year = validate_year(year, "estimates")
     geography = validate_geography(geography)
-    
+
     if not variables:
         variables = ["POP"]  # Default to total population
-    
+
     # Ensure variables is a list
     if isinstance(variables, str):
         variables = [variables]
-    
+
     # Add breakdown variables to the request
     all_variables = variables.copy()
     if breakdown:
         all_variables.extend(breakdown)
-    
+
     # Initialize API client
     api = CensusAPI(api_key)
-    
+
     # Build geography parameters
     geo_params = build_geography_params(geography, state, county, **kwargs)
-    
+
     # Determine the appropriate estimates dataset
     dataset_path = "pep"
     if time_series:
         dataset_path += "/components"
     else:
         dataset_path += "/charagegroups" if breakdown else "/population"
-    
+
     # Make API request
     try:
         print(f"Getting data from the {year} Population Estimates Program")
-        
+
         data = api.get(
             year=year,
             dataset=dataset_path,
             variables=all_variables,
             geography=geo_params,
-            show_call=show_call
+            show_call=show_call,
         )
-        
+
         # Process data
         df = process_census_data(data, variables, output)
-        
+
         # Add breakdown labels if requested
         if breakdown_labels and breakdown:
             df = _add_breakdown_labels(df, breakdown)
-        
+
         # Add geometry if requested
         if geometry:
             gdf = get_geography(
@@ -151,19 +154,19 @@ def get_estimates(
                 state=state,
                 county=county,
                 keep_geo_vars=keep_geo_vars,
-                **kwargs
+                **kwargs,
             )
-            
+
             # Merge with census data
-            if 'GEOID' in df.columns and 'GEOID' in gdf.columns:
-                result = gdf.merge(df, on='GEOID', how='inner')
+            if "GEOID" in df.columns and "GEOID" in gdf.columns:
+                result = gdf.merge(df, on="GEOID", how="inner")
                 return result
             else:
                 print("Warning: Could not merge with geometry - GEOID column missing")
                 return df
-        
+
         return df
-        
+
     except Exception as e:
         raise Exception(f"Failed to retrieve population estimates: {str(e)}")
 
@@ -171,14 +174,14 @@ def get_estimates(
 def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFrame:
     """
     Add human-readable labels for breakdown categories.
-    
+
     Parameters
     ----------
     df : pd.DataFrame
         Population estimates data
     breakdown : List[str]
         Breakdown variables
-    
+
     Returns
     -------
     pd.DataFrame
@@ -186,15 +189,11 @@ def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFram
     """
     # Define label mappings
     label_mappings = {
-        "SEX": {
-            "0": "Total",
-            "1": "Male", 
-            "2": "Female"
-        },
+        "SEX": {"0": "Total", "1": "Male", "2": "Female"},
         "AGEGROUP": {
             "0": "Total",
             "1": "0-4 years",
-            "2": "5-9 years", 
+            "2": "5-9 years",
             "3": "10-14 years",
             "4": "15-19 years",
             "5": "20-24 years",
@@ -210,7 +209,7 @@ def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFram
             "15": "70-74 years",
             "16": "75-79 years",
             "17": "80-84 years",
-            "18": "85+ years"
+            "18": "85+ years",
         },
         "RACE": {
             "0": "Total",
@@ -219,36 +218,37 @@ def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFram
             "3": "American Indian and Alaska Native alone",
             "4": "Asian alone",
             "5": "Native Hawaiian and Other Pacific Islander alone",
-            "6": "Two or More Races"
+            "6": "Two or More Races",
         },
         "HISP": {
             "0": "Total",
             "1": "Not Hispanic or Latino",
-            "2": "Hispanic or Latino"
-        }
+            "2": "Hispanic or Latino",
+        },
     }
-    
+
     # Add label columns
     for var in breakdown:
         if var in df.columns and var in label_mappings:
             df[f"{var}_label"] = df[var].astype(str).map(label_mappings[var])
-    
+
     return df
 
 
 def get_estimates_variables(year: int = 2022) -> pd.DataFrame:
     """
     Get available population estimates variables for a given year.
-    
+
     Parameters
     ----------
     year : int, default 2022
         Estimates year
-    
+
     Returns
     -------
     pd.DataFrame
         Available variables with metadata
     """
     from .variables import load_variables
+
     return load_variables(year, "pep", "population")

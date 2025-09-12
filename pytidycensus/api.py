@@ -16,17 +16,17 @@ import appdirs
 class CensusAPI:
     """
     Core client for interacting with US Census Bureau APIs.
-    
+
     Handles authentication, rate limiting, caching, and error handling
     for Census API requests.
     """
-    
+
     BASE_URL = "https://api.census.gov/data"
-    
+
     def __init__(self, api_key: Optional[str] = None, cache_dir: Optional[str] = None):
         """
         Initialize Census API client.
-        
+
         Parameters
         ----------
         api_key : str, optional
@@ -40,10 +40,10 @@ class CensusAPI:
                 "Census API key is required. Get one at: "
                 "https://api.census.gov/data/key_signup.html"
             )
-        
+
         self.cache_dir = cache_dir or appdirs.user_cache_dir("pytidycensus")
         os.makedirs(self.cache_dir, exist_ok=True)
-        
+
         # Configure session with retry strategy
         self.session = requests.Session()
         retry_strategy = Retry(
@@ -54,11 +54,11 @@ class CensusAPI:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
-        
+
         # Rate limiting
         self.last_request_time = 0
         self.min_request_interval = 0.1  # 100ms between requests
-    
+
     def _rate_limit(self) -> None:
         """Enforce rate limiting between API requests."""
         current_time = time.time()
@@ -66,11 +66,11 @@ class CensusAPI:
         if time_since_last < self.min_request_interval:
             time.sleep(self.min_request_interval - time_since_last)
         self.last_request_time = time.time()
-    
+
     def _build_url(self, year: int, dataset: str, survey: Optional[str] = None) -> str:
         """
         Build Census API URL for given parameters.
-        
+
         Parameters
         ----------
         year : int
@@ -79,7 +79,7 @@ class CensusAPI:
             Dataset name (e.g., 'acs', 'dec')
         survey : str, optional
             Survey type (e.g., 'acs5', 'acs1')
-        
+
         Returns
         -------
         str
@@ -89,19 +89,19 @@ class CensusAPI:
             return f"{self.BASE_URL}/{year}/{dataset}/{survey}"
         else:
             return f"{self.BASE_URL}/{year}/{dataset}"
-    
+
     def get(
-        self, 
+        self,
         year: int,
         dataset: str,
         variables: List[str],
         geography: Dict[str, str],
         survey: Optional[str] = None,
-        show_call: bool = False
+        show_call: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Make a request to the Census API.
-        
+
         Parameters
         ----------
         year : int
@@ -116,12 +116,12 @@ class CensusAPI:
             Survey type (e.g., 'acs5', 'acs1')
         show_call : bool, default False
             Whether to print the API call URL
-        
+
         Returns
         -------
         List[Dict[str, Any]]
             Parsed JSON response from API
-        
+
         Raises
         ------
         requests.RequestException
@@ -130,24 +130,21 @@ class CensusAPI:
             If API returns error response
         """
         self._rate_limit()
-        
+
         url = self._build_url(year, dataset, survey)
-        
+
         # Build query parameters
-        params = {
-            'get': ','.join(variables),
-            'key': self.api_key
-        }
+        params = {"get": ",".join(variables), "key": self.api_key}
         params.update(geography)
-        
+
         if show_call:
             full_url = f"{url}?{urlencode(params)}"
             print(f"Census API call: {full_url}")
-        
+
         try:
             response = self.session.get(url, params=params, timeout=30)
             response.raise_for_status()
-            
+
             try:
                 data = response.json()
             except json.JSONDecodeError:
@@ -157,26 +154,30 @@ class CensusAPI:
                     f"This usually indicates an invalid API key or malformed request. "
                     f"Response content: {response.text[:200]}..."
                 )
-            
+
             # Handle API error responses
-            if isinstance(data, dict) and 'error' in data:
+            if isinstance(data, dict) and "error" in data:
                 raise ValueError(f"Census API error: {data['error']}")
-            
+
             # Convert to list of dictionaries with header as keys
             if isinstance(data, list) and len(data) > 1:
                 headers = data[0]
                 rows = data[1:]
                 return [dict(zip(headers, row)) for row in rows]
-            
+
             return data
-            
+
         except requests.RequestException as e:
-            raise requests.RequestException(f"Failed to fetch data from Census API: {e}")
-    
-    def get_geography_codes(self, year: int, dataset: str, survey: Optional[str] = None) -> Dict[str, Any]:
+            raise requests.RequestException(
+                f"Failed to fetch data from Census API: {e}"
+            )
+
+    def get_geography_codes(
+        self, year: int, dataset: str, survey: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get available geography codes for a dataset.
-        
+
         Parameters
         ----------
         year : int
@@ -185,18 +186,18 @@ class CensusAPI:
             Dataset name
         survey : str, optional
             Survey type
-        
+
         Returns
         -------
         Dict[str, Any]
             Available geography codes
         """
         url = self._build_url(year, dataset, survey) + "/geography.json"
-        
+
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
-            
+
             try:
                 return response.json()
             except json.JSONDecodeError:
@@ -207,11 +208,13 @@ class CensusAPI:
                 )
         except requests.RequestException as e:
             raise requests.RequestException(f"Failed to fetch geography codes: {e}")
-    
-    def get_variables(self, year: int, dataset: str, survey: Optional[str] = None) -> Dict[str, Any]:
+
+    def get_variables(
+        self, year: int, dataset: str, survey: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get available variables for a dataset.
-        
+
         Parameters
         ----------
         year : int
@@ -220,18 +223,18 @@ class CensusAPI:
             Dataset name
         survey : str, optional
             Survey type
-        
+
         Returns
         -------
         Dict[str, Any]
             Available variables with metadata
         """
         url = self._build_url(year, dataset, survey) + "/variables.json"
-        
+
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
-            
+
             try:
                 return response.json()
             except json.JSONDecodeError:
@@ -247,7 +250,7 @@ class CensusAPI:
 def set_census_api_key(api_key: str) -> None:
     """
     Set Census API key as environment variable.
-    
+
     Parameters
     ----------
     api_key : str
