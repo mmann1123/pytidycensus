@@ -134,8 +134,6 @@ def _load_national_county_txt():
         print("Warning: national_county.txt not found, county lookups may fail.")
     return lookup
 
-    return fips_codes
-
 
 @lru_cache(maxsize=128)
 def _get_county_data(state_fips: str) -> Dict[str, str]:
