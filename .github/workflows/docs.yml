@@ -67,11 +67,12 @@ jobs:
     - name: Setup Pages (only on main/master)
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: actions/configure-pages@v3
-      
+
     - name: Upload artifact (only on main/master)
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-pages-artifact@v2   
       with:
+        name: github-pages   
         path: './docs/_build/html'
 
   deploy:
