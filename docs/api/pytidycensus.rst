@@ -64,3 +64,8 @@ pytidycensus.variables module
    :members:
    :undoc-members:
    :show-inheritance:
+
+**Come study with us at The George Washington University**
+
+.. image:: ../static/GWU_GE.png
+   :alt: GWU Geography & Environment

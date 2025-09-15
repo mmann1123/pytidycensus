@@ -116,3 +116,8 @@ Have an interesting use case or analysis? We welcome contributions of additional
 4. Submit a pull request to the repository
 
 For questions or suggestions about the examples, please open an issue on GitHub.
+
+**Come study with us at The George Washington University**
+
+.. image:: static/GWU_GE.png
+   :alt: GWU Geography & Environment

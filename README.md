@@ -19,14 +19,39 @@ This package is a Python port of the popular R package [tidycensus](https://walk
 
 ## Installation
 
+### From PyPI (Recommended)
+
 ```bash
 pip install pytidycensus
 ```
 
-For development:
+### Latest Version with Additional Features
+
+To install with optional dependencies:
 
 ```bash
-git clone https://github.com/mmann1123/pytidycensus
+# For development tools
+pip install pytidycensus[dev]
+
+# For documentation tools
+pip install pytidycensus[docs]
+
+# For all optional dependencies (including visualization)
+pip install pytidycensus[all]
+```
+
+To install the latest development version directly from GitHub:
+
+```bash
+pip install git+https://github.com/mmann1123/pytidycensus.git
+```
+
+### For Contributors
+
+Clone the repository and install in development mode:
+
+```bash
+git clone https://github.com/mmann1123/pytidycensus.git
 cd pytidycensus
 pip install -e .[dev,docs]
 ```
@@ -113,7 +138,7 @@ print(income_vars[['name', 'label']].head())
 ## Supported Datasets
 
 - **American Community Survey (ACS)**: 1-year and 5-year estimates (2005-2022)
-- **Decennial Census**: 1990, 2000, 2010, and 2020 
+- **Decennial Census**: 1990, 2000, 2010, and 2020
 - **Population Estimates Program**: Annual population estimates and components of change
 
 ## Geographic Levels
@@ -129,7 +154,7 @@ pytidycensus supports all major Census geographic levels:
 
 ## Documentation
 
-Full documentation is available at: https://mmann1123.github.io/pytidycensus/
+Full documentation is available at: [https://mmann1123.github.io/pytidycensus/](https://mmann1123.github.io/pytidycensus/)
 
 ## Contributing
 
@@ -163,7 +188,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you use pytidycensus in your research, please cite:
 
-```
+```bibtex
 pytidycensus: Python interface to US Census Bureau APIs
 https://github.com/mmann1123/pytidycensus
 ```
+
+**Come study with us at The George Washington University**
+
+![GWU Geography & Environment](docs/static/GWU_GE.png)

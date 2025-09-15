@@ -199,3 +199,7 @@ print(data.columns)
 - Explore comprehensive [Jupyter notebook examples](examples.rst)
 - Check the [API reference](api/modules.rst) for detailed function documentation
 - Visit the [GitHub repository](https://github.com/mmann1123/pytidycensus) for the latest updates
+
+## Come study with us at The George Washington University
+
+![GWU Geography & Environment](static/GWU_GE.png)

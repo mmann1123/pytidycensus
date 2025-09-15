@@ -159,3 +159,7 @@ Be respectful, inclusive, and constructive in all interactions.
 
 Contributors will be acknowledged in the documentation and release notes. 
 Thank you for helping make pytidycensus better!
+
+## Come study with us at The George Washington University
+
+![GWU Geography & Environment](static/GWU_GE.png)

@@ -43,3 +43,8 @@ Submodules
    pytidycensus.geography
    pytidycensus.variables
    pytidycensus.utils
+
+**Come study with us at The George Washington University**
+
+.. image:: ../static/GWU_GE.png
+   :alt: GWU Geography & Environment
