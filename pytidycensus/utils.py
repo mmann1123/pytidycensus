@@ -3,7 +3,10 @@ Utility functions for data processing and validation.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
+from functools import lru_cache
+import os
+import json
 
 import pandas as pd
 import us
@@ -87,19 +90,199 @@ def validate_county(
 
     fips_codes = []
 
+    # Load county lookup from national_county.txt
+    county_lookup = _load_national_county_txt()
+    state_fips = str(state_fips).zfill(2)
+
     for c in counties:
         if isinstance(c, int):
             c = str(c).zfill(3)
+
+        # Normalize county name: remove ' County' suffix if present
+        if isinstance(c, str) and c.lower().endswith(" county"):
+            c = c[:-7].strip()
 
         # If it's already a FIPS code
         if isinstance(c, str) and c.isdigit() and len(c) <= 3:
             fips_codes.append(c.zfill(3))
         else:
-            # For county name lookup, we'd need additional data
-            # For now, just validate format
-            raise ValueError(f"County name lookup not yet implemented: {c}")
+            # Try county name lookup using national_county.txt
+            key = (state_fips, str(c).lower().strip())
+            fips_code = county_lookup.get(key)
+            if fips_code:
+                fips_codes.append(fips_code)
+            else:
+                raise ValueError(f"Could not find county FIPS code for: {c}")
+    return fips_codes
+
+
+def _load_national_county_txt():
+    """
+    Load county lookup from data/national_county.txt
+    Returns dict: {(state_fips, county_name_lower): county_fips}
+    """
+    lookup = {}
+    data_path = os.path.join(
+        os.path.dirname(__file__), "..", "data", "national_county.txt"
+    )
+    if not os.path.exists(data_path):
+        print("Warning: national_county.txt not found, county lookups may fail.")
+        return lookup
+    with open(data_path, "r") as f:
+        for line in f:
+            parts = line.strip().split(",")
+            if len(parts) < 4:
+                continue
+            state_abr, state_fips, county_fips, county_name = parts[:4]
+
+            # Normalize county name: remove ' County' suffix if present
+            if isinstance(county_name, str) and county_name.lower().endswith(" county"):
+                county_name = county_name[:-7].strip()
+
+            lookup[(state_fips.zfill(2), county_name.lower().strip())] = (
+                county_fips.zfill(3)
+            )
+    return lookup
 
     return fips_codes
+
+
+@lru_cache(maxsize=128)
+def _get_county_data(state_fips: str) -> Dict[str, str]:
+    """
+    Fetch county data for a given state from Census API.
+
+    This function is cached to avoid repeated API calls for the same state.
+
+    Parameters
+    ----------
+    state_fips : str
+        State FIPS code
+
+    Returns
+    -------
+    Dict[str, str]
+        Dictionary mapping county names (lowercase, normalized) to FIPS codes
+    """
+    try:
+        from .api import CensusAPI
+
+        # Initialize API client
+        api = CensusAPI()
+
+        # Get county data for the state
+        data = api.get(
+            year=2022,  # Use recent year
+            dataset="acs",
+            variables=["NAME"],
+            geography={"for": "county:*", "in": f"state:{state_fips}"},
+            survey="acs5",
+        )
+
+        county_lookup = {}
+        for row in data:
+            county_name = row.get("NAME", "")
+            county_fips = row.get("county", "")
+
+            if county_name and county_fips:
+                # Normalize county name: lowercase, remove "County" suffix, strip whitespace
+                normalized_name = county_name.lower().replace(" county", "").strip()
+                county_lookup[normalized_name] = county_fips
+
+                # Also add version with "County" for exact matches
+                county_lookup[county_name.lower().strip()] = county_fips
+
+        return county_lookup
+
+    except Exception:
+        # If API call fails, return empty dict (will fall back to error)
+        return {}
+
+
+def _normalize_county_name(name: str) -> str:
+    """
+    Normalize county name for lookup.
+
+    Parameters
+    ----------
+    name : str
+        Raw county name
+
+    Returns
+    -------
+    str
+        Normalized county name
+    """
+    # Convert to lowercase and strip whitespace
+    normalized = name.lower().strip()
+
+    # Remove common suffixes
+    for suffix in [
+        " county",
+        " parish",
+        " borough",
+        " census area",
+        " city and borough",
+    ]:
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)].strip()
+            break
+
+    return normalized
+
+
+def lookup_county_fips(county_name: str, state_fips: str) -> Optional[str]:
+    """
+    Look up county FIPS code by name.
+
+    Parameters
+    ----------
+    county_name : str
+        County name to look up
+    state_fips : str
+        State FIPS code
+
+    Returns
+    -------
+    Optional[str]
+        County FIPS code if found, None otherwise
+    """
+    # Get county data for the state
+    county_data = _get_county_data(state_fips)
+
+    if not county_data:
+        return None
+
+    # Try exact match first (case insensitive)
+    exact_match = county_data.get(county_name.lower().strip())
+    if exact_match:
+        return exact_match
+
+    # Try normalized name
+    normalized_name = _normalize_county_name(county_name)
+    normalized_match = county_data.get(normalized_name)
+    if normalized_match:
+        return normalized_match
+
+    # Try fuzzy matching using jellyfish (if available via us library)
+    try:
+        import jellyfish
+
+        best_match = None
+        best_score = 0
+
+        for name, fips in county_data.items():
+            score = jellyfish.jaro_winkler_similarity(normalized_name, name)
+            if score > best_score and score > 0.8:  # 80% similarity threshold
+                best_score = score
+                best_match = fips
+
+        return best_match
+    except ImportError:
+        # No fuzzy matching available
+        pass
+
+    return None
 
 
 def validate_year(year: int, dataset: str) -> int:

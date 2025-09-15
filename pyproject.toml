@@ -85,6 +85,8 @@ all =  [
     "nbsphinx>=0.8",
     "jupyter>=1.0",
     "ipython>=7.0",
+    "mapclassify>=2.8.0",
+    "matplotlib>=3.9.0",
 ]
 
 [project.urls]
