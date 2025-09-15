@@ -202,7 +202,6 @@ class TestGetDecennial:
         with patch("pytidycensus.decennial.CensusAPI") as mock_api_class, patch(
             "pytidycensus.decennial.process_census_data"
         ) as mock_process:
-
             mock_api = Mock()
             mock_api.get.return_value = []
             mock_api_class.return_value = mock_api

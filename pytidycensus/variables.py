@@ -301,7 +301,11 @@ def list_available_datasets(year: int) -> Dict[str, list]:
         "dec": (
             ["sf1", "sf2", "sf3", "sf4"]
             if year <= 2000
-            else ["sf1"] if year == 2010 else ["pl"] if year == 2020 else []
+            else ["sf1"]
+            if year == 2010
+            else ["pl"]
+            if year == 2020
+            else []
         ),
         "pep": ["population", "components", "charagegroups"] if year >= 2000 else [],
     }

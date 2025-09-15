@@ -121,7 +121,6 @@ class TestGetACS:
         with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
-
             mock_df = pd.DataFrame(
                 {"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]}
             )
@@ -210,7 +209,6 @@ class TestGetACS:
         ) as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
-
             mock_api = Mock()
             mock_api.get.return_value = []
             mock_api_class.return_value = mock_api
@@ -260,7 +258,7 @@ class TestGetACS:
             get_acs(geography="state", variables="B01001_001", api_key="test")
 
             call_args = mock_api.get.call_args[1]["variables"]
-            assert "B01001_001" in call_args
+            assert "B01001_001E" in call_args
             assert "B01001_001M" in call_args  # MOE should be added
 
     @patch("pytidycensus.acs.CensusAPI")
@@ -283,7 +281,6 @@ class TestGetACS:
         with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
-
             # Census data without GEOID
             mock_df = pd.DataFrame(
                 {"NAME": ["Alabama"], "B01001_001E": [5024279], "state": ["01"]}
@@ -313,6 +310,125 @@ class TestGetACS:
             Exception, match="Failed to retrieve ACS data: API request failed"
         ):
             get_acs(geography="state", variables="B01001_001E", api_key="test")
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_get_acs_named_variables_tidy(self, mock_api_class):
+        """Test get_acs with named variables in tidy format."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "NAME": "Alabama",
+                "B01001_001E": "5024279",
+                "B01001_001M": "1000",
+                "state": "01",
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
+            "pytidycensus.acs.add_margin_of_error"
+        ) as mock_add_moe:
+            # Mock tidy format data with variable column
+            mock_df = pd.DataFrame(
+                {
+                    "NAME": ["Alabama", "Alabama"],
+                    "variable": ["B01001_001E", "B01001_001_moe"],
+                    "value": [5024279, 1000],
+                    "GEOID": ["01", "01"],
+                }
+            )
+            mock_process.return_value = mock_df
+            mock_add_moe.return_value = mock_df
+
+            # Test named variables
+            variables_dict = {"total_pop": "B01001_001"}
+            result = get_acs(
+                geography="state",
+                variables=variables_dict,
+                output="tidy",
+                api_key="test",
+            )
+
+            # Verify that the variable names were processed for API call
+            call_args = mock_api.get.call_args[1]["variables"]
+            assert "B01001_001E" in call_args
+            assert "B01001_001M" in call_args
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_get_acs_moe_confidence_levels(self, mock_api_class):
+        """Test get_acs with different MOE confidence levels."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "NAME": "Alabama",
+                "B01001_001E": "5024279",
+                "B01001_001M": "1000",
+                "state": "01",
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
+            "pytidycensus.acs.add_margin_of_error"
+        ) as mock_add_moe:
+            mock_process.return_value = pd.DataFrame()
+            mock_add_moe.return_value = pd.DataFrame()
+
+            # Test different MOE levels
+            for moe_level in [90, 95, 99]:
+                get_acs(
+                    geography="state",
+                    variables="B01001_001E",
+                    moe_level=moe_level,
+                    api_key="test",
+                )
+                # Check that add_margin_of_error was called with correct moe_level
+                call_args = mock_add_moe.call_args[1]
+                assert call_args["moe_level"] == moe_level
+
+    def test_get_acs_invalid_moe_level(self):
+        """Test get_acs with invalid MOE level."""
+        with pytest.raises(ValueError, match="moe_level must be 90, 95, or 99"):
+            get_acs(
+                geography="state", variables="B01001_001E", moe_level=85, api_key="test"
+            )
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_get_acs_geometry_forces_wide_output(self, mock_api_class):
+        """Test that requesting geometry forces wide output format."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {"NAME": "Alabama", "B01001_001E": "5024279", "GEOID": "01", "state": "01"}
+        ]
+        mock_api_class.return_value = mock_api
+
+        with patch("pytidycensus.acs.get_geography") as mock_get_geo, patch(
+            "pytidycensus.acs.process_census_data"
+        ) as mock_process, patch(
+            "pytidycensus.acs.add_margin_of_error"
+        ) as mock_add_moe:
+            mock_gdf = gpd.GeoDataFrame(
+                {"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]}
+            )
+            mock_get_geo.return_value = mock_gdf
+
+            mock_df = pd.DataFrame(
+                {"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]}
+            )
+            mock_process.return_value = mock_df
+            mock_add_moe.return_value = mock_df
+
+            result = get_acs(
+                geography="state",
+                variables="B01001_001E",
+                geometry=True,
+                output="tidy",  # Request tidy but should be forced to wide
+                api_key="test",
+            )
+
+            # Should call process_census_data with "wide" output regardless of request
+            call_args = mock_process.call_args
+            assert call_args[0][2] == "wide"  # Third argument should be "wide"
 
 
 class TestGetACSVariables:

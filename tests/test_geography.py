@@ -171,7 +171,6 @@ class TestTigerDownloader:
         with patch("builtins.open", mock_open()) as mock_file, patch(
             "os.remove"
         ) as mock_remove:
-
             result = mock_tiger_downloader.download_and_extract(
                 "http://example.com/test.zip", "test.zip"
             )
@@ -184,18 +183,98 @@ class TestTigerDownloader:
             mock_zip.extractall.assert_called_once_with(expected_path)
             mock_remove.assert_called_once()
 
-    @patch("pytidycensus.geography.requests.get")
-    def test_download_and_extract_http_error(
-        self, mock_requests_get, mock_tiger_downloader
-    ):
-        """Test handling of HTTP errors during download."""
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
-        mock_requests_get.return_value = mock_response
+    # def test_download_and_extract_real_file(tmp_path):
+    #     """Actually download and extract a TIGER shapefile zip."""
+    #     cache_dir = str(tmp_path)
+    #     downloader = TigerDownloader(cache_dir=cache_dir)
+    #     url = (
+    #         "https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_division_20m.zip"
+    #     )
+    #     filename = "cb_2018_us_division_20m.zip"
 
-        with pytest.raises(requests.HTTPError):
-            mock_tiger_downloader.download_and_extract(
+    #     # Download and extract
+    #     extract_dir = downloader.download_and_extract(url, filename)
+
+    #     # Check that extraction directory exists and contains a .shp file
+    #     assert os.path.exists(extract_dir)
+    #     shp_files = [f for f in os.listdir(extract_dir) if f.endswith(".shp")]
+    #     assert len(shp_files) > 0
+
+    @patch("pytidycensus.geography.requests.get")
+    @patch("pytidycensus.geography.TigerDownloader.download_with_wget_or_curl")
+    def test_download_fallback_to_wget_curl(
+        self, mock_wget_curl, mock_requests_get, mock_tiger_downloader
+    ):
+        """Test fallback to wget/curl when requests fails."""
+        # Mock requests failure
+        mock_requests_get.side_effect = Exception("Connection error")
+
+        # Mock successful wget/curl download
+        mock_wget_curl.return_value = None
+
+        with patch("pytidycensus.geography.zipfile.ZipFile") as mock_zipfile, patch(
+            "os.remove"
+        ):
+            mock_zip = Mock()
+            mock_zipfile.return_value.__enter__.return_value = mock_zip
+
+            result = mock_tiger_downloader.download_and_extract(
                 "http://example.com/test.zip", "test.zip"
+            )
+
+            # Should call the backup download method
+            mock_wget_curl.assert_called_once()
+
+    @patch("shutil.which")
+    @patch("subprocess.run")
+    def test_download_with_wget_available(self, mock_subprocess, mock_which):
+        """Test wget download when wget is available."""
+        # Mock wget being available
+        mock_which.side_effect = lambda cmd: "/usr/bin/wget" if cmd == "wget" else None
+
+        TigerDownloader.download_with_wget_or_curl(
+            "http://example.com/test.zip", "/tmp/test.zip"
+        )
+
+        # Should call wget
+        mock_subprocess.assert_called_once_with(
+            ["wget", "-O", "/tmp/test.zip", "http://example.com/test.zip"], check=True
+        )
+
+    @patch("shutil.which")
+    @patch("subprocess.run")
+    def test_download_with_curl_fallback(self, mock_subprocess, mock_which):
+        """Test curl download when wget is not available."""
+
+        # Mock wget not available, curl available
+        def which_side_effect(cmd):
+            if cmd == "wget":
+                return None
+            elif cmd == "curl":
+                return "/usr/bin/curl"
+            return None
+
+        mock_which.side_effect = which_side_effect
+
+        TigerDownloader.download_with_wget_or_curl(
+            "http://example.com/test.zip", "/tmp/test.zip"
+        )
+
+        # Should call curl
+        mock_subprocess.assert_called_once_with(
+            ["curl", "-L", "-o", "/tmp/test.zip", "http://example.com/test.zip"],
+            check=True,
+        )
+
+    @patch("shutil.which")
+    def test_download_no_wget_curl_available(self, mock_which):
+        """Test error when neither wget nor curl is available."""
+        # Mock neither wget nor curl available
+        mock_which.return_value = None
+
+        with pytest.raises(RuntimeError, match="Neither wget nor curl is available"):
+            TigerDownloader.download_with_wget_or_curl(
+                "http://example.com/test.zip", "/tmp/test.zip"
             )
 
     def test_get_shapefile_path_success(self, mock_tiger_downloader, tmp_path):
@@ -611,7 +690,6 @@ class TestIntegration:
         with patch("pytidycensus.geography.zipfile.ZipFile") as mock_zipfile, patch(
             "os.remove"
         ), patch("builtins.open", mock_open()):
-
             mock_zip = Mock()
             mock_zipfile.return_value.__enter__.return_value = mock_zip
 

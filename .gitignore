@@ -37,3 +37,27 @@ htmlcov/
 # Ignore examples output
 examples/*.csv
 examples/*.xlsx
+CLAUDE.md
+.github/workflows/python-package.yml
+<tests.test_geography.TestTigerDownloader object at 0x7077a642fa90>/cb_2018_us_division_20m.zip
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.cpg
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.dbf
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.prj
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.ea.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7288b9394bd0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shx
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.cpg
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.dbf
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.prj
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.ea.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7c5c514c5590>/cb_2018_us_division_20m/cb_2018_us_division_20m.shx
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.cpg
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.dbf
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.prj
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.ea.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.iso.xml
+<tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shx

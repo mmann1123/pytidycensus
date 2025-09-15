@@ -308,15 +308,15 @@ class TestAddMarginOfError:
                 "state": ["01", "02"],
             }
         )
-        variables = ["B01001_001E", "B01001_002E"]
+        variables = ["B01001_001E", "B01001_001M", "B01001_002E", "B01001_002M"]
 
-        result = add_margin_of_error(df, variables)
+        result = add_margin_of_error(df, variables, output="wide")
 
-        assert "B01001_001E_moe" in result.columns
-        assert "B01001_002E_moe" in result.columns
+        assert "B01001_001_moe" in result.columns
+        assert "B01001_002_moe" in result.columns
         assert "B01001_001M" not in result.columns
         assert "B01001_002M" not in result.columns
-        assert result["B01001_001E_moe"].tolist() == [1000, 500]
+        assert result["B01001_001_moe"].tolist() == [1000, 500]
 
     def test_no_moe_columns(self):
         """Test handling when no MOE columns are present."""
@@ -329,8 +329,67 @@ class TestAddMarginOfError:
         )
         variables = ["B01001_001E"]
 
-        result = add_margin_of_error(df, variables)
+        result = add_margin_of_error(df, variables, output="wide")
 
         # Should return unchanged if no MOE columns found
         assert len(result.columns) == len(df.columns)
         assert "B01001_001E_moe" not in result.columns
+
+    def test_add_moe_tidy_format(self):
+        """Test adding margin of error in tidy format."""
+        df = pd.DataFrame(
+            {
+                "NAME": ["Alabama", "Alabama", "Alaska", "Alaska"],
+                "variable": [
+                    "B01001_001E",
+                    "B01001_001M",
+                    "B01001_001E",
+                    "B01001_001M",
+                ],
+                "value": [5024279, 1000, 733391, 500],
+                "GEOID": ["01", "01", "02", "02"],
+            }
+        )
+        variables = ["B01001_001E", "B01001_001M"]
+
+        result = add_margin_of_error(df, variables, output="tidy")
+
+        # Should rename M variables to _moe
+        moe_rows = result[result["variable"].str.endswith("_moe")]
+        assert len(moe_rows) == 2
+        assert "B01001_001_moe" in result["variable"].values
+        assert "B01001_001M" not in result["variable"].values
+
+    def test_add_moe_confidence_levels(self):
+        """Test MOE confidence level adjustments."""
+        df = pd.DataFrame(
+            {
+                "NAME": ["Alabama"],
+                "B01001_001E": [5024279],
+                "B01001_001M": [1000],
+                "state": ["01"],
+            }
+        )
+        variables = ["B01001_001E", "B01001_001M"]
+
+        # Test 90% (default - no adjustment)
+        result_90 = add_margin_of_error(df, variables, moe_level=90, output="wide")
+        assert result_90["B01001_001_moe"].iloc[0] == 1000
+
+        # Test 95% (should be adjusted)
+        result_95 = add_margin_of_error(df, variables, moe_level=95, output="wide")
+        expected_95 = 1000 * (1.96 / 1.645)
+        assert abs(result_95["B01001_001_moe"].iloc[0] - expected_95) < 0.01
+
+        # Test 99% (should be adjusted)
+        result_99 = add_margin_of_error(df, variables, moe_level=99, output="wide")
+        expected_99 = 1000 * (2.576 / 1.645)
+        assert abs(result_99["B01001_001_moe"].iloc[0] - expected_99) < 0.01
+
+    def test_add_moe_invalid_confidence_level(self):
+        """Test invalid MOE confidence level."""
+        df = pd.DataFrame({"NAME": ["Alabama"], "B01001_001E": [5024279]})
+        variables = ["B01001_001E"]
+
+        with pytest.raises(ValueError, match="moe_level must be 90, 95, or 99"):
+            add_margin_of_error(df, variables, moe_level=85)

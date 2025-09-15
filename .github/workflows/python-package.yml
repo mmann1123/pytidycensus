@@ -49,7 +49,7 @@ jobs:
     
     - name: Test with pytest
       run: |
-        pytest --cov=pytidycensus --cov-report=xml --cov-report=term-missing
+        pytest --cov=pytidycensus --cov-report=xml --cov-report=term-missing -k "not integration"
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

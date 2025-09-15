@@ -163,7 +163,6 @@ class TestCensusAPI:
         with patch("pytidycensus.api.time.time") as mock_time, patch(
             "pytidycensus.api.time.sleep"
         ) as mock_sleep:
-
             # Simulate rapid successive calls - first call at 0, second at 0.05 (too soon), then 0.15
             mock_time.side_effect = [0, 0.05, 0.15, 0.25]  # Added more time values
 
