@@ -1,8 +1,0 @@
-# Documentation build requirements
-sphinx>=4.0
-sphinx-rtd-theme>=1.0
-myst-parser>=0.15
-sphinx-autodoc-typehints>=1.12
-nbsphinx>=0.8
-jupyter>=1.0
-ipython>=7.0

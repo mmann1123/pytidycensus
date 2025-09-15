@@ -2,14 +2,11 @@
 Utility functions for data processing and validation.
 """
 
-import re
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Union
 from functools import lru_cache
-import os
-import json
-
 import pandas as pd
 import us
+import importlib.resources
 
 
 def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
@@ -117,31 +114,23 @@ def validate_county(
 
 
 def _load_national_county_txt():
-    """
-    Load county lookup from data/national_county.txt
-    Returns dict: {(state_fips, county_name_lower): county_fips}
-    """
     lookup = {}
-    data_path = os.path.join(
-        os.path.dirname(__file__), "..", "data", "national_county.txt"
-    )
-    if not os.path.exists(data_path):
+    try:
+        with importlib.resources.open_text(
+            "pytidycensus.data", "national_county.txt"
+        ) as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) < 4:
+                    continue
+                state_abr, state_fips, county_fips, county_name = parts[:4]
+
+                county_name = _normalize_county_name(county_name)
+                lookup[(state_fips.zfill(2), county_name.lower().strip())] = (
+                    county_fips.zfill(3)
+                )
+    except FileNotFoundError:
         print("Warning: national_county.txt not found, county lookups may fail.")
-        return lookup
-    with open(data_path, "r") as f:
-        for line in f:
-            parts = line.strip().split(",")
-            if len(parts) < 4:
-                continue
-            state_abr, state_fips, county_fips, county_name = parts[:4]
-
-            # Normalize county name: remove ' County' suffix if present
-            if isinstance(county_name, str) and county_name.lower().endswith(" county"):
-                county_name = county_name[:-7].strip()
-
-            lookup[(state_fips.zfill(2), county_name.lower().strip())] = (
-                county_fips.zfill(3)
-            )
     return lookup
 
     return fips_codes
