@@ -9,7 +9,7 @@ description = "Python interface to US Census Bureau APIs with pandas and GeoPand
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "pytidycensus contributors"}
+    {name = "Michael Mann mmann1123@gwu.edu"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

@@ -58,8 +58,7 @@ jobs:
         # Clean any previous builds
         rm -rf _build
         # Build the documentation
-        sphinx-build docs docs/_build
-    
+        sphinx-build . _build/html    
     - name: Check documentation build
       run: |
         ls -la docs/_build/html/
