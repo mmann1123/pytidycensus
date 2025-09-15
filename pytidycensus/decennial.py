@@ -236,7 +236,7 @@ def get_decennial(
     all_variables = variables.copy()
     if summary_var and summary_var not in all_variables:
         all_variables.append(summary_var)
-
+        variable_names[summary_var] = "summary_value"
     # Make API request
     try:
         data = api.get(
@@ -249,13 +249,14 @@ def get_decennial(
         )
 
         # Process data
-        df = process_census_data(data, variables, output)
+        df = process_census_data(data, all_variables, output)
 
         # Handle named variables (replace variable codes with custom names)
         if variable_names and output == "tidy":
             # Create reverse mapping from variable codes to names
             code_to_name = {code: name for name, code in variable_names.items()}
             df["variable"] = df["variable"].map(lambda x: code_to_name.get(x, x))
+            df = df.rename(columns=variable_names)  # rename summary file
         elif variable_names and output == "wide":
             # Rename columns for wide format
             rename_dict = {
@@ -265,7 +266,7 @@ def get_decennial(
             }
             df = df.rename(columns=rename_dict)
 
-        # Handle summary variable joining (mirror R tidycensus)
+        # # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
             if output == "tidy":
                 # In tidy format, join summary value by GEOID
