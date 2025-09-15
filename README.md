@@ -2,10 +2,12 @@
 
 [![Python package](https://github.com/mmann1123/pytidycensus/actions/workflows/python-package.yml/badge.svg)](https://github.com/mmann1123/pytidycensus/actions/workflows/python-package.yml)
 [![Documentation Status](https://github.com/mmann1123/pytidycensus/actions/workflows/docs.yml/badge.svg)](https://mmann1123.github.io/pytidycensus)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17127531.svg)](https://doi.org/10.5281/zenodo.17127531)
+
 
 **pytidycensus** is a Python library that provides an integrated interface to several United States Census Bureau APIs and geographic boundary files. It allows users to return Census and American Community Survey (ACS) data as pandas DataFrames, and optionally returns GeoPandas GeoDataFrames with feature geometry for mapping and spatial analysis.
 
-This package is a Python port of the popular R package [tidycensus](https://walker-data.com/tidycensus/) created by Kyle Walker.
+**This package is a Python port of the popular R package [tidycensus](https://walker-data.com/tidycensus/) created by Kyle Walker.**
 
 ## Features
 
@@ -188,9 +190,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you use pytidycensus in your research, please cite:
 
+```
+Michael Mann. (2025). mmann1123/pytidycensus: Pulling_dats (v0.1.1). Zenodo. https://doi.org/10.5281/zenodo.17127531
+```
+
 ```bibtex
-pytidycensus: Python interface to US Census Bureau APIs
-https://github.com/mmann1123/pytidycensus
+@software{michael_mann_2025_17127531,
+  author       = {Michael Mann},
+  title        = {mmann1123/pytidycensus: Pulling\_dats},
+  month        = sep,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {v0.1.1},
+  doi          = {10.5281/zenodo.17127531},
+  url          = {https://doi.org/10.5281/zenodo.17127531},
+  swhid        = {swh:1:dir:3b2349029a986051469f46880930526c33d2dac5
+                   ;origin=https://doi.org/10.5281/zenodo.17127530;vi
+                   sit=swh:1:snp:2ff62e0d63a7af64334553edefe8f76a906d
+                   c93f;anchor=swh:1:rel:ad19678c36a258e13eee43c8f5fa
+                   5ff2d9e4047f;path=mmann1123-pytidycensus-27d849c
+                  },
+}
 ```
 
 **Come study with us at The George Washington University**
