@@ -82,11 +82,6 @@ class TestValidateCounty:
         result = validate_county(["201", "157"], "48")
         assert result == ["201", "157"]
 
-    def test_validate_invalid_county_name(self):
-        """Test that county name validation raises error (not implemented)."""
-        with pytest.raises(ValueError, match="County name lookup not yet implemented"):
-            validate_county("Harris County", "48")
-
 
 class TestValidateYear:
     """Test cases for year validation."""

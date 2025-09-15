@@ -249,7 +249,7 @@ def get_decennial(
         )
 
         # Process data
-        df = process_census_data(data, variables, output)
+        df = process_census_data(data, all_variables, output)
 
         # Handle named variables (replace variable codes with custom names)
         if variable_names and output == "tidy":
@@ -267,21 +267,21 @@ def get_decennial(
             df = df.rename(columns=rename_dict)
 
         # # Handle summary variable joining (mirror R tidycensus)
-        # if summary_var:
-        #     if output == "tidy":
-        #         # In tidy format, join summary value by GEOID
-        #         summary_df = df[df["variable"] == summary_var][
-        #             ["GEOID", "value"]
-        #         ].copy()
-        #         summary_df = summary_df.rename(columns={"value": "summary_value"})
-        #         # Remove summary variable from main data
-        #         df = df[df["variable"] != summary_var]
-        #         # Join summary values
-        #         df = df.merge(summary_df, on="GEOID", how="left")
-        #     else:
-        #         # In wide format, rename summary column
-        #         if summary_var in df.columns:
-        #             df = df.rename(columns={summary_var: "summary_value"})
+        if summary_var:
+            if output == "tidy":
+                # In tidy format, join summary value by GEOID
+                summary_df = df[df["variable"] == summary_var][
+                    ["GEOID", "value"]
+                ].copy()
+                summary_df = summary_df.rename(columns={"value": "summary_value"})
+                # Remove summary variable from main data
+                df = df[df["variable"] != summary_var]
+                # Join summary values
+                df = df.merge(summary_df, on="GEOID", how="left")
+            else:
+                # In wide format, rename summary column
+                if summary_var in df.columns:
+                    df = df.rename(columns={summary_var: "summary_value"})
 
         # Convert Census missing values to NA (mirror R tidycensus)
         missing_values = [

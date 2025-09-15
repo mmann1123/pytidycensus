@@ -2,11 +2,12 @@
 Utility functions for data processing and validation.
 """
 
-from typing import Any, Dict, List, Optional, Union
+import importlib.resources
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Union
+
 import pandas as pd
 import us
-import importlib.resources
 
 
 def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
