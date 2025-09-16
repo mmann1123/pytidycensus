@@ -6,12 +6,38 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 from io import StringIO
 import urllib3
+import warnings
 
 # Disable SSL warnings for Census site
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 import geopandas as gpd
 import pandas as pd
+
+
+class PopulationEstimatesError(Exception):
+    """Base exception class for Population Estimates errors."""
+    pass
+
+
+class InvalidGeographyError(PopulationEstimatesError):
+    """Raised when an invalid geography is specified."""
+    pass
+
+
+class InvalidVariableError(PopulationEstimatesError):
+    """Raised when an invalid variable is specified."""
+    pass
+
+
+class DataNotAvailableError(PopulationEstimatesError):
+    """Raised when requested data is not available."""
+    pass
+
+
+class APIError(PopulationEstimatesError):
+    """Raised when there are issues with API requests."""
+    pass
 
 # Supported geographies
 SUPPORTED_GEOGRAPHIES = {
@@ -84,6 +110,171 @@ from .utils import (
     validate_state,
     validate_year,
 )
+
+
+def _is_valid_state(state_input: Union[str, int]) -> bool:
+    """Check if a state identifier is valid."""
+    # Valid state FIPS codes (as strings and integers)
+    valid_fips = {
+        '01', '02', '04', '05', '06', '08', '09', '10', '11', '12', '13', '15', '16',
+        '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+        '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42',
+        '44', '45', '46', '47', '48', '49', '50', '51', '53', '54', '55', '56',
+        1, 2, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+        42, 44, 45, 46, 47, 48, 49, 50, 51, 53, 54, 55, 56
+    }
+    
+    # Valid state abbreviations
+    valid_abbrevs = {
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI',
+        'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN',
+        'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH',
+        'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA',
+        'WV', 'WI', 'WY'
+    }
+    
+    # Valid state names (simplified - just a few common ones for validation)
+    valid_names = {
+        'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado',
+        'connecticut', 'delaware', 'district of columbia', 'florida', 'georgia',
+        'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 'kansas', 'kentucky',
+        'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 'minnesota',
+        'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire',
+        'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota',
+        'ohio', 'oklahoma', 'oregon', 'pennsylvania', 'rhode island',
+        'south carolina', 'south dakota', 'tennessee', 'texas', 'utah', 'vermont',
+        'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming'
+    }
+    
+    # Check different formats
+    if isinstance(state_input, int) or (isinstance(state_input, str) and state_input.isdigit()):
+        return state_input in valid_fips
+    elif isinstance(state_input, str):
+        return (state_input.upper() in valid_abbrevs or 
+                state_input.lower() in valid_names or
+                state_input in valid_fips)
+    
+    return False
+
+
+def _validate_estimates_inputs(
+    geography: str,
+    product: Optional[str],
+    variables: Optional[Union[str, List[str]]],
+    breakdown: Optional[List[str]],
+    vintage: int,
+    year: Optional[int],
+    state: Optional[Union[str, int, List[Union[str, int]]]],
+    county: Optional[Union[str, int, List[Union[str, int]]]],
+    **kwargs
+) -> None:
+    """Comprehensive input validation for get_estimates function."""
+    
+    # Validate year range
+    actual_year = year if year is not None else vintage
+    if actual_year < 2015:
+        raise DataNotAvailableError(
+            f"Population Estimates data not available for year {actual_year}. "
+            f"Available years: 2015-{vintage}. "
+            f"For earlier data, consider using Decennial Census data with get_decennial()."
+        )
+    
+    if actual_year > vintage:
+        raise DataNotAvailableError(
+            f"Year {actual_year} is not available in vintage {vintage} dataset. "
+            f"Available years in this vintage: 2015-{vintage}. "
+            f"Consider using vintage={actual_year} if available."
+        )
+    
+    # Validate and normalize geography
+    geography_lower = geography.lower()
+    if geography_lower in GEOGRAPHY_ALIASES:
+        geography_lower = GEOGRAPHY_ALIASES[geography_lower]
+    
+    if geography_lower not in SUPPORTED_GEOGRAPHIES:
+        # Create helpful error message with suggestions
+        available = sorted(SUPPORTED_GEOGRAPHIES)
+        closest_matches = []
+        for geo in available:
+            if geography_lower in geo or geo in geography_lower:
+                closest_matches.append(geo)
+        
+        error_msg = f"Geography '{geography}' not supported. Available options: {', '.join(available)}"
+        if closest_matches:
+            error_msg += f". Did you mean: {', '.join(closest_matches[:3])}?"
+        
+        raise InvalidGeographyError(error_msg)
+    
+    # Validate variables
+    if variables:
+        valid_variables = _get_valid_variables_for_product(product or "population", actual_year)
+        var_list = [variables] if isinstance(variables, str) else variables
+        
+        if var_list != ["all"]:
+            invalid_vars = []
+            for var in var_list:
+                if var.upper() not in valid_variables and var != "all":
+                    invalid_vars.append(var)
+            
+            if invalid_vars:
+                error_msg = f"Invalid variables: {', '.join(invalid_vars)}. "
+                error_msg += f"Available variables for {product or 'population'} product: "
+                error_msg += f"{', '.join(sorted(valid_variables)[:10])}"
+                if len(valid_variables) > 10:
+                    error_msg += f" and {len(valid_variables) - 10} more"
+                raise InvalidVariableError(error_msg)
+    
+    # Validate state codes
+    if state is not None:
+        state_list = [state] if not isinstance(state, (list, tuple)) else state
+        for s in state_list:
+            if not _is_valid_state(s):
+                raise InvalidGeographyError(
+                    f"Invalid state identifier: '{s}'. "
+                    f"Use state names (e.g., 'Texas'), abbreviations (e.g., 'TX'), "
+                    f"or FIPS codes (e.g., '48' or 48)."
+                )
+    
+    # Validate breakdown/product combinations
+    if breakdown:
+        if geography_lower not in ["state"]:
+            raise DataNotAvailableError(
+                f"Demographic breakdowns not available for '{geography}' geography. "
+                f"Currently supported: state. County, CBSA, and CSA support coming soon."
+            )
+        
+        valid_breakdowns = {"SEX", "RACE", "ORIGIN", "AGE", "AGEGROUP"}
+        invalid_breakdowns = [b for b in breakdown if b.upper() not in valid_breakdowns]
+        if invalid_breakdowns:
+            raise InvalidVariableError(
+                f"Invalid breakdown dimensions: {', '.join(invalid_breakdowns)}. "
+                f"Available: {', '.join(valid_breakdowns)}"
+            )
+
+
+def _get_valid_variables_for_product(product: str, year: int) -> set:
+    """Get valid variables for a given product and year."""
+    # Population variables (available in all years)
+    population_vars = {"POP", "POPESTIMATE", "ESTIMATESBASE", "NAME"}
+    
+    # Components variables (available in all years)
+    components_vars = {
+        "BIRTHS", "DEATHS", "NATURALCHG", "NETMIG", "NPOPCHG", 
+        "DOMESTICMIG", "INTERNATIONALMIG", "RESIDUAL",
+        "RBIRTH", "RDEATH", "RNATURALCHG", "RINTERNATIONALMIG",
+        "RDOMESTICMIG", "RNETMIG"
+    }
+    
+    # Characteristics variables (population estimates by demographics)
+    characteristics_vars = {"POP", "NAME"}
+    
+    if product == "components":
+        return components_vars | {"NAME"}
+    elif product == "characteristics":
+        return characteristics_vars
+    else:  # population
+        return population_vars | components_vars  # Population product can access both
 
 
 def _filter_variables_for_dataset(dataset_path: str, variables: List[str]) -> List[str]:
@@ -324,19 +515,26 @@ def get_estimates(
     
     # Warn if using post-2020 year without explicit vintage
     if year > 2020 and vintage == 2024 and year != vintage:
-        print(f"Warning: Using vintage {vintage} data for year {year}. Consider setting vintage={year} if available.")
+        warnings.warn(
+            f"Using vintage {vintage} data for year {year}. Consider setting vintage={year} if available.",
+            UserWarning
+        )
     
-    # Validate inputs
-    if year < 2015:
-        raise ValueError("Population Estimates data not available for years prior to 2015.")
+    # Comprehensive input validation
+    try:
+        _validate_estimates_inputs(
+            geography, product, variables, breakdown, vintage, year, 
+            state, county, **kwargs
+        )
+    except (InvalidGeographyError, InvalidVariableError, DataNotAvailableError) as e:
+        raise e
+    except Exception as e:
+        raise PopulationEstimatesError(f"Input validation failed: {str(e)}")
     
-    # Validate and normalize geography
+    # Normalize geography
     geography = geography.lower()
     if geography in GEOGRAPHY_ALIASES:
         geography = GEOGRAPHY_ALIASES[geography]
-    
-    if geography not in SUPPORTED_GEOGRAPHIES:
-        raise ValueError(f"Geography '{geography}' not supported. Available options: {', '.join(sorted(SUPPORTED_GEOGRAPHIES))}")
     
     # Validate and set product parameter
     product = _validate_and_set_product(product, geography, variables, breakdown, year)
@@ -368,33 +566,72 @@ def get_estimates(
                 output, api_key, show_call, **kwargs
             )
 
+        # Validate results
+        if df is None or df.empty:
+            raise DataNotAvailableError(
+                f"No data returned for the requested combination. "
+                f"This may indicate that the specific geography/variable combination "
+                f"is not available for year {year}."
+            )
+
         # Add breakdown labels if requested
         if breakdown_labels and breakdown:
-            df = _add_breakdown_labels(df, breakdown)
+            try:
+                df = _add_breakdown_labels(df, breakdown)
+            except Exception as e:
+                warnings.warn(f"Could not add breakdown labels: {str(e)}", UserWarning)
 
         # Add geometry if requested
         if geometry:
-            gdf = get_geography(
-                geography=geography,
-                year=year,
-                state=state,
-                county=county,
-                keep_geo_vars=keep_geo_vars,
-                **kwargs,
-            )
+            try:
+                gdf = get_geography(
+                    geography=geography,
+                    year=year,
+                    state=state,
+                    county=county,
+                    keep_geo_vars=keep_geo_vars,
+                    **kwargs,
+                )
 
-            # Merge with census data
-            if "GEOID" in df.columns and "GEOID" in gdf.columns:
+                # Check if geometry merge will work
+                if 'GEOID' not in df.columns or 'GEOID' not in gdf.columns:
+                    raise DataNotAvailableError(
+                        "Cannot add geometry: GEOID column missing from data or geography. "
+                        "This may indicate incompatible geography selections."
+                    )
+
+                df_before_merge = len(df)
                 result = gdf.merge(df, on="GEOID", how="inner")
+
+                if len(result) == 0:
+                    raise DataNotAvailableError(
+                        "No matching geographic boundaries found for the requested data. "
+                        "The geography and data parameters may be incompatible."
+                    )
+                elif len(result) < df_before_merge * 0.5:  # Lost more than half the data
+                    warnings.warn(
+                        f"Geometry merge resulted in significant data loss: "
+                        f"{df_before_merge} -> {len(result)} rows. "
+                        f"Some geographic boundaries may be missing.",
+                        UserWarning
+                    )
+
                 return result
-            else:
-                print("Warning: Could not merge with geometry - GEOID column missing")
-                return df
+
+            except Exception as e:
+                if isinstance(e, (DataNotAvailableError, InvalidGeographyError)):
+                    raise e
+                else:
+                    raise PopulationEstimatesError(f"Failed to add geometry: {str(e)}")
 
         return df
 
+    except (InvalidGeographyError, InvalidVariableError, DataNotAvailableError, APIError) as e:
+        # Re-raise our custom exceptions without wrapping
+        raise e
     except Exception as e:
-        raise Exception(f"Failed to retrieve population estimates: {str(e)}")
+        # Wrap unexpected exceptions
+        raise PopulationEstimatesError(f"Failed to retrieve population estimates: {str(e)}")
 
 
 def _get_estimates_from_csv(
@@ -464,17 +701,44 @@ def _get_estimates_from_csv(
     
     # Download and read CSV
     try:
-        response = requests.get(csv_url, verify=False)  # Disable SSL verification for Census site
+        response = requests.get(csv_url, verify=False, timeout=30)
         response.raise_for_status()
         df = pd.read_csv(StringIO(response.text), encoding='latin1')
-    except Exception as e:
+        
+        if df.empty:
+            raise DataNotAvailableError(f"Retrieved empty dataset from {csv_url}")
+            
+    except requests.exceptions.Timeout:
+        raise APIError(f"Request timeout while downloading data from Census Bureau. Please try again later.")
+    except requests.exceptions.ConnectionError:
+        raise APIError(f"Connection error while accessing Census Bureau data. Please check your internet connection.")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            raise DataNotAvailableError(
+                f"Data not available for the requested combination. "
+                f"The Census Bureau may not have published this dataset yet. "
+                f"URL: {csv_url}"
+            )
+        else:
+            raise APIError(f"HTTP error {e.response.status_code} while downloading data: {e}")
+    except pd.errors.ParserError as e:
         # Try alternative encoding
         try:
-            response = requests.get(csv_url, verify=False)
+            response = requests.get(csv_url, verify=False, timeout=30)
             response.raise_for_status()
             df = pd.read_csv(StringIO(response.text), encoding='utf-8')
+            
+            if df.empty:
+                raise DataNotAvailableError(f"Retrieved empty dataset from {csv_url}")
+                
         except Exception as e2:
-            raise Exception(f"Failed to download CSV: {e}, {e2}")
+            raise APIError(
+                f"Failed to parse CSV data from Census Bureau. "
+                f"This may indicate a data format issue. "
+                f"Original error: {e}. Retry with UTF-8: {e2}"
+            )
+    except Exception as e:
+        raise APIError(f"Unexpected error downloading data from Census Bureau: {str(e)}")
     
     # Process the CSV data
     df = _process_estimates_csv(df, geography, product, variables, breakdown, vintage, year, state, county, time_series, output)
