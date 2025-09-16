@@ -182,9 +182,9 @@ def _validate_and_set_product(
         
         # Validate product/geography combinations for characteristics
         if product == "characteristics":
-            if geography not in ["state", "county", "cbsa", "combined statistical area"]:
-                raise ValueError(f"Characteristics product not supported for geography '{geography}'. "
-                               f"Supported geographies: state, county, cbsa, combined statistical area")
+            if geography not in ["state"]:  # Temporarily limit to state only
+                raise ValueError(f"Characteristics product currently only supported for state geography. "
+                               f"County, CBSA, and CSA support coming soon.")
         
         return product
     
@@ -192,9 +192,9 @@ def _validate_and_set_product(
     
     # If breakdown is specified, must use characteristics
     if breakdown is not None:
-        if geography not in ["state", "county", "cbsa", "combined statistical area"]:
-            raise ValueError(f"Demographic breakdowns not supported for geography '{geography}'. "
-                           f"Supported geographies: state, county, cbsa, combined statistical area")
+        if geography not in ["state"]:  # Temporarily limit to state only
+            raise ValueError(f"Demographic breakdowns currently only supported for state geography. "
+                           f"County, CBSA, and CSA support coming soon.")
         return "characteristics"
     
     # If variables suggest components of change, use components
@@ -826,6 +826,153 @@ def _extract_variables(df: pd.DataFrame, variables: List[str], year: int, vintag
     return df[available_cols]
 
 
+def _apply_geography_filter(df: pd.DataFrame, geography: str, state, county) -> pd.DataFrame:
+    """Apply geography filtering to ASRH data."""
+    
+    # Geography filtering based on SUMLEV codes
+    geography_sumlevs = {
+        'state': [40], 
+        'county': [50],
+        'cbsa': [310],  # Core Based Statistical Areas
+        'combined statistical area': [320]  # Combined Statistical Areas
+    }
+    
+    if geography in geography_sumlevs:
+        df = df[df['SUMLEV'].isin(geography_sumlevs[geography])]
+    
+    # State filtering
+    if state is not None:
+        state_codes = []
+        if isinstance(state, (list, tuple)):
+            for s in state:
+                state_codes.append(_get_state_fips(s))
+        else:
+            state_codes.append(_get_state_fips(state))
+        
+        df = df[df['STATE'].astype(str).str.zfill(2).isin(state_codes)]
+    
+    # County filtering  
+    if county is not None and 'COUNTY' in df.columns:
+        county_codes = []
+        if isinstance(county, (list, tuple)):
+            county_codes = [str(c).zfill(3) for c in county]
+        else:
+            county_codes = [str(county).zfill(3)]
+        
+        df = df[df['COUNTY'].astype(str).str.zfill(3).isin(county_codes)]
+    
+    return df
+
+
+def _apply_breakdown_filter(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFrame:
+    """Apply demographic breakdown filtering to ASRH data."""
+    
+    # Breakdown dimension mapping
+    breakdown_dims = {
+        'SEX': 'SEX',
+        'ORIGIN': 'ORIGIN', 
+        'RACE': 'RACE',
+        'AGE': 'AGE',
+        'AGEGROUP': 'AGE'  # Handle both AGE and AGEGROUP
+    }
+    
+    # Normalize breakdown names
+    requested_dims = set()
+    for b in breakdown:
+        if b.upper() in breakdown_dims:
+            requested_dims.add(breakdown_dims[b.upper()])
+    
+    # ASRH data has specific structure - handle common breakdown combinations:
+    # 1. RACE only: SEX=0, ORIGIN=0, RACE!=0, AGE=0
+    # 2. SEX+RACE: SEX!=0, ORIGIN=0, RACE!=0, AGE=0  
+    # 3. ORIGIN is only available in fully crossed tables (with RACE/SEX)
+    
+    if requested_dims == {'RACE'}:
+        # Race-only breakdown
+        df = df[(df['SEX'] == 0) & (df['ORIGIN'] == 0) & (df['RACE'] != 0) & (df['AGE'] == 0)]
+        
+    elif requested_dims == {'SEX', 'RACE'}:
+        # Sex and race breakdown
+        df = df[(df['SEX'] != 0) & (df['ORIGIN'] == 0) & (df['RACE'] != 0) & (df['AGE'] == 0)]
+        
+    elif requested_dims == {'SEX'}:
+        # Sex-only not available in pure form - sum across all races for each sex
+        # Filter to get sex breakdown with ORIGIN=0, AGE=0, any RACE, then aggregate
+        sex_data = df[(df['SEX'] != 0) & (df['ORIGIN'] == 0) & (df['RACE'] != 0) & (df['AGE'] == 0)]
+        # Group by sex and sum across races to get sex totals
+        if not sex_data.empty:
+            # Identify year columns for aggregation
+            year_cols = [col for col in sex_data.columns if col.startswith('POPESTIMATE')]
+            id_cols = ['STATE', 'NAME', 'SEX', 'GEOID'] 
+            
+            # Sum across races for each sex
+            groupby_cols = [col for col in id_cols if col in sex_data.columns and col != 'SEX'] + ['SEX']
+            agg_dict = {col: 'sum' for col in year_cols if col in sex_data.columns}
+            
+            if agg_dict:
+                df = sex_data.groupby(groupby_cols, as_index=False).agg(agg_dict)
+                # Set other dimensions to indicate totals (these columns may not exist yet)
+                if 'ORIGIN' not in df.columns:
+                    df['ORIGIN'] = 0
+                if 'RACE' not in df.columns:
+                    df['RACE'] = 0  
+                if 'AGE' not in df.columns:
+                    df['AGE'] = 0
+            else:
+                df = pd.DataFrame()  # Empty if no year columns found
+        else:
+            df = pd.DataFrame()  # Empty if no data found
+        
+    elif requested_dims == {'ORIGIN'}:
+        # Origin-only breakdown - provide origin totals across race categories
+        # Get the least detailed origin breakdown available
+        df = df[(df['SEX'] == 0) & (df['ORIGIN'] != 0) & (df['RACE'] == 1) & (df['AGE'] == 0)]
+        
+    elif requested_dims == {'ORIGIN', 'RACE'}:
+        # Origin and race breakdown
+        df = df[(df['SEX'] == 0) & (df['ORIGIN'] != 0) & (df['RACE'] != 0) & (df['AGE'] == 0)]
+        
+    elif 'ORIGIN' in requested_dims and 'SEX' in requested_dims:
+        # Any combination with ORIGIN and SEX - use fully crossed data
+        if 'RACE' in requested_dims:
+            # All three dimensions
+            df = df[(df['SEX'] != 0) & (df['ORIGIN'] != 0) & (df['RACE'] != 0) & (df['AGE'] == 0)]
+        else:
+            # ORIGIN + SEX, aggregate across races
+            df = df[(df['SEX'] != 0) & (df['ORIGIN'] != 0) & (df['RACE'] == 1) & (df['AGE'] == 0)]
+            
+    else:
+        # Default: include total records only
+        df = df[(df['SEX'] == 0) & (df['ORIGIN'] == 0) & (df['RACE'] == 0) & (df['AGE'] == 0)]
+    
+    return df
+
+
+def _reshape_characteristics_tidy(df: pd.DataFrame, variables: List[str], year_columns: List[str], breakdown_cols: List[str]) -> pd.DataFrame:
+    """Reshape characteristics data to tidy format."""
+    
+    # Identify ID columns (non-estimate columns)
+    id_cols = [col for col in df.columns if col not in year_columns]
+    
+    # Melt the year columns
+    df_melted = pd.melt(
+        df, 
+        id_vars=id_cols,
+        value_vars=year_columns,
+        var_name='year_col',
+        value_name='estimate'
+    )
+    
+    # Extract year from column name
+    df_melted['year'] = df_melted['year_col'].str.extract(r'(\d{4})').astype(int)
+    df_melted.drop('year_col', axis=1, inplace=True)
+    
+    # Add variable column (always POP for characteristics)
+    df_melted['variable'] = 'POP'
+    
+    return df_melted
+
+
 def _process_characteristics_csv(
     df: pd.DataFrame,
     geography: str,
@@ -838,12 +985,49 @@ def _process_characteristics_csv(
     time_series: bool,
     output: str,
 ) -> pd.DataFrame:
-    """Process characteristics (ASRH) CSV data."""
+    """Process characteristics (ASRH) CSV data with demographic breakdowns."""
     
-    # This is a complex implementation that would handle the demographic breakdowns
-    # For now, return a placeholder that indicates this feature is not yet implemented
+    print(f"Processing characteristics data with breakdown: {breakdown}")
     
-    raise NotImplementedError("Characteristics product is not yet implemented. Use product='population' or product='components' instead.")
+    # Apply geography filtering
+    df = _apply_geography_filter(df, geography, state, county)
+    
+    # Apply breakdown filtering
+    if breakdown:
+        df = _apply_breakdown_filter(df, breakdown)
+    
+    # Handle variables and years
+    if time_series:
+        year_columns = [col for col in df.columns if col.startswith('POPESTIMATE')]
+        if not year_columns:
+            year_columns = [f'POPESTIMATE{year}']
+    else:
+        year_columns = [f'POPESTIMATE{year}']
+    
+    # Select relevant columns
+    id_cols = ['STATE', 'COUNTY', 'CBSA', 'CSA', 'PLACE', 'NAME', 'GEOID']
+    breakdown_cols = ['SEX', 'ORIGIN', 'RACE', 'AGE'] if breakdown else []
+    
+    # Build column list based on available columns
+    keep_cols = []
+    for col in id_cols + breakdown_cols + year_columns:
+        if col in df.columns:
+            keep_cols.append(col)
+    
+    df = df[keep_cols]
+    
+    # Create GEOID if not present
+    if 'GEOID' not in df.columns:
+        if geography == 'state' and 'STATE' in df.columns:
+            df['GEOID'] = df['STATE'].astype(str).str.zfill(2)
+        elif geography == 'county' and 'STATE' in df.columns and 'COUNTY' in df.columns:
+            df['GEOID'] = df['STATE'].astype(str).str.zfill(2) + df['COUNTY'].astype(str).str.zfill(3)
+    
+    # Reshape data based on output format
+    if output == "tidy":
+        return _reshape_characteristics_tidy(df, variables, year_columns, breakdown_cols)
+    else:
+        return df
 
 
 def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFrame:
