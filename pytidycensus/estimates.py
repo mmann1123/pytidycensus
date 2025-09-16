@@ -13,6 +13,24 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import geopandas as gpd
 import pandas as pd
 
+# Supported geographies
+SUPPORTED_GEOGRAPHIES = {
+    "us",
+    "region", 
+    "division",
+    "state",
+    "county",
+    "cbsa",
+    "metropolitan statistical area/micropolitan statistical area",
+    "combined statistical area",
+    "place"
+}
+
+# Geography aliases
+GEOGRAPHY_ALIASES = {
+    "metropolitan statistical area/micropolitan statistical area": "cbsa"
+}
+
 from .api import CensusAPI
 from .geography import get_geography
 from .utils import (
@@ -26,10 +44,12 @@ from .utils import (
 
 def get_estimates(
     geography: str,
+    product: Optional[str] = None,
     variables: Optional[Union[str, List[str]]] = None,
     breakdown: Optional[List[str]] = None,
     breakdown_labels: bool = False,
-    year: int = 2022,
+    vintage: int = 2024,
+    year: Optional[int] = None,
     state: Optional[Union[str, int, List[Union[str, int]]]] = None,
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     time_series: bool = False,
@@ -43,30 +63,51 @@ def get_estimates(
     """
     Obtain data from the US Census Bureau Population Estimates Program.
 
+    The Population Estimates Program (PEP) produces estimates of the population for the United States, 
+    its states, counties, cities, and towns. For years 2020 and later, data is retrieved from flat 
+    CSV files. For years 2019 and earlier, data comes from the Census API.
+
     Parameters
     ----------
     geography : str
-        The geography of your data (e.g., 'county', 'state', 'us').
+        The geography of your data. Options include:
+        - 'us' (United States)
+        - 'region' (Census regions)
+        - 'division' (Census divisions)  
+        - 'state' (States and DC)
+        - 'county' (Counties)
+        - 'cbsa' (Core Based Statistical Areas)
+        - 'metropolitan statistical area/micropolitan statistical area' (alias for cbsa)
+        - 'combined statistical area' (Combined Statistical Areas)
+        - 'place' (Incorporated places and Census designated places)
+    product : str, optional
+        The data product. Options include:
+        - 'population' (population totals)
+        - 'components' (components of population change)
+        - 'characteristics' (population by demographics)
+        For years 2020+, only 'characteristics' requires this parameter.
     variables : str or list of str, optional
-        Variable ID(s) to retrieve. Common variables include:
-        - "POP" (total population)
-        - "DENSITY" (population density)
-        - "BIRTHS" (births)
-        - "DEATHS" (deaths)
-        - "DOMESTICMIG" (domestic migration)
-        - "INTERNATIONALMIG" (international migration)
+        Variable ID(s) to retrieve. Use 'all' to get all available variables.
+        Common variables include: 'POP', 'BIRTHS', 'DEATHS', 'DOMESTICMIG', 'INTERNATIONALMIG'
     breakdown : list of str, optional
-        Breakdown variables (e.g., ["SEX", "AGEGROUP", "RACE", "HISP"]).
+        Population breakdown for characteristics product. Options include:
+        - 'AGEGROUP' (age groups)
+        - 'SEX' (sex) 
+        - 'RACE' (race)
+        - 'HISP' (Hispanic origin)
+        Can be combined, e.g., ['SEX', 'RACE']
     breakdown_labels : bool, default False
-        Whether to include labels for breakdown categories.
-    year : int, default 2022
-        Year of population estimates.
+        Whether to include human-readable labels for breakdown categories.
+    vintage : int, default 2024
+        The PEP vintage (dataset version year). Recommended to use the most recent.
+    year : int, optional
+        The specific data year. Defaults to vintage if not specified.
     state : str, int, or list, optional
         State(s) to retrieve data for. Accepts names, abbreviations, or FIPS codes.
     county : str, int, or list, optional
         County(ies) to retrieve data for. Must be used with state.
     time_series : bool, default False
-        Whether to retrieve time series data.
+        Whether to retrieve time series data back to 2010.
     output : str, default "tidy"
         Output format ("tidy" or "wide").
     geometry : bool, default False
@@ -74,9 +115,9 @@ def get_estimates(
     keep_geo_vars : bool, default False
         Whether to keep all geographic variables from shapefiles.
     api_key : str, optional
-        Census API key. If not provided, looks for CENSUS_API_KEY environment variable.
+        Census API key for years 2019 and earlier.
     show_call : bool, default False
-        Whether to print the API call URL.
+        Whether to print the API call URL (for API-based requests).
     **kwargs
         Additional parameters passed to geography functions.
 
@@ -106,29 +147,56 @@ def get_estimates(
     ...     breakdown_labels=True
     ... )
     """
+    # Handle vintage/year parameters like R tidycensus
+    if year is None:
+        year = vintage
+    
+    # Warn if using post-2020 year without explicit vintage
+    if year > 2020 and vintage == 2024 and year != vintage:
+        print(f"Warning: Using vintage {vintage} data for year {year}. Consider setting vintage={year} if available.")
+    
     # Validate inputs
-    year = validate_year(year, "estimates")
-    geography = validate_geography(geography)
-
+    if year < 2015:
+        raise ValueError("Population Estimates data not available for years prior to 2015.")
+    
+    # Validate and normalize geography
+    geography = geography.lower()
+    if geography in GEOGRAPHY_ALIASES:
+        geography = GEOGRAPHY_ALIASES[geography]
+    
+    if geography not in SUPPORTED_GEOGRAPHIES:
+        raise ValueError(f"Geography '{geography}' not supported. Available options: {', '.join(sorted(SUPPORTED_GEOGRAPHIES))}")
+    
+    # Validate product parameter
+    if product is not None:
+        valid_products = ["population", "components", "characteristics"]
+        if product not in valid_products:
+            raise ValueError(f"Product '{product}' not supported. Available options: {', '.join(valid_products)}")
+    
+    # Handle variables
     if not variables:
         variables = ["POP"]  # Default to total population
-
-    # Ensure variables is a list
-    if isinstance(variables, str):
+    elif variables == "all":
+        # Will be handled in the data processing functions
+        variables = ["all"]
+    elif isinstance(variables, str):
         variables = [variables]
 
     try:
-        print(f"Getting data from the {year} Population Estimates Program")
+        if year >= 2020:
+            print(f"Getting data from the {vintage} Population Estimates Program (vintage {vintage})")
+        else:
+            print(f"Getting data from the {year} Population Estimates Program")
 
         # For years 2020 and later, use CSV files instead of API
         if year >= 2020:
             df = _get_estimates_from_csv(
-                geography, variables, breakdown, year, state, county, time_series, output
+                geography, product, variables, breakdown, vintage, year, state, county, time_series, output
             )
         else:
             # Use API for years before 2020
             df = _get_estimates_from_api(
-                geography, variables, breakdown, year, state, county, time_series, 
+                geography, product, variables, breakdown, year, state, county, time_series, 
                 output, api_key, show_call, **kwargs
             )
 
@@ -163,8 +231,10 @@ def get_estimates(
 
 def _get_estimates_from_csv(
     geography: str,
+    product: Optional[str],
     variables: List[str],
     breakdown: Optional[List[str]],
+    vintage: int,
     year: int,
     state: Optional[Union[str, int, List[Union[str, int]]]],
     county: Optional[Union[str, int, List[Union[str, int]]]],
@@ -173,33 +243,56 @@ def _get_estimates_from_csv(
 ) -> pd.DataFrame:
     """Get estimates data from CSV files for years 2020+."""
     
-    # Map vintage year to dataset year range
-    vintage_map = {
-        2020: "2020-2024",
-        2021: "2020-2024", 
-        2022: "2020-2024",
-        2023: "2020-2024",
-        2024: "2020-2024"
-    }
+    # Build CSV URL based on geography and vintage
+    base_url = f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{vintage}"
     
-    if year not in vintage_map:
-        raise ValueError(f"Year {year} not supported for CSV-based estimates")
+    # Handle characteristics product (uses ASRH datasets)
+    if product == "characteristics":
+        if geography == "state":
+            csv_url = f"{base_url}/state/asrh/sc-est{vintage}-alldata6.csv"
+        elif geography == "county":
+            if state:
+                # State-specific county file
+                state_code = _get_state_fips(state[0] if isinstance(state, list) else state)
+                csv_url = f"{base_url}/counties/asrh/cc-est{vintage}-alldata-{state_code}.csv"
+            else:
+                # All counties file
+                csv_url = f"{base_url}/counties/asrh/cc-est{vintage}-alldata.csv"
+        elif geography == "cbsa":
+            csv_url = f"{base_url}/metro/asrh/cbsa-est{vintage}-alldata-char.csv"
+        elif geography == "combined statistical area":
+            csv_url = f"{base_url}/metro/asrh/csa-est{vintage}-alldata-char.csv"
+        else:
+            raise ValueError(f"Geography '{geography}' not supported for characteristics product")
     
-    dataset_range = vintage_map[year]
-    
-    # Build CSV URL based on geography
-    base_url = f"https://www2.census.gov/programs-surveys/popest/datasets/{dataset_range}"
-    
-    if geography == "state":
-        csv_url = f"{base_url}/state/totals/NST-EST2024-ALLDATA.csv"
-    elif geography == "county":
-        csv_url = f"{base_url}/counties/totals/co-est2024-alldata.csv"
-    elif geography == "us":
-        # US data is not available in the same CSV format for years 2020+
-        # Use state data and aggregate or fallback to API for earlier years
-        raise ValueError(f"US geography not supported for CSV-based estimates (years 2020+). Use earlier years or state data.")
+    # Handle population/components products (uses totals datasets)  
     else:
-        raise ValueError(f"Geography '{geography}' not supported for CSV-based estimates")
+        if geography == "us":
+            csv_url = f"{base_url}/state/totals/NST-EST{vintage}-ALLDATA.csv"
+        elif geography == "region":
+            csv_url = f"{base_url}/state/totals/NST-EST{vintage}-ALLDATA.csv"
+        elif geography == "division":
+            if vintage < 2022:
+                raise ValueError("Divisions not available for vintages before 2022")
+            csv_url = f"{base_url}/state/totals/NST-EST{vintage}-ALLDATA.csv"
+        elif geography == "state":
+            csv_url = f"{base_url}/state/totals/NST-EST{vintage}-ALLDATA.csv"
+        elif geography == "county":
+            csv_url = f"{base_url}/counties/totals/co-est{vintage}-alldata.csv"
+        elif geography == "cbsa":
+            if vintage == 2022:
+                csv_url = f"{base_url}/metro/totals/cbsa-est{vintage}.csv"
+            else:
+                csv_url = f"{base_url}/metro/totals/cbsa-est{vintage}-alldata.csv"
+        elif geography == "combined statistical area":
+            if vintage == 2022:
+                csv_url = f"{base_url}/metro/totals/csa-est{vintage}.csv"
+            else:
+                csv_url = f"{base_url}/metro/totals/csa-est{vintage}-alldata.csv"
+        elif geography == "place":
+            csv_url = f"{base_url}/cities/totals/sub-est{vintage}.csv"
+        else:
+            raise ValueError(f"Geography '{geography}' not supported for CSV-based estimates")
     
     # Download and read CSV
     try:
@@ -216,13 +309,42 @@ def _get_estimates_from_csv(
             raise Exception(f"Failed to download CSV: {e}, {e2}")
     
     # Process the CSV data
-    df = _process_estimates_csv(df, geography, variables, breakdown, year, state, county, output)
+    df = _process_estimates_csv(df, geography, product, variables, breakdown, vintage, year, state, county, output)
     
     return df
 
 
+def _get_state_fips(state_input: Union[str, int]) -> str:
+    """Convert state name/abbreviation to FIPS code."""
+    state_map = {
+        'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 
+        'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16',
+        'IL': '17', 'IN': '18', 'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22',
+        'ME': '23', 'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
+        'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+        'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39', 'OK': '40',
+        'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45', 'SD': '46', 'TN': '47',
+        'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54',
+        'WI': '55', 'WY': '56', 'DC': '11'
+    }
+    
+    if isinstance(state_input, int):
+        return str(state_input).zfill(2)
+    
+    state_str = str(state_input).upper()
+    
+    if state_str in state_map:
+        return state_map[state_str]
+    elif state_str.isdigit():
+        return state_str.zfill(2)
+    else:
+        # Try to find by name (simplified)
+        return state_str
+
+
 def _get_estimates_from_api(
     geography: str,
+    product: Optional[str],
     variables: List[str],
     breakdown: Optional[List[str]],
     year: int,
@@ -271,8 +393,10 @@ def _get_estimates_from_api(
 def _process_estimates_csv(
     df: pd.DataFrame,
     geography: str,
+    product: Optional[str],
     variables: List[str],
     breakdown: Optional[List[str]],
+    vintage: int,
     year: int,
     state: Optional[Union[str, int, List[Union[str, int]]]],
     county: Optional[Union[str, int, List[Union[str, int]]]],
@@ -280,116 +404,241 @@ def _process_estimates_csv(
 ) -> pd.DataFrame:
     """Process raw CSV estimates data into the expected format."""
     
-    # Filter by year if multiple years in dataset
+    # Handle characteristics product (ASRH datasets)
+    if product == "characteristics":
+        return _process_characteristics_csv(df, geography, variables, breakdown, vintage, year, state, county, output)
+    
+    # Handle population/components products (totals datasets)
+    
+    # Filter by year using different methods depending on file structure
     if 'DATE' in df.columns:
         # DATE codes: 1=4/1/2020 estimate, 2=4/1/2020 estimates base, 3=7/1/2020, 4=7/1/2021, 5=7/1/2022, 6=7/1/2023, etc.
         date_map = {2020: 3, 2021: 4, 2022: 5, 2023: 6, 2024: 7}
         if year in date_map:
             df = df[df['DATE'] == date_map[year]]
     
+    # Pivot data from wide to long format for consistent processing
+    # All CSVs have year-suffixed columns like POPESTIMATE2022, BIRTHS2022, etc.
+    
+    # Create base result with GEOID and NAME
+    result_df = _create_base_result(df, geography)
+    
+    # Filter by geographic selections
+    result_df = _apply_geographic_filters(result_df, geography, state, county)
+    
+    # Get requested variables
+    result_df = _extract_variables(result_df, variables, year, vintage)
+    
+    # Reshape output format
+    if output == "tidy" and len([col for col in result_df.columns if col not in ['GEOID', 'NAME']]) > 1:
+        id_vars = ['GEOID']
+        if 'NAME' in result_df.columns:
+            id_vars.append('NAME')
+        
+        value_vars = [col for col in result_df.columns if col not in id_vars]
+        result_df = pd.melt(result_df, id_vars=id_vars, value_vars=value_vars, 
+                          var_name='variable', value_name='estimate')
+    
+    return result_df
+
+
+def _create_base_result(df: pd.DataFrame, geography: str) -> pd.DataFrame:
+    """Create base result DataFrame with GEOID and NAME columns."""
+    
+    if geography == "us":
+        # US total (SUMLEV == 010 or STATE == 00)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '10'].copy()
+        else:
+            df_filtered = df[df['STATE'].astype(str) == '00'].copy()
+        df_filtered['GEOID'] = '1'
+        
+    elif geography == "region":
+        # Census regions (SUMLEV == 020)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '20'].copy()
+            df_filtered['GEOID'] = df_filtered['REGION'].astype(str)
+        else:
+            raise ValueError("Region data not available in this dataset")
+            
+    elif geography == "division":
+        # Census divisions (SUMLEV == 030)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '30'].copy()
+            df_filtered['GEOID'] = df_filtered['DIVISION'].astype(str)
+        else:
+            raise ValueError("Division data not available in this dataset")
+            
+    elif geography == "state":
+        # States (SUMLEV == 040 or STATE codes 01-56)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '40'].copy()
+            df_filtered['GEOID'] = df_filtered['STATE'].astype(str).str.zfill(2)
+        else:
+            df_filtered = df[(df['STATE'].astype(str) != '00') & 
+                           (df['STATE'].astype(int).between(1, 56))].copy()
+            df_filtered['GEOID'] = df_filtered['STATE'].astype(str).str.zfill(2)
+            
+    elif geography == "county":
+        # Counties (SUMLEV == 050 or COUNTY != 000)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '50'].copy()
+        else:
+            df_filtered = df[df['COUNTY'].astype(str) != '000'].copy()
+        
+        df_filtered['GEOID'] = (df_filtered['STATE'].astype(str).str.zfill(2) + 
+                              df_filtered['COUNTY'].astype(str).str.zfill(3))
+        
+        # Create county name
+        if 'CTYNAME' in df_filtered.columns and 'STNAME' in df_filtered.columns:
+            df_filtered['NAME'] = df_filtered['CTYNAME'] + ', ' + df_filtered['STNAME']
+        elif 'CTYNAME' in df_filtered.columns:
+            df_filtered['NAME'] = df_filtered['CTYNAME']
+            
+    elif geography == "cbsa":
+        # Core Based Statistical Areas
+        if 'CBSA' in df.columns:
+            if 'LSAD' in df.columns:
+                # Filter to actual CBSAs (not divisions)
+                df_filtered = df[df['LSAD'].isin(['Metropolitan Statistical Area', 
+                                                'Micropolitan Statistical Area'])].copy()
+            else:
+                df_filtered = df.copy()
+            df_filtered['GEOID'] = df_filtered['CBSA'].astype(str)
+        else:
+            raise ValueError("CBSA data not available in this dataset")
+            
+    elif geography == "combined statistical area":
+        # Combined Statistical Areas
+        if 'CSA' in df.columns:
+            if 'LSAD' in df.columns:
+                df_filtered = df[df['LSAD'] == 'Combined Statistical Area'].copy()
+            else:
+                df_filtered = df.copy()
+            df_filtered['GEOID'] = df_filtered['CSA'].astype(str)
+        else:
+            raise ValueError("Combined Statistical Area data not available in this dataset")
+            
+    elif geography == "place":
+        # Places (SUMLEV == 162)
+        if 'SUMLEV' in df.columns:
+            df_filtered = df[df['SUMLEV'].astype(str) == '162'].copy()
+            df_filtered['GEOID'] = (df_filtered['STATE'].astype(str).str.zfill(2) + 
+                                  df_filtered['PLACE'].astype(str).str.zfill(5))
+            
+            # Create place name with state
+            if 'NAME' in df_filtered.columns and 'STNAME' in df_filtered.columns:
+                df_filtered['NAME'] = df_filtered['NAME'] + ', ' + df_filtered['STNAME']
+        else:
+            raise ValueError("Place data not available in this dataset")
+    else:
+        raise ValueError(f"Unsupported geography: {geography}")
+    
+    # Ensure we have a NAME column
+    if 'NAME' not in df_filtered.columns and 'NAME' in df.columns:
+        df_filtered['NAME'] = df['NAME']
+        
+    return df_filtered
+
+
+def _apply_geographic_filters(
+    df: pd.DataFrame, 
+    geography: str, 
+    state: Optional[Union[str, int, List[Union[str, int]]]], 
+    county: Optional[Union[str, int, List[Union[str, int]]]]
+) -> pd.DataFrame:
+    """Apply state and county filters to the DataFrame."""
+    
     # Filter by state if specified
-    if state is not None and geography in ['county', 'state']:
+    if state is not None and geography in ['county', 'state', 'place']:
         if isinstance(state, (str, int)):
             state = [state]
         
         state_fips = []
-        
-        # State name/abbreviation to FIPS mapping (partial)
-        state_map = {
-            'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 
-            'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16',
-            'IL': '17', 'IN': '18', 'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22',
-            'ME': '23', 'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
-            'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
-            'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39', 'OK': '40',
-            'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45', 'SD': '46', 'TN': '47',
-            'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54',
-            'WI': '55', 'WY': '56', 'DC': '11'
-        }
-        
         for s in state:
-            if isinstance(s, str):
-                s = s.upper()
-                if len(s) == 2 and s in state_map:  # abbreviation
-                    state_fips.append(state_map[s])
-                elif s.isdigit():  # FIPS code as string
-                    state_fips.append(s.zfill(2))
-                else:
-                    # Could be state name - simplified mapping
-                    state_fips.append(s)
-            else:
-                state_fips.append(str(s).zfill(2))
+            state_fips.append(_get_state_fips(s))
         
-        if 'STATE' in df.columns:
-            df = df[df['STATE'].astype(str).str.zfill(2).isin(state_fips)]
+        if geography in ['state', 'place']:
+            df = df[df['GEOID'].str[:2].isin(state_fips)]
+        elif geography == 'county':
+            df = df[df['GEOID'].str[:2].isin(state_fips)]
     
     # Filter by county if specified
     if county is not None and geography == 'county':
         if isinstance(county, (str, int)):
             county = [county]
         
-        county_fips = []
-        for c in county:
-            county_fips.append(str(c).zfill(3))
-        
-        if 'COUNTY' in df.columns:
-            df = df[df['COUNTY'].astype(str).str.zfill(3).isin(county_fips)]
+        county_fips = [str(c).zfill(3) for c in county]
+        df = df[df['GEOID'].str[2:5].isin(county_fips)]
     
-    # Filter to only actual geographic units (not totals/regions)
-    if geography == 'state' and 'STATE' in df.columns:
-        # Filter to only states (STATE codes 01-56, exclude 00 which is totals)
-        df = df[(df['STATE'].astype(str) != '00') & (df['STATE'].astype(int).between(1, 56))].copy()
-        df['GEOID'] = df['STATE'].astype(str).str.zfill(2)
-    elif geography == 'county' and 'STATE' in df.columns and 'COUNTY' in df.columns:
-        # Filter to only counties (COUNTY > 000)
-        df = df[df['COUNTY'].astype(str) != '000'].copy()
-        df['GEOID'] = df['STATE'].astype(str).str.zfill(2) + df['COUNTY'].astype(str).str.zfill(3)
-    elif geography == 'us':
-        # Filter to only US total (STATE == 00)
-        if 'STATE' in df.columns:
-            df = df[df['STATE'].astype(str) == '00'].copy()
-        df['GEOID'] = '1'
+    return df
+
+
+def _extract_variables(df: pd.DataFrame, variables: List[str], year: int, vintage: int) -> pd.DataFrame:
+    """Extract requested variables from the DataFrame."""
     
-    # Map variables to column names (simplified mapping)
-    variable_map = {
-        'POP': 'POPESTIMATE' + str(year),
-        'BIRTHS': 'BIRTHS' + str(year), 
-        'DEATHS': 'DEATHS' + str(year),
-        'NETMIG': 'NETMIG' + str(year),
-        'DOMESTICMIG': 'DOMESTICMIG' + str(year),
-        'INTERNATIONALMIG': 'INTERNATIONALMIG' + str(year)
-    }
+    # Handle 'all' variables request
+    if variables == ["all"]:
+        # Find all year-suffixed columns
+        year_cols = [col for col in df.columns if col.endswith(str(year)) and col not in ['GEOID', 'NAME']]
+        variables = [col.replace(str(year), '') for col in year_cols]
     
-    # Select requested columns
+    # Map variables to actual column names
     result_cols = ['GEOID']
     if 'NAME' in df.columns:
         result_cols.append('NAME')
-    elif 'CTYNAME' in df.columns and geography == 'county':
-        # For county data, create a NAME column from CTYNAME
-        df['NAME'] = df['CTYNAME']
-        result_cols.append('NAME')
     
     for var in variables:
-        if var in variable_map and variable_map[var] in df.columns:
-            result_cols.append(variable_map[var])
-        elif var in df.columns:
-            result_cols.append(var)
-    
-    # Select only available columns
-    available_cols = [col for col in result_cols if col in df.columns]
-    df = df[available_cols]
-    
-    # Reshape to tidy format if requested
-    if output == "tidy" and len(variables) > 1:
-        id_vars = ['GEOID']
-        if 'NAME' in df.columns:
-            id_vars.append('NAME')
+        # Map common variable abbreviations to full column names
+        var_mapping = {
+            'POP': 'POPESTIMATE',
+            'BIRTHS': 'BIRTHS', 
+            'DEATHS': 'DEATHS',
+            'NETMIG': 'NETMIG',
+            'DOMESTICMIG': 'DOMESTICMIG',
+            'INTERNATIONALMIG': 'INTERNATIONALMIG',
+            'NATURALCHG': 'NATURALCHG',
+            'NPOPCHG': 'NPOPCHG'
+        }
         
-        value_vars = [col for col in df.columns if col not in id_vars]
-        df = pd.melt(df, id_vars=id_vars, value_vars=value_vars, 
-                    var_name='variable', value_name='estimate')
+        # Get the full variable name
+        full_var = var_mapping.get(var, var)
+        
+        # Try different column name patterns
+        possible_cols = [
+            f"{full_var}{year}",  # POPESTIMATE2022
+            f"{full_var}_{year}",  # POPESTIMATE_2022
+            f"{var}{year}",       # POP2022 (if user provided full name)
+            var,                   # Exact match
+        ]
+        
+        for col in possible_cols:
+            if col in df.columns:
+                result_cols.append(col)
+                break
     
-    return df
+    # Select available columns
+    available_cols = [col for col in result_cols if col in df.columns]
+    return df[available_cols]
+
+
+def _process_characteristics_csv(
+    df: pd.DataFrame,
+    geography: str,
+    variables: List[str],
+    breakdown: Optional[List[str]],
+    vintage: int,
+    year: int,
+    state: Optional[Union[str, int, List[Union[str, int]]]],
+    county: Optional[Union[str, int, List[Union[str, int]]]],
+    output: str,
+) -> pd.DataFrame:
+    """Process characteristics (ASRH) CSV data."""
+    
+    # This is a complex implementation that would handle the demographic breakdowns
+    # For now, return a placeholder that indicates this feature is not yet implemented
+    
+    raise NotImplementedError("Characteristics product is not yet implemented. Use product='population' or product='components' instead.")
 
 
 def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFrame:
