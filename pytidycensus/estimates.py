@@ -31,6 +31,50 @@ GEOGRAPHY_ALIASES = {
     "metropolitan statistical area/micropolitan statistical area": "cbsa"
 }
 
+# Comprehensive variable mapping
+VARIABLE_MAPPING = {
+    'POP': 'POPESTIMATE',
+    'BIRTHS': 'BIRTHS', 
+    'DEATHS': 'DEATHS',
+    'NETMIG': 'NETMIG',
+    'DOMESTICMIG': 'DOMESTICMIG',
+    'INTERNATIONALMIG': 'INTERNATIONALMIG',
+    'NATURALCHG': 'NATURALCHG',
+    'NPOPCHG': 'NPOPCHG',
+    'RESIDUAL': 'RESIDUAL',
+    'ESTIMATESBASE': 'ESTIMATESBASE',
+    'GQESTIMATES': 'GQESTIMATES',
+    'GQESTIMATESBASE': 'GQESTIMATESBASE',
+    'RBIRTH': 'RBIRTH',
+    'RDEATH': 'RDEATH',
+    'RNATURALCHG': 'RNATURALCHG',
+    'RINTERNATIONALMIG': 'RINTERNATIONALMIG',
+    'RDOMESTICMIG': 'RDOMESTICMIG',
+    'RNETMIG': 'RNETMIG'
+}
+
+# Variable descriptions
+VARIABLE_DESCRIPTIONS = {
+    'POPESTIMATE': 'Total population estimate',
+    'ESTIMATESBASE': 'Population estimates base',
+    'BIRTHS': 'Births',
+    'DEATHS': 'Deaths',
+    'NATURALCHG': 'Natural change (births - deaths)',
+    'INTERNATIONALMIG': 'International migration',
+    'DOMESTICMIG': 'Domestic migration',
+    'NETMIG': 'Net migration',
+    'NPOPCHG': 'Net population change',
+    'RESIDUAL': 'Residual',
+    'GQESTIMATESBASE': 'Group quarters population estimates base',
+    'GQESTIMATES': 'Group quarters population',
+    'RBIRTH': 'Birth rate per 1,000 population',
+    'RDEATH': 'Death rate per 1,000 population',
+    'RNATURALCHG': 'Natural change rate per 1,000 population',
+    'RINTERNATIONALMIG': 'International migration rate per 1,000 population',
+    'RDOMESTICMIG': 'Domestic migration rate per 1,000 population',
+    'RNETMIG': 'Net migration rate per 1,000 population'
+}
+
 from .api import CensusAPI
 from .geography import get_geography
 from .utils import (
@@ -40,6 +84,133 @@ from .utils import (
     validate_state,
     validate_year,
 )
+
+
+def _filter_variables_for_dataset(dataset_path: str, variables: List[str]) -> List[str]:
+    """
+    Filter variables to only include those compatible with the selected dataset.
+    
+    Dataset compatibility:
+    - pep/population: POP, NAME, and geographic variables
+    - pep/components: BIRTHS, DEATHS, NATURALCHG, NETMIG, etc. (no POP)
+    - pep/charagegroups: POP, NAME, demographic breakdowns
+    """
+    # Define variables available in each dataset
+    population_vars = {"POP", "NAME"}
+    components_vars = {"BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG", 
+                      "NETMIG", "NATURALCHG", "NPOPCHG", "RESIDUAL", "NAME"}
+    charagegroups_vars = {"POP", "NAME"}  # Plus demographic variables
+    
+    # Geographic variables are available in all datasets  
+    geo_vars = {"GEOID", "state", "county", "place", "cbsa", "csa", "for", "in"}
+    
+    filtered = []
+    
+    for var in variables:
+        var_upper = var.upper()
+        
+        # Always include geographic and standard variables
+        if var_upper in geo_vars or var in geo_vars:
+            filtered.append(var)
+            continue
+            
+        # Filter based on dataset
+        if dataset_path == "pep/population" and var_upper in population_vars:
+            filtered.append(var)
+        elif dataset_path == "pep/components" and var_upper in components_vars:
+            filtered.append(var)  
+        elif dataset_path == "pep/charagegroups" and var_upper in charagegroups_vars:
+            filtered.append(var)
+        # Skip variables not compatible with this dataset
+    
+    return filtered
+
+
+def _get_api_dataset_path(product: str, variables: List[str]) -> str:
+    """
+    Determine the correct API dataset path based on product and variables.
+    
+    Returns:
+    - "pep/population" for basic population estimates
+    - "pep/components" for components of population change  
+    - "pep/charagegroups" for characteristics (age, sex, race, Hispanic origin)
+    """
+    # For characteristics product, use charagegroups dataset
+    if product == "characteristics":
+        return "pep/charagegroups"
+    
+    # Check if ALL variables are components variables
+    components_vars = {"BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG", 
+                      "NETMIG", "NATURALCHG", "NPOPCHG", "RESIDUAL"}
+    
+    # Only use components dataset if:
+    # 1. Product is explicitly "components", OR
+    # 2. ALL requested variables are components variables (no mixed requests)
+    if product == "components":
+        return "pep/components"
+    
+    # Check if all variables are components variables
+    if variables and all(var.upper() in components_vars for var in variables):
+        return "pep/components"
+    
+    # Default to population dataset for basic population estimates and mixed requests
+    return "pep/population"
+
+
+def _validate_and_set_product(
+    product: Optional[str],
+    geography: str, 
+    variables: Optional[Union[str, List[str]]],
+    breakdown: Optional[List[str]],
+    year: int
+) -> str:
+    """
+    Validate and set the product parameter based on inputs.
+    
+    Returns the appropriate product type:
+    - "characteristics" for demographic breakdowns (ASRH datasets)
+    - "components" for components of population change
+    - "population" for basic population totals (default)
+    """
+    # Define valid products
+    valid_products = ["population", "components", "characteristics"]
+    
+    # If product explicitly provided, validate it
+    if product is not None:
+        if product not in valid_products:
+            raise ValueError(f"Product '{product}' not supported. Available options: {', '.join(valid_products)}")
+        
+        # Validate product/geography combinations for characteristics
+        if product == "characteristics":
+            if geography not in ["state", "county", "cbsa", "combined statistical area"]:
+                raise ValueError(f"Characteristics product not supported for geography '{geography}'. "
+                               f"Supported geographies: state, county, cbsa, combined statistical area")
+        
+        return product
+    
+    # Auto-determine product based on inputs
+    
+    # If breakdown is specified, must use characteristics
+    if breakdown is not None:
+        if geography not in ["state", "county", "cbsa", "combined statistical area"]:
+            raise ValueError(f"Demographic breakdowns not supported for geography '{geography}'. "
+                           f"Supported geographies: state, county, cbsa, combined statistical area")
+        return "characteristics"
+    
+    # If variables suggest components of change, use components
+    if variables and isinstance(variables, (list, str)):
+        var_list = [variables] if isinstance(variables, str) else variables
+        components_vars = {"BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG", 
+                          "NETMIG", "NATURALCHG", "NPOPCHG", "RESIDUAL"}
+        
+        # If any component variables are requested and no population variables
+        if any(v.upper() in components_vars for v in var_list):
+            pop_vars = {"POP", "POPESTIMATE", "ESTIMATESBASE"}
+            if not any(v.upper() in pop_vars for v in var_list):
+                return "components"
+    
+    # Default to population for basic totals
+    return "population"
 
 
 def get_estimates(
@@ -167,11 +338,8 @@ def get_estimates(
     if geography not in SUPPORTED_GEOGRAPHIES:
         raise ValueError(f"Geography '{geography}' not supported. Available options: {', '.join(sorted(SUPPORTED_GEOGRAPHIES))}")
     
-    # Validate product parameter
-    if product is not None:
-        valid_products = ["population", "components", "characteristics"]
-        if product not in valid_products:
-            raise ValueError(f"Product '{product}' not supported. Available options: {', '.join(valid_products)}")
+    # Validate and set product parameter
+    product = _validate_and_set_product(product, geography, variables, breakdown, year)
     
     # Handle variables
     if not variables:
@@ -231,7 +399,7 @@ def get_estimates(
 
 def _get_estimates_from_csv(
     geography: str,
-    product: Optional[str],
+    product: str,  # Now always provided after validation
     variables: List[str],
     breakdown: Optional[List[str]],
     vintage: int,
@@ -309,7 +477,7 @@ def _get_estimates_from_csv(
             raise Exception(f"Failed to download CSV: {e}, {e2}")
     
     # Process the CSV data
-    df = _process_estimates_csv(df, geography, product, variables, breakdown, vintage, year, state, county, output)
+    df = _process_estimates_csv(df, geography, product, variables, breakdown, vintage, year, state, county, time_series, output)
     
     return df
 
@@ -344,7 +512,7 @@ def _get_state_fips(state_input: Union[str, int]) -> str:
 
 def _get_estimates_from_api(
     geography: str,
-    product: Optional[str],
+    product: str,  # Now always provided after validation
     variables: List[str],
     breakdown: Optional[List[str]],
     year: int,
@@ -369,23 +537,27 @@ def _get_estimates_from_api(
     # Build geography parameters
     geo_params = build_geography_params(geography, state, county, **kwargs)
 
-    # Determine the appropriate estimates dataset
-    if time_series:
-        dataset_path = "pep/components"
-    else:
-        dataset_path = "pep/population"
+    # Determine the appropriate estimates dataset based on product and variables
+    dataset_path = _get_api_dataset_path(product, variables)
 
+    # Filter variables for dataset compatibility
+    dataset_variables = _filter_variables_for_dataset(dataset_path, all_variables)
+    
+    if not dataset_variables:
+        raise ValueError(f"No compatible variables found for dataset {dataset_path}")
+    
     # Make API request
     data = api.get(
         year=year,
         dataset=dataset_path,
-        variables=all_variables,
+        variables=dataset_variables,
         geography=geo_params,
         show_call=show_call,
     )
 
-    # Process data
-    df = process_census_data(data, variables, output)
+    # Process data - only process the variables that were actually retrieved
+    retrieved_variables = [v for v in variables if v.upper() in [dv.upper() for dv in dataset_variables]]
+    df = process_census_data(data, retrieved_variables, output)
     
     return df
 
@@ -400,13 +572,14 @@ def _process_estimates_csv(
     year: int,
     state: Optional[Union[str, int, List[Union[str, int]]]],
     county: Optional[Union[str, int, List[Union[str, int]]]],
+    time_series: bool,
     output: str,
 ) -> pd.DataFrame:
     """Process raw CSV estimates data into the expected format."""
     
     # Handle characteristics product (ASRH datasets)
     if product == "characteristics":
-        return _process_characteristics_csv(df, geography, variables, breakdown, vintage, year, state, county, output)
+        return _process_characteristics_csv(df, geography, variables, breakdown, vintage, year, state, county, time_series, output)
     
     # Handle population/components products (totals datasets)
     
@@ -427,17 +600,34 @@ def _process_estimates_csv(
     result_df = _apply_geographic_filters(result_df, geography, state, county)
     
     # Get requested variables
-    result_df = _extract_variables(result_df, variables, year, vintage)
+    result_df = _extract_variables(result_df, variables, year, vintage, time_series)
     
     # Reshape output format
-    if output == "tidy" and len([col for col in result_df.columns if col not in ['GEOID', 'NAME']]) > 1:
+    if time_series or (output == "tidy" and len([col for col in result_df.columns if col not in ['GEOID', 'NAME']]) > 1):
         id_vars = ['GEOID']
         if 'NAME' in result_df.columns:
             id_vars.append('NAME')
         
         value_vars = [col for col in result_df.columns if col not in id_vars]
-        result_df = pd.melt(result_df, id_vars=id_vars, value_vars=value_vars, 
-                          var_name='variable', value_name='estimate')
+        
+        if time_series:
+            # For time series, create year column
+            result_df = pd.melt(result_df, id_vars=id_vars, value_vars=value_vars, 
+                              var_name='variable', value_name='estimate')
+            
+            # Extract year from variable name (e.g., POPESTIMATE2022 -> 2022)
+            result_df['year'] = result_df['variable'].str.extract(r'(\d{4})$')[0].astype(int)
+            
+            # Clean up variable names (remove year suffix)
+            result_df['variable'] = result_df['variable'].str.replace(r'\d{4}$', '', regex=True)
+            
+            # Reorder columns
+            result_df = result_df[['GEOID', 'NAME', 'variable', 'year', 'estimate'] if 'NAME' in result_df.columns 
+                                else ['GEOID', 'variable', 'year', 'estimate']]
+        else:
+            # Regular tidy format
+            result_df = pd.melt(result_df, id_vars=id_vars, value_vars=value_vars, 
+                              var_name='variable', value_name='estimate')
     
     return result_df
 
@@ -574,48 +764,62 @@ def _apply_geographic_filters(
     return df
 
 
-def _extract_variables(df: pd.DataFrame, variables: List[str], year: int, vintage: int) -> pd.DataFrame:
+def _extract_variables(df: pd.DataFrame, variables: List[str], year: int, vintage: int, time_series: bool = False) -> pd.DataFrame:
     """Extract requested variables from the DataFrame."""
     
     # Handle 'all' variables request
     if variables == ["all"]:
-        # Find all year-suffixed columns
-        year_cols = [col for col in df.columns if col.endswith(str(year)) and col not in ['GEOID', 'NAME']]
-        variables = [col.replace(str(year), '') for col in year_cols]
+        if time_series:
+            # Find all variable patterns across all years
+            all_year_cols = [col for col in df.columns if any(col.startswith(v) for v in VARIABLE_MAPPING.values())]
+            unique_vars = set()
+            for col in all_year_cols:
+                for var_name in VARIABLE_MAPPING.values():
+                    if col.startswith(var_name):
+                        unique_vars.add(var_name)
+            variables = list(unique_vars)
+        else:
+            # Find all year-suffixed columns for the specific year
+            year_cols = [col for col in df.columns if col.endswith(str(year)) and col not in ['GEOID', 'NAME']]
+            variables = []
+            for col in year_cols:
+                for short_name, full_name in VARIABLE_MAPPING.items():
+                    if col.startswith(full_name):
+                        variables.append(short_name)
+                        break
+            if not variables:
+                variables = [col.replace(str(year), '') for col in year_cols]
     
     # Map variables to actual column names
     result_cols = ['GEOID']
     if 'NAME' in df.columns:
         result_cols.append('NAME')
     
-    for var in variables:
-        # Map common variable abbreviations to full column names
-        var_mapping = {
-            'POP': 'POPESTIMATE',
-            'BIRTHS': 'BIRTHS', 
-            'DEATHS': 'DEATHS',
-            'NETMIG': 'NETMIG',
-            'DOMESTICMIG': 'DOMESTICMIG',
-            'INTERNATIONALMIG': 'INTERNATIONALMIG',
-            'NATURALCHG': 'NATURALCHG',
-            'NPOPCHG': 'NPOPCHG'
-        }
-        
-        # Get the full variable name
-        full_var = var_mapping.get(var, var)
-        
-        # Try different column name patterns
-        possible_cols = [
-            f"{full_var}{year}",  # POPESTIMATE2022
-            f"{full_var}_{year}",  # POPESTIMATE_2022
-            f"{var}{year}",       # POP2022 (if user provided full name)
-            var,                   # Exact match
-        ]
-        
-        for col in possible_cols:
-            if col in df.columns:
-                result_cols.append(col)
-                break
+    if time_series:
+        # For time series, get all years available for each variable
+        for var in variables:
+            full_var = VARIABLE_MAPPING.get(var, var)
+            
+            # Find all year columns for this variable
+            year_cols = [col for col in df.columns if col.startswith(full_var) and col[len(full_var):].isdigit()]
+            result_cols.extend(year_cols)
+    else:
+        # For single year, get just the requested year
+        for var in variables:
+            full_var = VARIABLE_MAPPING.get(var, var)
+            
+            # Try different column name patterns
+            possible_cols = [
+                f"{full_var}{year}",  # POPESTIMATE2022
+                f"{full_var}_{year}",  # POPESTIMATE_2022
+                f"{var}{year}",       # POP2022 (if user provided full name)
+                var,                   # Exact match
+            ]
+            
+            for col in possible_cols:
+                if col in df.columns:
+                    result_cols.append(col)
+                    break
     
     # Select available columns
     available_cols = [col for col in result_cols if col in df.columns]
@@ -631,6 +835,7 @@ def _process_characteristics_csv(
     year: int,
     state: Optional[Union[str, int, List[Union[str, int]]]],
     county: Optional[Union[str, int, List[Union[str, int]]]],
+    time_series: bool,
     output: str,
 ) -> pd.DataFrame:
     """Process characteristics (ASRH) CSV data."""
@@ -703,6 +908,95 @@ def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFram
             df[f"{var}_label"] = df[var].astype(str).map(label_mappings[var])
 
     return df
+
+
+def discover_available_variables(vintage: int = 2024, geography: str = "state") -> pd.DataFrame:
+    """
+    Discover all available variables in a PEP dataset.
+    
+    Parameters
+    ----------
+    vintage : int, default 2024
+        The vintage year of the dataset
+    geography : str, default "state"
+        The geography to check for available variables
+        
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with variable names and descriptions
+    """
+    try:
+        # Download a sample CSV to discover variables
+        if geography == "state":
+            csv_url = f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{vintage}/state/totals/NST-EST{vintage}-ALLDATA.csv"
+        elif geography == "county":
+            csv_url = f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{vintage}/counties/totals/co-est{vintage}-alldata.csv"
+        else:
+            raise ValueError("Only state and county supported for variable discovery")
+            
+        response = requests.get(csv_url, verify=False)
+        response.raise_for_status()
+        df = pd.read_csv(StringIO(response.text), encoding='latin1', nrows=1)  # Just get headers
+        
+        # Extract variable information
+        variables = []
+        descriptions = []
+        
+        # Define variable patterns and descriptions
+        var_patterns = {
+            r'POPESTIMATE(\d{4})': 'Total population estimate',
+            r'ESTIMATESBASE(\d{4})': 'Population estimates base',
+            r'BIRTHS(\d{4})': 'Births',
+            r'DEATHS(\d{4})': 'Deaths', 
+            r'NATURALCHG(\d{4})': 'Natural change (births - deaths)',
+            r'INTERNATIONALMIG(\d{4})': 'International migration',
+            r'DOMESTICMIG(\d{4})': 'Domestic migration',
+            r'NETMIG(\d{4})': 'Net migration',
+            r'NPOPCHG[_-]?(\d{4})': 'Net population change',
+            r'RESIDUAL(\d{4})': 'Residual',
+            r'GQESTIMATESBASE(\d{4})': 'Group quarters population estimates base',
+            r'GQESTIMATES(\d{4})': 'Group quarters population',
+            r'RBIRTH(\d{4})': 'Birth rate per 1,000 population',
+            r'RDEATH(\d{4})': 'Death rate per 1,000 population',
+            r'RNATURALCHG(\d{4})': 'Natural change rate per 1,000 population',
+            r'RINTERNATIONALMIG(\d{4})': 'International migration rate per 1,000 population',
+            r'RDOMESTICMIG(\d{4})': 'Domestic migration rate per 1,000 population',
+            r'RNETMIG(\d{4})': 'Net migration rate per 1,000 population'
+        }
+        
+        import re
+        
+        for col in df.columns:
+            if col in ['SUMLEV', 'REGION', 'DIVISION', 'STATE', 'COUNTY', 'NAME', 'STNAME', 'CTYNAME']:
+                continue
+                
+            matched = False
+            for pattern, desc in var_patterns.items():
+                match = re.match(pattern, col)
+                if match:
+                    year = match.group(1)
+                    var_base = col.replace(year, '')
+                    if var_base not in [v.split('_')[0] for v in variables]:  # Avoid duplicates
+                        variables.append(f"{var_base}_{year}")
+                        descriptions.append(f"{desc} ({year})")
+                    matched = True
+                    break
+            
+            if not matched:
+                variables.append(col)
+                descriptions.append("Unknown variable")
+        
+        result_df = pd.DataFrame({
+            'variable': variables,
+            'description': descriptions
+        })
+        
+        return result_df
+        
+    except Exception as e:
+        print(f"Warning: Could not discover variables: {e}")
+        return pd.DataFrame({'variable': [], 'description': []})
 
 
 def get_estimates_variables(year: int = 2022) -> pd.DataFrame:
