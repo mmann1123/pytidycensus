@@ -8,7 +8,7 @@ Thank you for your interest in contributing to pytidycensus! This document provi
 
 1. **Fork and clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/pytidycensus.git
+   git clone https://github.com/mmann1123/pytidycensus.git
    cd pytidycensus
    ```
 
