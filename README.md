@@ -1,4 +1,6 @@
-# pytidycensus
+<!-- # pytidycensus -->
+                                         
+![pytidycensus logo](docs/static/logo.png)
 
 [![Python package](https://github.com/mmann1123/pytidycensus/actions/workflows/python-package.yml/badge.svg)](https://github.com/mmann1123/pytidycensus/actions/workflows/python-package.yml)
 [![Documentation Status](https://github.com/mmann1123/pytidycensus/actions/workflows/docs.yml/badge.svg)](https://mmann1123.github.io/pytidycensus)
