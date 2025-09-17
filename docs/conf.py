@@ -40,6 +40,13 @@ html_static_path = ["_static"]
 html_title = "pytidycensus Documentation"
 html_short_title = "pytidycensus"
 
+html_theme_options = {
+    "logo_only": True,
+    "display_version": True,
+}
+
+html_logo = "static/logo.png"
+
 # -- Extension configuration -------------------------------------------------
 
 # Autodoc settings
