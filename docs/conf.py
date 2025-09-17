@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.abspath(".."))
 
 project = "pytidycensus"
 copyright = "2024, pytidycensus contributors"
-author = "Michael Mann"
-release = "0.1.0"
+author = "Michael Mann & Kyle Walker"
+release = "0.1.2"
 
 # -- General configuration ---------------------------------------------------
 

@@ -410,4 +410,7 @@ def get_acs_variables(year: int = 2022, survey: str = "acs5") -> pd.DataFrame:
     """
     from .variables import load_variables
 
+    print(
+        "For a detailed list of variable explainations, visit https://censusreporter.org/topics/table-codes/"
+    )
     return load_variables(year, "acs", survey)
