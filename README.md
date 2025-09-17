@@ -137,6 +137,43 @@ income_vars = tc.search_variables("income", 2022, "acs", "acs5")
 print(income_vars[['name', 'label']].head())
 ```
 
+### Population Estimates Program
+
+The Population Estimates Program (PEP) provides annual population estimates and components of change. For years 2020+, data is retrieved from CSV files; for earlier years, it uses the Census API.
+
+```python
+# Get total population estimates by state
+state_pop = tc.get_estimates(
+    geography="state",
+    variables="POP",
+    year=2022
+)
+
+# Get components of population change
+components = tc.get_estimates(
+    geography="state", 
+    variables=["BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG"],
+    year=2022
+)
+
+# Get demographic breakdowns (characteristics)
+demographics = tc.get_estimates(
+    geography="state",
+    variables="POP",
+    breakdown=["SEX", "RACE"],
+    breakdown_labels=True,
+    year=2022
+)
+
+# Time series data
+time_series = tc.get_estimates(
+    geography="state",
+    variables="POP", 
+    time_series=True,
+    vintage=2023
+)
+```
+
 ## Supported Datasets
 
 - **American Community Survey (ACS)**: 1-year and 5-year estimates (2005-2022)

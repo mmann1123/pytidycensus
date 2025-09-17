@@ -194,6 +194,113 @@ print(data.columns)
 # ['GEOID', 'NAME', 'variable', 'value', 'B19013_001_moe']
 ```
 
+## Population Estimates Program
+
+The Population Estimates Program provides annual population estimates and demographic characteristics. For years 2020 and later, pytidycensus retrieves data from CSV files; for earlier years (2015-2019), it uses the Census API.
+
+### Basic Population Estimates
+
+```python
+# Get total population by state for 2022
+state_pop = tc.get_estimates(
+    geography="state",
+    variables="POP", 
+    year=2022
+)
+```
+
+### Components of Population Change
+
+```python
+# Get births, deaths, and migration data
+components = tc.get_estimates(
+    geography="state",
+    variables=["BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG"],
+    year=2022
+)
+```
+
+### Demographic Breakdowns
+
+Use the `breakdown` parameter to get population estimates by demographics:
+
+```python
+# Population by sex and race
+demographics = tc.get_estimates(
+    geography="state",
+    variables="POP",
+    breakdown=["SEX", "RACE"],
+    breakdown_labels=True,  # Include human-readable labels
+    year=2022
+)
+```
+
+### Geographic Levels
+
+Population estimates support multiple geographies:
+
+```python
+# County-level data for Texas
+tx_counties = tc.get_estimates(
+    geography="county",
+    variables="POP",
+    state="TX",
+    year=2022
+)
+
+# Metro areas (CBSAs)
+metros = tc.get_estimates(
+    geography="cbsa", 
+    variables="POP",
+    year=2022
+)
+```
+
+### Time Series Data
+
+Get population estimates across multiple years:
+
+```python
+# Time series for states from 2020-2023
+time_series = tc.get_estimates(
+    geography="state",
+    variables="POP",
+    time_series=True,
+    vintage=2023
+)
+```
+
+### Data Products
+
+Use the `product` parameter to specify the type of data:
+
+```python
+# Basic population totals (default)
+population = tc.get_estimates(
+    geography="state",
+    product="population",  # or omit for default
+    variables="POP",
+    year=2022
+)
+
+# Components of population change
+components = tc.get_estimates(
+    geography="state", 
+    product="components",
+    variables=["BIRTHS", "DEATHS"],
+    year=2022
+)
+
+# Population characteristics by demographics
+characteristics = tc.get_estimates(
+    geography="state",
+    product="characteristics",
+    variables="POP",
+    breakdown=["SEX"],
+    year=2022
+)
+```
+
 ## Next Steps
 
 - Explore comprehensive [Jupyter notebook examples](examples.rst)
