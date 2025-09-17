@@ -170,7 +170,13 @@ class CensusAPI:
 
         except requests.RequestException as e:
             raise requests.RequestException(
-                f"Failed to fetch data from Census API: {e}"
+                f"""
+                Failed to fetch data from Census API  
+                =======================================
+                Please make sure you get a valid API key set
+                ========================================
+                {e}
+                """
             )
 
     def get_geography_codes(

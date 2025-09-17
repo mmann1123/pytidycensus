@@ -378,6 +378,25 @@ def get_acs(
                 **kwargs,
             )
 
+            gdf.drop(
+                columns=[
+                    "STATEFP",
+                    "COUNTYFP",
+                    "TRACTCE",
+                    "BLKGRPCE",
+                    "PLACEFP",
+                    # "CONCITFP",
+                    # "AIANNHCE",
+                    # "CBSAFP",
+                    # "METDIVFP",
+                    # "NECTAFP",
+                    # "CNECTAFP",
+                    # "CBSAPCI",
+                    # "NECTAPCI",
+                ],
+                errors="ignore",
+                inplace=True,
+            )
             # Merge with census data
             if "GEOID" in df.columns and "GEOID" in gdf.columns:
                 result = gdf.merge(df, on="GEOID", how="inner")

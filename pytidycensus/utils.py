@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import us
+from geopandas import GeoDataFrame
 
 
 def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
@@ -480,6 +481,24 @@ def process_census_data(
     ]
     if geo_cols:
         df["GEOID"] = df[geo_cols].fillna("").astype(str).agg("".join, axis=1)
+    geo_cols.append("GEOID")
+
+    # Reorder columns to put geographic identifiers first
+    if output == "wide" and isinstance(df, (pd.DataFrame, GeoDataFrame)):
+        # Get all columns
+        all_cols = list(df.columns)
+
+        # Get the remaining columns (excluding geo cols and geometry)
+        if isinstance(df, GeoDataFrame):
+            remaining_cols = [
+                col for col in all_cols if col not in geo_cols and col != "geometry"
+            ]
+            # Reorder: geo columns first, then data columns, then geometry last
+            df = df[geo_cols + remaining_cols + ["geometry"]]
+        else:
+            remaining_cols = [col for col in all_cols if col not in geo_cols]
+            # Reorder: geo columns first, then data columns
+            df = df[geo_cols + remaining_cols]
 
     # Create NAME column from available name fields
     if "NAME" not in df.columns:
