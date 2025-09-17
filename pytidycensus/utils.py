@@ -477,7 +477,9 @@ def process_census_data(
 
     # Create GEOID from geography columns
     geo_cols = [
-        col for col in df.columns if col in ["state", "county", "tract", "block group"]
+        col
+        for col in df.columns
+        if col in ["state", "county", "tract", "block group", "place"]
     ]
     if geo_cols:
         df["GEOID"] = df[geo_cols].fillna("").astype(str).agg("".join, axis=1)
