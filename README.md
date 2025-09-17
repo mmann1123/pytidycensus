@@ -9,6 +9,24 @@
 
 **This package is a Python port of the popular R package [tidycensus](https://walker-data.com/tidycensus/) created by Kyle Walker.**
 
+
+## Supported Datasets
+
+- **American Community Survey (ACS)**:  1-year and 5-year estimates (2005-2022) using `get_acs()` 
+- **Decennial Census**:  1990, 2000, 2010, and 2020 using `get_decennial()`
+- **Population Estimates Program**:  Annual population estimates and components of change using `get_estimates()`
+
+## Geographic Levels
+
+pytidycensus supports all major Census geographic levels:
+
+- US, Regions, Divisions
+- States, Counties  
+- Census Tracts, Block Groups
+- Places, ZCTAs
+- Congressional Districts
+- And more...
+
 ## Features
 
 - **Simple API**: Clean, consistent interface for all Census datasets
@@ -174,22 +192,6 @@ time_series = tc.get_estimates(
 )
 ```
 
-## Supported Datasets
-
-- **American Community Survey (ACS)**: 1-year and 5-year estimates (2005-2022)
-- **Decennial Census**: 1990, 2000, 2010, and 2020
-- **Population Estimates Program**: Annual population estimates and components of change
-
-## Geographic Levels
-
-pytidycensus supports all major Census geographic levels:
-
-- US, Regions, Divisions
-- States, Counties  
-- Census Tracts, Block Groups
-- Places, ZCTAs
-- Congressional Districts
-- And more...
 
 ## Documentation
 
