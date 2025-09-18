@@ -16,6 +16,7 @@ from .decennial import get_decennial
 from .estimates import get_estimates
 from .geography import get_geography
 from .variables import get_table_variables, load_variables, search_variables
+from .utils import get_credentials
 
 __all__ = [
     "CensusAPI",
@@ -27,4 +28,5 @@ __all__ = [
     "load_variables",
     "search_variables",
     "get_table_variables",
+    "get_credentials",
 ]

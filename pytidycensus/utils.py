@@ -6,10 +6,19 @@ import importlib.resources
 import os
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Union
-
 import pandas as pd
 import us
 from geopandas import GeoDataFrame
+import yaml
+
+
+def get_credentials():
+    try:
+        with open("credentials.yaml") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        with open("../credentials.yaml") as f:
+            return yaml.safe_load(f)
 
 
 @lru_cache(maxsize=1)

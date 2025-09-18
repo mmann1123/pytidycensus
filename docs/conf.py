@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "pytidycensus"
-copyright = "2024, pytidycensus contributors"
+# copyright = "2024, pytidycensus contributors"
 author = "Michael Mann & Kyle Walker"
-release = "0.1.2"
+release = "0.1.4"
 
 # -- General configuration ---------------------------------------------------
 
@@ -20,10 +20,14 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
-    "myst_parser",
+    # "myst_parser",
     "sphinx_autodoc_typehints",
     "nbsphinx",
+    "myst_nb",
 ]
+# Configure MyST-NB
+nb_execution_mode = "auto"
+nb_execution_allow_errors = True  # Continue execution even if cells raise errors
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
