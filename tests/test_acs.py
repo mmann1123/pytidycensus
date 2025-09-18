@@ -31,18 +31,19 @@ class TestGetACS:
         ]
         mock_api_class.return_value = mock_api
 
-        # Mock processing functions
-        mock_df = pd.DataFrame(
+        # Mock processing functions  
+        mock_df_tidy = pd.DataFrame(
             {
                 "NAME": ["Alabama"],
-                "B01001_001E": [5024279],
+                "GEOID": ["01"], 
                 "state": ["01"],
-                "variable": ["B01001_001E"],
-                "value": [5024279],
+                "variable": ["B01001_001"],  # E suffix removed
+                "estimate": [5024279],
+                "moe": [1000.0],
             }
         )
-        mock_process.return_value = mock_df
-        mock_add_moe.return_value = mock_df
+        mock_process.return_value = mock_df_tidy
+        mock_add_moe.return_value = mock_df_tidy
 
         result = get_acs(
             geography="state", variables="B01001_001E", year=2022, api_key="test"
@@ -328,13 +329,14 @@ class TestGetACS:
         with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
-            # Mock tidy format data with variable column
+            # Mock tidy format data with new structure
             mock_df = pd.DataFrame(
                 {
-                    "NAME": ["Alabama", "Alabama"],
-                    "variable": ["B01001_001E", "B01001_001_moe"],
-                    "value": [5024279, 1000],
-                    "GEOID": ["01", "01"],
+                    "NAME": ["Alabama"],
+                    "variable": ["B01001_001"],  # E suffix removed
+                    "estimate": [5024279],
+                    "moe": [1000.0],
+                    "GEOID": ["01"],
                 }
             )
             mock_process.return_value = mock_df
@@ -429,6 +431,136 @@ class TestGetACS:
             # Should call process_census_data with "wide" output regardless of request
             call_args = mock_process.call_args
             assert call_args[0][2] == "wide"  # Third argument should be "wide"
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_get_acs_tidy_format_new_structure(self, mock_api_class):
+        """Test get_acs tidy format with new estimate/moe structure and API call."""
+        # Mock realistic API response matching actual Census Bureau format
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                'B01003_001E': '3269', 
+                'B01003_001M': '452', 
+                'B19013_001E': '234236', 
+                'B19013_001M': '42845', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400100',
+                'NAME': 'Census Tract 4001, Alameda County, California'
+            },
+            {
+                'B01003_001E': '2147', 
+                'B01003_001M': '201', 
+                'B19013_001E': '225500', 
+                'B19013_001M': '29169', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400200',
+                'NAME': 'Census Tract 4002, Alameda County, California'
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        # Test the actual function without mocking internal processing
+        result = get_acs(
+            geography="tract",
+            variables=["B01003_001", "B19013_001"],  # Variables without E suffix
+            state="CA",
+            county="001",
+            output="tidy",
+            api_key="test"
+        )
+
+        # Verify API call structure
+        mock_api.get.assert_called_once()
+        call_args = mock_api.get.call_args[1]
+        
+        # Check the API call parameters match the current structure
+        assert call_args["year"] == 2022  # Default year
+        assert call_args["dataset"] == "acs"
+        assert call_args["survey"] == "acs5"  # Default survey
+        assert call_args["show_call"] == False  # Default
+        
+        # Verify geography parameter structure
+        assert "geography" in call_args
+        geography_params = call_args["geography"]
+        assert "for" in geography_params
+        assert "in" in geography_params
+        
+        # Verify variables include both estimate and MOE variables
+        variables = call_args["variables"]
+        assert "B01003_001E" in variables  # Population estimate
+        assert "B01003_001M" in variables  # Population MOE
+        assert "B19013_001E" in variables  # Income estimate  
+        assert "B19013_001M" in variables  # Income MOE
+
+        # Verify tidy format output structure
+        assert isinstance(result, pd.DataFrame)
+        expected_columns = ["state", "county", "tract", "NAME", "GEOID", "variable", "estimate", "moe"]
+        for col in expected_columns:
+            assert col in result.columns, f"Missing column: {col}"
+        
+        # Verify data format
+        assert len(result) == 4  # 2 geographies × 2 variables = 4 rows
+        
+        # Check that variable names have E suffix removed
+        unique_vars = result["variable"].unique()
+        assert "B01003_001" in unique_vars  # No E suffix
+        assert "B19013_001" in unique_vars  # No E suffix
+        assert not any(var.endswith("E") for var in unique_vars)  # No E suffixes
+        
+        # Verify estimate and moe columns contain numeric data
+        assert result["estimate"].dtype in ['int64', 'float64', 'object']  # Can be string from API
+        assert result["moe"].dtype in ['int64', 'float64', 'object']
+        
+        # Verify GEOID format (state + county + tract)
+        geoids = result["GEOID"].unique()
+        assert "06001400100" in geoids
+        assert "06001400200" in geoids
+
+    @patch("pytidycensus.acs.CensusAPI")  
+    def test_get_acs_api_call_parameters(self, mock_api_class):
+        """Test that get_acs calls the API with correct parameters."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "B01003_001E": "1000",
+                "B01003_001M": "100", 
+                "state": "01",
+                "NAME": "Alabama"
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        # Test with various parameters
+        get_acs(
+            geography="state",
+            variables="B01003_001",
+            year=2021,
+            survey="acs1", 
+            api_key="test_key",
+            show_call=True
+        )
+
+        # Verify API was called with correct structure
+        mock_api.get.assert_called_once()
+        call_kwargs = mock_api.get.call_args[1]
+        
+        # Verify all expected parameters are present
+        expected_params = ["year", "dataset", "variables", "geography", "survey", "show_call"]
+        for param in expected_params:
+            assert param in call_kwargs, f"Missing API parameter: {param}"
+            
+        # Verify parameter values
+        assert call_kwargs["year"] == 2021
+        assert call_kwargs["dataset"] == "acs"
+        assert call_kwargs["survey"] == "acs1"
+        assert call_kwargs["show_call"] == True
+        
+        # Verify variables include both E and M suffixes
+        variables = call_kwargs["variables"]
+        assert "B01003_001E" in variables
+        assert "B01003_001M" in variables
 
 
 class TestGetACSVariables:
