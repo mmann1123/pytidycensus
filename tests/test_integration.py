@@ -335,7 +335,9 @@ class TestDecennialIntegration:
         assert len(result) > 0
         assert result["estimate"].iloc[0] > 600000  # Vermont population ~625k in 2010
 
-        print(f"✓ 2010 decennial data: Vermont population = {result['estimate'].iloc[0]}")
+        print(
+            f"✓ 2010 decennial data: Vermont population = {result['estimate'].iloc[0]}"
+        )
 
 
 class TestEnhancedFeaturesIntegration:
@@ -786,7 +788,7 @@ class TestDecennialTableChunkingIntegration:
             geography="state",
             table="P1",  # Race table with 71 variables
             state="VT",
-            year=2020
+            year=2020,
         )
 
         # Verify the request succeeded
@@ -796,19 +798,21 @@ class TestDecennialTableChunkingIntegration:
         # Verify all P1 variables are present
         variables = result["variable"].unique()
         assert all(var.startswith("P1_") for var in variables)
-        
+
         # P1 table should have exactly 71 variables
         assert len(variables) == 71
-        
+
         # Verify proper tidy format structure
-        expected_columns = {"state", "GEOID", "variable", "estimate"}
+        expected_columns = {"state", "GEOID", "NAME", "variable", "estimate"}
         assert set(result.columns) == expected_columns
-        
+
         # Verify data looks reasonable (population should be > 0)
         total_pop = result[result["variable"] == "P1_001N"]["estimate"].iloc[0]
         assert int(total_pop) > 600000  # Vermont has ~643k people
-        
-        print(f"✓ Large table chunking test passed: {len(variables)} variables retrieved")
+
+        print(
+            f"✓ Large table chunking test passed: {len(variables)} variables retrieved"
+        )
 
     def test_medium_table_chunking_integration(self, setup_api_key):
         """Test chunking with a medium-sized table (P2 - 73 variables)."""
@@ -817,20 +821,22 @@ class TestDecennialTableChunkingIntegration:
             geography="state",
             table="P2",  # Hispanic/Latino origin table
             state="CA",  # Use California for variety
-            year=2020
+            year=2020,
         )
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
-        
+
         # Verify all variables start with P2_
         variables = result["variable"].unique()
         assert all(var.startswith("P2_") for var in variables)
-        
+
         # P2 should have many variables (typically 73)
         assert len(variables) > 50  # Should be chunked
-        
-        print(f"✓ Medium table chunking test passed: {len(variables)} variables retrieved")
+
+        print(
+            f"✓ Medium table chunking test passed: {len(variables)} variables retrieved"
+        )
 
     def test_small_table_no_chunking_integration(self, setup_api_key):
         """Test that small tables work without chunking."""
@@ -839,42 +845,40 @@ class TestDecennialTableChunkingIntegration:
             geography="state",
             table="P5",  # Group quarters population table (10 variables)
             state="VT",
-            year=2020
+            year=2020,
         )
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
-        
+
         variables = result["variable"].unique()
         assert all(var.startswith("P5_") for var in variables)
-        
+
         # P5 table should have exactly 10 variables (no chunking needed)
         assert len(variables) == 10
         assert len(variables) < 48
-        
-        print(f"✓ Small table no-chunking test passed: {len(variables)} variables retrieved")
+
+        print(
+            f"✓ Small table no-chunking test passed: {len(variables)} variables retrieved"
+        )
 
     def test_table_chunking_wide_format_integration(self, setup_api_key):
         """Test table chunking works with wide format output."""
         result = tc.get_decennial(
-            geography="state",
-            table="P1",
-            state="VT", 
-            year=2020,
-            output="wide"
+            geography="state", table="P1", state="VT", year=2020, output="wide"
         )
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1  # Single state = single row
-        
+
         # Count P1 columns
         p1_columns = [col for col in result.columns if col.startswith("P1_")]
         assert len(p1_columns) == 71  # All P1 variables as columns
-        
+
         # Verify geography columns exist
         assert "GEOID" in result.columns
         assert "state" in result.columns
-        
+
         print(f"✓ Wide format chunking test passed: {len(p1_columns)} P1 columns")
 
     def test_table_chunking_with_summary_var_integration(self, setup_api_key):
@@ -884,25 +888,27 @@ class TestDecennialTableChunkingIntegration:
             table="P1",
             summary_var="P1_001N",  # Total population as summary
             state="VT",
-            year=2020
+            year=2020,
         )
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
-        
+
         # Should have summary_est column
         assert "summary_est" in result.columns
-        
+
         # Summary values should be numeric and positive
         summary_values = result["summary_est"].dropna()
         assert all(val > 0 for val in summary_values)
-        
+
         # Should have P1 variables (minus the summary variable that gets separated)
         variables = result["variable"].unique()
         # Total variables should be 70 (71 P1 variables minus the summary variable)
         assert len(variables) == 70
-        
-        print(f"✓ Table chunking with summary_var test passed: {len(variables)} variables + summary column")
+
+        print(
+            f"✓ Table chunking with summary_var test passed: {len(variables)} variables + summary column"
+        )
 
     def test_table_chunking_with_geometry_integration(self, setup_api_key):
         """Test table chunking works with geometry requests."""
@@ -911,54 +917,46 @@ class TestDecennialTableChunkingIntegration:
             table="P2",  # Use P2 table (requires chunking)
             state="VT",
             year=2020,
-            geometry=True  # Request geometry
+            geometry=True,  # Request geometry
         )
 
         # Should return GeoDataFrame when geometry=True
-        assert hasattr(result, 'geometry')  # GeoDataFrame has geometry attribute
+        assert hasattr(result, "geometry")  # GeoDataFrame has geometry attribute
         assert len(result) > 0
-        
+
         # Should have geographic data
         assert "GEOID" in result.columns
-        
+
         # Should have all P2 variables
         variables = result["variable"].unique()
         assert all(var.startswith("P2_") for var in variables)
         assert len(variables) > 50  # P2 is a large table
-        
-        print(f"✓ Table chunking with geometry test passed: {len(variables)} variables with geometry")
+
+        print(
+            f"✓ Table chunking with geometry test passed: {len(variables)} variables with geometry"
+        )
 
     @pytest.mark.integration
     def test_p1_table_integration(self, setup_api_key):
         """Pytest version: Test P1 table chunking with real API calls."""
-        result = tc.get_decennial(
-            geography="state",
-            table="P1",
-            state="VT",
-            year=2020
-        )
-        
+        result = tc.get_decennial(geography="state", table="P1", state="VT", year=2020)
+
         # Verify comprehensive table retrieval
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
         variables = result["variable"].unique()
         assert all(var.startswith("P1_") for var in variables)
         assert len(variables) == 71  # P1 should have exactly 71 variables
-        
+
         # Verify proper data structure
-        expected_columns = {"state", "GEOID", "variable", "estimate"}
+        expected_columns = {"state", "GEOID", "NAME", "variable", "estimate"}
         assert set(result.columns) == expected_columns
 
-    @pytest.mark.integration  
+    @pytest.mark.integration
     def test_p5_table_small_no_chunking_integration(self, setup_api_key):
         """Pytest version: Test small table that doesn't require chunking."""
-        result = tc.get_decennial(
-            geography="state",
-            table="P5",
-            state="VT", 
-            year=2020
-        )
-        
+        result = tc.get_decennial(geography="state", table="P5", state="VT", year=2020)
+
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
         variables = result["variable"].unique()
@@ -969,31 +967,132 @@ class TestDecennialTableChunkingIntegration:
     def test_table_wide_format_chunking_integration(self, setup_api_key):
         """Pytest version: Test table chunking with wide format."""
         result = tc.get_decennial(
-            geography="state",
-            table="P1",
-            state="VT",
-            year=2020,
-            output="wide"
+            geography="state", table="P1", state="VT", year=2020, output="wide"
         )
-        
+
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1  # Single state
         p1_columns = [col for col in result.columns if col.startswith("P1_")]
         assert len(p1_columns) == 71  # All P1 variables as columns
 
 
+class TestNameColumnIntegration:
+    """Integration tests for NAME column functionality with real API calls."""
+
+    @pytest.mark.integration
+    def test_acs_state_name_column(self, setup_api_key):
+        """Test NAME column for ACS state-level data."""
+        result = tc.get_acs(
+            geography="state", variables="B01003_001", state="VT", year=2022
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # Vermont should have proper state name
+        assert result["NAME"].iloc[0] == "Vermont"
+
+    @pytest.mark.integration
+    def test_acs_county_name_column(self, setup_api_key):
+        """Test NAME column for ACS county-level data."""
+        result = tc.get_acs(
+            geography="county", variables="B01003_001", state="VT", year=2022
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # Should have county names
+        county_names = result["NAME"].unique()
+        assert any("County" in name for name in county_names)
+
+    @pytest.mark.integration
+    def test_decennial_state_name_column(self, setup_api_key):
+        """Test NAME column for decennial state-level data."""
+        result = tc.get_decennial(
+            geography="state", variables="P1_001N", state="VT", year=2020
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # Vermont should have proper state name
+        assert result["NAME"].iloc[0] == "Vermont"
+
+    @pytest.mark.integration
+    def test_decennial_county_name_column(self, setup_api_key):
+        """Test NAME column for decennial county-level data."""
+        result = tc.get_decennial(
+            geography="county", variables="P1_001N", state="VT", year=2020
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # Should have county names
+        county_names = result["NAME"].unique()
+        assert any("County" in name for name in county_names)
+
+    @pytest.mark.integration
+    def test_name_column_wide_format(self, setup_api_key):
+        """Test NAME column works with wide format output."""
+        result = tc.get_acs(
+            geography="county",
+            variables=["B01003_001", "B19013_001"],
+            state="VT",
+            year=2022,
+            output="wide",
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # Should have proper county names in wide format
+        county_names = result["NAME"].unique()
+        assert any("County" in name for name in county_names)
+
+    @pytest.mark.integration
+    def test_tract_name_column_integration(self, setup_api_key):
+        """Test NAME column for tract-level data shows county and state."""
+        result = tc.get_acs(
+            geography="tract",
+            variables="B01003_001",
+            state="VT",
+            county="003",  # Bennington County
+            year=2022,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert "NAME" in result.columns
+        assert len(result) > 0
+
+        # All tracts should show county and state name (without tract number)
+        name_sample = result["NAME"].iloc[0]
+        assert "Bennington County, Vermont" == name_sample
+
+        # All entries should have the same NAME since they're all in the same county
+        unique_names = result["NAME"].unique()
+        assert len(unique_names) == 1
+        assert unique_names[0] == "Bennington County, Vermont"
+
+
 def run_table_chunking_integration_tests():
     """
     Run table chunking integration tests that require a valid Census API key.
-    
+
     These tests verify that:
     1. Large tables (>48 variables) are automatically chunked
-    2. Multiple API calls are made and results properly combined  
+    2. Multiple API calls are made and results properly combined
     3. All output formats work with chunking
     4. Summary variables and geometry work with chunked requests
     """
     import os
-    
+
     api_key = os.environ.get("CENSUS_API_KEY")
     if not api_key:
         print("⚠️  CENSUS_API_KEY not found. Skipping table chunking integration tests.")
@@ -1001,33 +1100,33 @@ def run_table_chunking_integration_tests():
         return
 
     tc.set_census_api_key(api_key)
-    
+
     print("🧪 Running Table Chunking Integration Tests...")
     print("=" * 60)
 
     test_class = TestDecennialTableChunkingIntegration()
-    
+
     try:
         # Test large table chunking
         print("\n📊 Testing large table chunking (P1 table - 71 variables)...")
         test_class.test_large_table_chunking_integration(api_key)
-        
-        # Test medium table chunking  
+
+        # Test medium table chunking
         print("\n📊 Testing medium table chunking (P2 table)...")
         test_class.test_medium_table_chunking_integration(api_key)
-        
+
         # Test small table (no chunking)
         print("\n📊 Testing small table (P5 table - no chunking needed)...")
         test_class.test_small_table_no_chunking_integration(api_key)
-        
+
         # Test wide format with chunking
         print("\n📊 Testing wide format with table chunking...")
         test_class.test_table_chunking_wide_format_integration(api_key)
-        
+
         # Test summary variable with chunking
         print("\n📊 Testing summary variable with table chunking...")
         test_class.test_table_chunking_with_summary_var_integration(api_key)
-        
+
         # Test geometry with chunking (skip if SSL issues)
         print("\n📊 Testing geometry with table chunking...")
         try:
@@ -1053,7 +1152,7 @@ def run_table_chunking_integration_tests():
         print(f"\n❌ Table chunking integration test failed: {e}")
         print("\nThis might be due to:")
         print("- Invalid API key")
-        print("- Network connectivity issues")  
+        print("- Network connectivity issues")
         print("- Census Bureau API being down")
         print("- Specific table not available for requested geography/year")
         raise
@@ -1062,5 +1161,5 @@ def run_table_chunking_integration_tests():
 if __name__ == "__main__":
     # Run both original integration tests and new table chunking tests
     run_integration_tests()
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     run_table_chunking_integration_tests()

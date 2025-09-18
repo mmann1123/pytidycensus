@@ -292,75 +292,90 @@ class TestProcessCensusData:
         # Realistic data matching actual Census Bureau API response format
         data = [
             {
-                'B01003_001E': '3269', 
-                'B01003_001M': '452', 
-                'B19013_001E': '234236', 
-                'B19013_001M': '42845', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400100',
-                'NAME': 'Census Tract 4001, Alameda County, California'
+                "B01003_001E": "3269",
+                "B01003_001M": "452",
+                "B19013_001E": "234236",
+                "B19013_001M": "42845",
+                "state": "06",
+                "county": "001",
+                "tract": "400100",
+                "NAME": "Census Tract 4001, Alameda County, California",
             },
             {
-                'B01003_001E': '2147', 
-                'B01003_001M': '201', 
-                'B19013_001E': '225500', 
-                'B19013_001M': '29169', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400200',
-                'NAME': 'Census Tract 4002, Alameda County, California'
+                "B01003_001E": "2147",
+                "B01003_001M": "201",
+                "B19013_001E": "225500",
+                "B19013_001M": "29169",
+                "state": "06",
+                "county": "001",
+                "tract": "400200",
+                "NAME": "Census Tract 4002, Alameda County, California",
             },
             {
-                'B01003_001E': '5619', 
-                'B01003_001M': '571', 
-                'B19013_001E': '164000', 
-                'B19013_001M': '44675', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400300',
-                'NAME': 'Census Tract 4003, Alameda County, California'
-            }
+                "B01003_001E": "5619",
+                "B01003_001M": "571",
+                "B19013_001E": "164000",
+                "B19013_001M": "44675",
+                "state": "06",
+                "county": "001",
+                "tract": "400300",
+                "NAME": "Census Tract 4003, Alameda County, California",
+            },
         ]
-        variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
+        variables = ["B01003_001E", "B01003_001M", "B19013_001E", "B19013_001M"]
 
         result = process_census_data(data, variables, output="tidy")
 
         # Verify basic structure
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 12  # 3 tracts × 4 variables = 12 rows
-        
+
         # Verify columns (updated for new format with 'estimate' instead of 'value')
-        expected_columns = ['state', 'county', 'tract', 'NAME', 'GEOID', 'variable', 'estimate']
+        expected_columns = [
+            "state",
+            "county",
+            "tract",
+            "NAME",
+            "GEOID",
+            "variable",
+            "estimate",
+        ]
         for col in expected_columns:
             assert col in result.columns, f"Missing column: {col}"
-        
+
         # Verify GEOID creation
-        expected_geoids = ['06001400100', '06001400200', '06001400300']
-        actual_geoids = result['GEOID'].unique()
+        expected_geoids = ["06001400100", "06001400200", "06001400300"]
+        actual_geoids = result["GEOID"].unique()
         for geoid in expected_geoids:
             assert geoid in actual_geoids, f"Missing GEOID: {geoid}"
-        
+
         # Verify variable melting
-        expected_variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
-        actual_variables = result['variable'].unique()
+        expected_variables = [
+            "B01003_001E",
+            "B01003_001M",
+            "B19013_001E",
+            "B19013_001M",
+        ]
+        actual_variables = result["variable"].unique()
         for var in expected_variables:
             assert var in actual_variables, f"Missing variable: {var}"
-        
+
         # Verify data types - estimates should be numeric after processing
-        assert result['estimate'].dtype in ['int64', 'float64', 'object']  # Can be string from API
-        
+        assert result["estimate"].dtype in [
+            "int64",
+            "float64",
+            "object",
+        ]  # Can be string from API
+
         # Verify specific data values
         tract_4001_pop = result[
-            (result['GEOID'] == '06001400100') & 
-            (result['variable'] == 'B01003_001E')
-        ]['estimate'].iloc[0]
+            (result["GEOID"] == "06001400100") & (result["variable"] == "B01003_001E")
+        ]["estimate"].iloc[0]
         assert tract_4001_pop == 3269  # Should be converted to numeric
-        
+
         tract_4002_income = result[
-            (result['GEOID'] == '06001400200') & 
-            (result['variable'] == 'B19013_001E')
-        ]['estimate'].iloc[0]
+            (result["GEOID"] == "06001400200") & (result["variable"] == "B19013_001E")
+        ]["estimate"].iloc[0]
         assert tract_4002_income == 225500
 
     def test_process_realistic_census_api_data_wide(self):
@@ -368,53 +383,53 @@ class TestProcessCensusData:
         # Same realistic data
         data = [
             {
-                'B01003_001E': '3269', 
-                'B01003_001M': '452', 
-                'B19013_001E': '234236', 
-                'B19013_001M': '42845', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400100',
-                'NAME': 'Census Tract 4001, Alameda County, California'
+                "B01003_001E": "3269",
+                "B01003_001M": "452",
+                "B19013_001E": "234236",
+                "B19013_001M": "42845",
+                "state": "06",
+                "county": "001",
+                "tract": "400100",
+                "NAME": "Census Tract 4001, Alameda County, California",
             },
             {
-                'B01003_001E': '2147', 
-                'B01003_001M': '201', 
-                'B19013_001E': '225500', 
-                'B19013_001M': '29169', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400200',
-                'NAME': 'Census Tract 4002, Alameda County, California'
-            }
+                "B01003_001E": "2147",
+                "B01003_001M": "201",
+                "B19013_001E": "225500",
+                "B19013_001M": "29169",
+                "state": "06",
+                "county": "001",
+                "tract": "400200",
+                "NAME": "Census Tract 4002, Alameda County, California",
+            },
         ]
-        variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
+        variables = ["B01003_001E", "B01003_001M", "B19013_001E", "B19013_001M"]
 
         result = process_census_data(data, variables, output="wide")
 
         # Verify basic structure
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 2  # 2 tracts
-        
+
         # Verify geographic columns are present and data columns follow
         all_cols = list(result.columns)
-        assert 'state' in all_cols
-        assert 'county' in all_cols
-        assert 'tract' in all_cols
-        assert 'GEOID' in all_cols
-        assert 'NAME' in all_cols
-        
+        assert "state" in all_cols
+        assert "county" in all_cols
+        assert "tract" in all_cols
+        assert "GEOID" in all_cols
+        assert "NAME" in all_cols
+
         # Verify all variable columns are present
         for var in variables:
             assert var in result.columns, f"Missing variable column: {var}"
-        
+
         # Verify GEOID creation from geographic parts
-        assert result['GEOID'].tolist() == ['06001400100', '06001400200']
-        
+        assert result["GEOID"].tolist() == ["06001400100", "06001400200"]
+
         # Verify data values are numeric
-        assert result['B01003_001E'].iloc[0] == 3269
-        assert result['B19013_001E'].iloc[1] == 225500
-        assert result['B01003_001M'].iloc[0] == 452
+        assert result["B01003_001E"].iloc[0] == 3269
+        assert result["B19013_001E"].iloc[1] == 225500
+        assert result["B01003_001M"].iloc[0] == 452
 
 
 class TestAddMarginOfError:
@@ -481,12 +496,14 @@ class TestAddMarginOfError:
         # Should have estimate and moe columns, with variable names cleaned (E suffix removed)
         assert "estimate" in result.columns
         assert "moe" in result.columns
-        assert len(result) == 2  # 2 geographies, estimate and MOE combined into one row each
-        
+        assert (
+            len(result) == 2
+        )  # 2 geographies, estimate and MOE combined into one row each
+
         # Check variable names have E suffix removed
         assert "B01001_001" in result["variable"].values
         assert not any(var.endswith("E") for var in result["variable"].values)
-        
+
         # Verify data values
         alabama_row = result[result["GEOID"] == "01"]
         assert alabama_row["estimate"].iloc[0] == 5024279
@@ -529,51 +546,198 @@ class TestAddMarginOfError:
     def test_summary_variable_processing_tidy(self):
         """Test summary variable processing in tidy format data."""
         # Create tidy format data with summary variable included
-        df = pd.DataFrame({
-            "GEOID": ["04001", "04001", "04001", "04003", "04003", "04003"],
-            "NAME": ["Apache County, Arizona", "Apache County, Arizona", "Apache County, Arizona",
-                    "Cochise County, Arizona", "Cochise County, Arizona", "Cochise County, Arizona"],
-            "variable": ["White", "Black", "B03002_001", "White", "Black", "B03002_001"],  # Summary var included
-            "estimate": [12993, 544, 71714, 69095, 1024, 75045],
-            "moe": [56.0, 56.0, 0.0, 350.0, 89.0, 0.0]
-        })
-        
+        df = pd.DataFrame(
+            {
+                "GEOID": ["04001", "04001", "04001", "04003", "04003", "04003"],
+                "NAME": [
+                    "Apache County, Arizona",
+                    "Apache County, Arizona",
+                    "Apache County, Arizona",
+                    "Cochise County, Arizona",
+                    "Cochise County, Arizona",
+                    "Cochise County, Arizona",
+                ],
+                "variable": [
+                    "White",
+                    "Black",
+                    "B03002_001",
+                    "White",
+                    "Black",
+                    "B03002_001",
+                ],  # Summary var included
+                "estimate": [12993, 544, 71714, 69095, 1024, 75045],
+                "moe": [56.0, 56.0, 0.0, 350.0, 89.0, 0.0],
+            }
+        )
+
         # Simulate summary variable processing
         summary_var_clean = "B03002_001"
-        
+
         # Extract summary data
         summary_est_rows = df[df["variable"] == summary_var_clean]
         assert len(summary_est_rows) == 2  # One for each geography
-        
+
         summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
         summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
-        
+
         summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
         summary_moe_df = summary_moe_df.rename(columns={"moe": "summary_moe"})
-        
+
         # Remove summary variable from main data
         df_filtered = df[df["variable"] != summary_var_clean]
         assert len(df_filtered) == 4  # Should have 4 rows (2 geographies × 2 variables)
-        
+
         # Join summary values
         result = df_filtered.merge(summary_est_df, on="GEOID", how="left")
         result = result.merge(summary_moe_df, on="GEOID", how="left")
-        
+
         # Verify results
         assert len(result) == 4
         assert "summary_est" in result.columns
         assert "summary_moe" in result.columns
-        
+
         # Check Apache County values
         apache_rows = result[result["GEOID"] == "04001"]
         assert all(apache_rows["summary_est"] == 71714)
         assert all(apache_rows["summary_moe"] == 0.0)
-        
+
         # Check Cochise County values
         cochise_rows = result[result["GEOID"] == "04003"]
         assert all(cochise_rows["summary_est"] == 75045)
         assert all(cochise_rows["summary_moe"] == 0.0)
-        
+
         # Verify variable names are preserved
         expected_vars = ["White", "Black"]
         assert set(result["variable"].unique()) == set(expected_vars)
+
+
+class TestNameColumnFunctionality:
+    """Test NAME column functionality using national_county.txt lookup."""
+
+    def test_load_county_lookup(self):
+        """Test loading of county lookup table."""
+        from pytidycensus.utils import load_county_lookup
+
+        lookup_df = load_county_lookup()
+
+        # Should have data for all states and counties
+        assert len(lookup_df) > 3000  # Thousands of counties plus states
+        assert "county_geoid" in lookup_df.columns
+        assert "county_name" in lookup_df.columns
+
+        # Should include state-level entries
+        state_entries = lookup_df[lookup_df["county_geoid"].str.len() == 2]
+        assert len(state_entries) >= 50  # At least 50 states/territories
+
+        # Should include county-level entries
+        county_entries = lookup_df[lookup_df["county_geoid"].str.len() == 5]
+        assert len(county_entries) > 3000  # Thousands of counties
+
+    def test_add_name_column(self):
+        """Test adding NAME column using lookup table."""
+        from pytidycensus.utils import add_name_column
+        import pandas as pd
+
+        # Test DataFrame with state, county, and tract GEOIDs
+        test_df = pd.DataFrame(
+            {
+                "GEOID": [
+                    "01",
+                    "01001",
+                    "01001020100",
+                    "06",
+                    "06037",
+                    "06037601400",
+                ],  # AL, Autauga County, tract in Autauga, CA, LA County, tract in LA
+                "variable": ["B01003_001"] * 6,
+                "estimate": [1000, 50000, 2500, 2000000, 10000000, 4500],
+            }
+        )
+
+        result_df = add_name_column(test_df)
+
+        # Should have NAME column
+        assert "NAME" in result_df.columns
+
+        # Check state entries
+        alabama_row = result_df[result_df["GEOID"] == "01"]
+        assert not alabama_row.empty
+        assert alabama_row["NAME"].iloc[0] == "Alabama"
+
+        california_row = result_df[result_df["GEOID"] == "06"]
+        assert not california_row.empty
+        assert california_row["NAME"].iloc[0] == "California"
+
+        # Check county entries (now include state name)
+        autauga_row = result_df[result_df["GEOID"] == "01001"]
+        assert not autauga_row.empty
+        assert autauga_row["NAME"].iloc[0] == "Autauga County, Alabama"
+
+        la_county_row = result_df[result_df["GEOID"] == "06037"]
+        assert not la_county_row.empty
+        assert la_county_row["NAME"].iloc[0] == "Los Angeles County, California"
+
+        # Check tract entries (should show county and state, not tract number)
+        autauga_tract_row = result_df[result_df["GEOID"] == "01001020100"]
+        assert not autauga_tract_row.empty
+        assert autauga_tract_row["NAME"].iloc[0] == "Autauga County, Alabama"
+
+        la_tract_row = result_df[result_df["GEOID"] == "06037601400"]
+        assert not la_tract_row.empty
+        assert la_tract_row["NAME"].iloc[0] == "Los Angeles County, California"
+
+    def test_add_name_column_no_duplicate(self):
+        """Test that NAME column is not duplicated if it already exists."""
+        from pytidycensus.utils import add_name_column
+        import pandas as pd
+
+        # DataFrame already with NAME column
+        test_df = pd.DataFrame(
+            {
+                "GEOID": ["01", "06"],
+                "NAME": ["Existing Name 1", "Existing Name 2"],
+                "variable": ["B01003_001"] * 2,
+                "estimate": [1000, 2000],
+            }
+        )
+
+        result_df = add_name_column(test_df)
+
+        # Should still have only one NAME column with original values
+        assert "NAME" in result_df.columns
+        assert (
+            len([col for col in result_df.columns if "NAME" in col or "name" in col])
+            == 1
+        )
+        assert result_df["NAME"].iloc[0] == "Existing Name 1"
+        assert result_df["NAME"].iloc[1] == "Existing Name 2"
+
+    def test_process_census_data_includes_name(self):
+        """Test that process_census_data includes NAME column via lookup."""
+        from pytidycensus.utils import process_census_data
+
+        # Mock Census API response format
+        mock_data = [
+            {"state": "50", "B01003_001E": "643816"},  # Vermont
+            {
+                "state": "01",
+                "county": "001",
+                "B01003_001E": "58805",
+            },  # Autauga County, AL
+        ]
+
+        result_df = process_census_data(
+            mock_data, variables=["B01003_001E"], output="tidy"
+        )
+
+        # Should have NAME column
+        assert "NAME" in result_df.columns
+
+        # Check that state and county names are properly populated
+        vermont_rows = result_df[result_df["GEOID"] == "50"]
+        if not vermont_rows.empty:
+            assert vermont_rows["NAME"].iloc[0] == "Vermont"
+
+        autauga_rows = result_df[result_df["GEOID"] == "01001"]
+        if not autauga_rows.empty:
+            assert autauga_rows["NAME"].iloc[0] == "Autauga County, Alabama"
