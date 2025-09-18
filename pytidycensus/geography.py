@@ -65,13 +65,20 @@ class TigerDownloader:
             if not state_fips:
                 raise ValueError("State FIPS code required for block group geography")
             return f"{self.BASE_URL}/TIGER{year}/BG/tl_{year}_{state_fips}_bg.zip"
-        elif geography == "zcta":
-            return f"{self.BASE_URL}/TIGER{year}/ZCTA5/tl_{year}_us_zcta510.zip"
+        elif geography in ["zcta", "zip code tabulation area"]:
+            # Use 2020 ZCTA boundaries (zcta520) for year 2020 and later
+            # Use 2010 ZCTA boundaries (zcta510) for earlier years
+            if year >= 2020:
+                return f"{self.BASE_URL}/TIGER{year}/ZCTA520/tl_{year}_us_zcta520.zip"
+            else:
+                return f"{self.BASE_URL}/TIGER{year}/ZCTA5/tl_{year}_us_zcta510.zip"
         elif geography == "place":
             state_fips = kwargs.get("state_fips")
             if not state_fips:
                 raise ValueError("State FIPS code required for place geography")
             return f"{self.BASE_URL}/TIGER{year}/PLACE/tl_{year}_{state_fips}_place.zip"
+        elif geography == "metropolitan statistical area/micropolitan statistical area":
+            return f"{self.BASE_URL}/TIGER{year}/CBSA/tl_{year}_us_cbsa.zip"
         else:
             raise ValueError(f"Geography '{geography}' not yet supported")
 
@@ -276,6 +283,21 @@ def get_geography(
             gdf["GEOID"] = (
                 gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
             )
+        elif (
+            geography == "metropolitan statistical area/micropolitan statistical area"
+            and "CBSAFP" in gdf.columns
+        ):
+            gdf["GEOID"] = gdf["CBSAFP"]
+        elif (
+            geography in ["zcta", "zip code tabulation area"]
+            and "ZCTA5CE20" in gdf.columns
+        ):
+            gdf["GEOID"] = gdf["ZCTA5CE20"]
+        elif (
+            geography in ["zcta", "zip code tabulation area"]
+            and "ZCTA5CE10" in gdf.columns
+        ):
+            gdf["GEOID"] = gdf["ZCTA5CE10"]
 
     # Clean up columns if not keeping all geo vars
     if not keep_geo_vars:
@@ -289,6 +311,11 @@ def get_geography(
             essential_cols.extend(["STATEFP", "COUNTYFP", "TRACTCE"])
             if geography == "block group":
                 essential_cols.append("BLKGRPCE")
+        elif geography == "metropolitan statistical area/micropolitan statistical area":
+            essential_cols.extend(["CBSAFP", "NAMELSAD"])
+        elif geography in ["zcta", "zip code tabulation area"]:
+            # Keep both 2010 and 2020 ZCTA codes since they may vary by year
+            essential_cols.extend(["ZCTA5CE20", "ZCTA5CE10"])
 
         # Keep only columns that exist
         cols_to_keep = [col for col in essential_cols if col in gdf.columns]

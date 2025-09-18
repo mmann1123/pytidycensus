@@ -152,6 +152,25 @@ def get_acs(
             "1-year ACS data can still be accessed for other years by supplying an appropriate year to the `year` parameter."
         )
 
+    # Handle geography aliases BEFORE validation (mirror R tidycensus)
+    if geography == "cbg":
+        geography = "block group"
+
+    if geography == "cbsa":
+        geography = "metropolitan statistical area/micropolitan statistical area"
+
+    if geography == "zcta":
+        geography = "zip code tabulation area"
+        if state and not zcta:
+            import warnings
+
+            warnings.warn(
+                "ZCTAs are national geographies that cannot be filtered by state. "
+                "The state parameter will be ignored. Use the `zcta` parameter to "
+                "request specific ZIP codes, or omit both parameters to get all ZCTAs.",
+                UserWarning,
+            )
+
     # Validate inputs
     year = validate_year(year, "acs")
     geography = validate_geography(geography)
@@ -180,20 +199,6 @@ def get_acs(
         raise ValueError(
             "Block data are not available in the ACS. Use `get_decennial()` to access block data from the 2010 Census."
         )
-
-    # Handle geography aliases (mirror R tidycensus)
-    if geography == "cbg":
-        geography = "block group"
-
-    if geography == "cbsa":
-        geography = "metropolitan statistical area/micropolitan statistical area"
-
-    if geography == "zcta":
-        geography = "zip code tabulation area"
-        if not zcta and not state:
-            raise ValueError(
-                "ZCTA data requires specifying either `zcta` parameter or `state`."
-            )
 
     if shift_geo and not geometry:
         raise ValueError(
@@ -257,6 +262,20 @@ def get_acs(
             moe_var = var[:-1] + "M"
             all_variables.append(moe_var)
 
+    # Add NAME variable for special geographies that support it
+    special_name_geographies = [
+        "metropolitan statistical area/micropolitan statistical area",
+        "zip code tabulation area",
+        "congressional district",
+        "state legislative district (upper chamber)",
+        "state legislative district (lower chamber)",
+        "public use microdata area",
+        "place",
+    ]
+
+    if geography in special_name_geographies and "NAME" not in all_variables:
+        all_variables.append("NAME")
+
     # Initialize API client
     api = CensusAPI(api_key)
 
@@ -303,8 +322,11 @@ def get_acs(
         else:
             filtered_variables = all_variables
 
-        # Process data (use filtered variables)
-        df = process_census_data(data, filtered_variables, output)
+        # Separate data variables from identifier variables like NAME
+        data_variables = [var for var in filtered_variables if var != "NAME"]
+
+        # Process data (use only data variables, not NAME)
+        df = process_census_data(data, data_variables, output)
 
         # Add margin of error handling with MOE level adjustment
         df = add_margin_of_error(df, all_variables, moe_level=moe_level, output=output)

@@ -9,7 +9,17 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import us
+import yaml
 from geopandas import GeoDataFrame
+
+
+def get_credentials():
+    try:
+        with open("credentials.yaml") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        with open("../credentials.yaml") as f:
+            return yaml.safe_load(f)
 
 
 @lru_cache(maxsize=1)
@@ -448,9 +458,11 @@ def validate_geography(geography: str) -> str:
         "block",
         "place",
         "msa",
+        "metropolitan statistical area/micropolitan statistical area",
         "csa",
         "necta",
         "zcta",
+        "zip code tabulation area",
         "congressional district",
         "state legislative district (upper chamber)",
         "state legislative district (lower chamber)",
@@ -534,6 +546,14 @@ def build_geography_params(
             if county:
                 county_fips = validate_county(county, state_fips[0])
                 params["in"] += f" county:{','.join(county_fips)}"
+    elif geography == "zip code tabulation area":
+        # ZCTAs are national geographies that cannot be filtered by state
+        params["for"] = "zip code tabulation area:*"
+        # Note: ZCTAs ignore state parameter since they can cross state boundaries
+    elif geography == "metropolitan statistical area/micropolitan statistical area":
+        # CBSAs are also national geographies
+        params["for"] = "metropolitan statistical area/micropolitan statistical area:*"
+        # Note: CBSAs ignore state parameter since they can cross state boundaries
     else:
         # For other geographies, use basic format
         params["for"] = f"{geography}:*"
@@ -588,9 +608,40 @@ def process_census_data(
         for col in df.columns
         if col in ["state", "county", "tract", "block group", "place"]
     ]
-    if geo_cols:
+
+    # Handle special geography identifiers that are already GEOID-like
+    geoid_like_cols = [
+        "metropolitan statistical area/micropolitan statistical area",
+        "zip code tabulation area",
+        "us",
+        "region",
+        "division",
+        "congressional district",
+        "state legislative district (upper chamber)",
+        "state legislative district (lower chamber)",
+        "public use microdata area",
+        "school district (elementary)",
+        "school district (secondary)",
+        "school district (unified)",
+    ]
+
+    # Check if we have a geoid-like column
+    geoid_source_col = None
+    for col in geoid_like_cols:
+        if col in df.columns:
+            geoid_source_col = col
+            break
+
+    if geoid_source_col:
+        # Use the existing geoid-like column as GEOID
+        df["GEOID"] = df[geoid_source_col].astype(str)
+        # Remove the original column since we now have GEOID
+        df = df.drop(columns=[geoid_source_col])
+    elif geo_cols:
+        # Build GEOID from multiple geography columns for hierarchical geographies
         df["GEOID"] = df[geo_cols].fillna("").astype(str).agg("".join, axis=1)
-    geo_cols.append("GEOID")
+
+    geo_cols = ["GEOID"]
 
     # Reorder columns to put geographic identifiers first
     if output == "wide" and isinstance(df, (pd.DataFrame, GeoDataFrame)):

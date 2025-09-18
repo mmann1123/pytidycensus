@@ -62,3 +62,7 @@ CLAUDE.md
 <tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shp.iso.xml
 <tests.test_geography.TestTigerDownloader object at 0x7cd9d17f99d0>/cb_2018_us_division_20m/cb_2018_us_division_20m.shx
 pytidycensus/tests.py
+docs/credentials.yaml
+examples/credentials.yaml
+docs/__build/
+docs/_build/

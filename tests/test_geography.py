@@ -113,11 +113,23 @@ class TestTigerDownloader:
 
     def test_build_url_zcta(self, mock_tiger_downloader):
         """Test URL building for ZCTA geography."""
-        url = mock_tiger_downloader._build_url(2022, "zcta")
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/ZCTA5/tl_2022_us_zcta510.zip"
+        # Test 2020+ uses ZCTA520 (2020 boundaries)
+        url_2022 = mock_tiger_downloader._build_url(2022, "zcta")
+        expected_2022 = (
+            "https://www2.census.gov/geo/tiger/TIGER2022/ZCTA520/tl_2022_us_zcta520.zip"
         )
-        assert url == expected
+        assert url_2022 == expected_2022
+
+        # Test pre-2020 uses ZCTA510 (2010 boundaries)
+        url_2019 = mock_tiger_downloader._build_url(2019, "zcta")
+        expected_2019 = (
+            "https://www2.census.gov/geo/tiger/TIGER2019/ZCTA5/tl_2019_us_zcta510.zip"
+        )
+        assert url_2019 == expected_2019
+
+        # Test both aliases work
+        url_full = mock_tiger_downloader._build_url(2022, "zip code tabulation area")
+        assert url_full == expected_2022
 
     def test_build_url_place(self, mock_tiger_downloader):
         """Test URL building for place geography."""
@@ -133,6 +145,16 @@ class TestTigerDownloader:
             ValueError, match="State FIPS code required for place geography"
         ):
             mock_tiger_downloader._build_url(2022, "place")
+
+    def test_build_url_cbsa(self, mock_tiger_downloader):
+        """Test URL building for CBSA geography."""
+        url = mock_tiger_downloader._build_url(
+            2022, "metropolitan statistical area/micropolitan statistical area"
+        )
+        expected = (
+            "https://www2.census.gov/geo/tiger/TIGER2022/CBSA/tl_2022_us_cbsa.zip"
+        )
+        assert url == expected
 
     def test_build_url_unsupported_geography(self, mock_tiger_downloader):
         """Test URL building for unsupported geography."""

@@ -128,6 +128,24 @@ def get_decennial(
 
     print(f"Getting data from the {year} decennial Census")
 
+    # Handle geography aliases BEFORE validation (mirror R tidycensus)
+    if geography == "cbg":
+        geography = "block group"
+
+    if geography == "cbsa":
+        geography = "metropolitan statistical area/micropolitan statistical area"
+
+    if geography == "zcta":
+        geography = "zip code tabulation area"
+        if state:
+            import warnings
+
+            warnings.warn(
+                "ZCTAs are national geographies that cannot be filtered by state. "
+                "The state parameter will be ignored.",
+                UserWarning,
+            )
+
     # Validate inputs (mirror R tidycensus)
     year = validate_year(year, "dec")
     geography = validate_geography(geography)
@@ -139,16 +157,6 @@ def get_decennial(
             "We will support 1990 data again when the endpoint is updated; in the meantime, "
             "we recommend using NHGIS (https://nhgis.org) and the ipumsr Python package."
         )
-
-    # Handle geography aliases (mirror R tidycensus)
-    if geography == "cbg":
-        geography = "block group"
-
-    if geography == "cbsa":
-        geography = "metropolitan statistical area/micropolitan statistical area"
-
-    if geography == "zcta":
-        geography = "zip code tabulation area"
 
     # Geography-specific validations (mirror R tidycensus)
     if geography == "voting district" and year != 2020:
@@ -226,6 +234,20 @@ def get_decennial(
     if isinstance(variables, str):
         variables = [variables]
 
+    # Add NAME variable for special geographies that support it
+    special_name_geographies = [
+        "metropolitan statistical area/micropolitan statistical area",
+        "zip code tabulation area",
+        "congressional district",
+        "state legislative district (upper chamber)",
+        "state legislative district (lower chamber)",
+        "public use microdata area",
+        "place",
+    ]
+
+    if geography in special_name_geographies and "NAME" not in variables:
+        variables = variables + ["NAME"]
+
     # Initialize API client
     api = CensusAPI(api_key)
 
@@ -256,7 +278,9 @@ def get_decennial(
                 survey=sumfile,
                 show_call=show_call,
             )
-            df = process_census_data(data, all_variables, output)
+            # Separate data variables from identifier variables like NAME
+            data_variables = [var for var in all_variables if var != "NAME"]
+            df = process_census_data(data, data_variables, output)
         else:
             # Multiple API requests for large variable lists (like full tables)
             print(
@@ -284,7 +308,9 @@ def get_decennial(
                     survey=sumfile,
                     show_call=show_call,
                 )
-                chunk_df = process_census_data(chunk_data, chunk, output)
+                # Separate data variables from identifier variables like NAME
+                chunk_data_vars = [var for var in chunk if var != "NAME"]
+                chunk_df = process_census_data(chunk_data, chunk_data_vars, output)
                 chunk_dfs.append(chunk_df)
 
             # Combine all chunks
