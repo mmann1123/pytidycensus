@@ -229,7 +229,7 @@ class TestProcessCensusData:
 
         assert len(result) == 4  # 2 states × 2 variables
         assert "variable" in result.columns
-        assert "value" in result.columns
+        assert "estimate" in result.columns  # Updated to new column name
         assert result["variable"].nunique() == 2
 
     def test_process_wide_format(self):
@@ -287,6 +287,135 @@ class TestProcessCensusData:
         assert result["NAME"].iloc[0] == "Texas"
         assert result["NAME"].iloc[1] == "California"
 
+    def test_process_realistic_census_api_data_tidy(self):
+        """Test processing realistic Census API data in tidy format."""
+        # Realistic data matching actual Census Bureau API response format
+        data = [
+            {
+                'B01003_001E': '3269', 
+                'B01003_001M': '452', 
+                'B19013_001E': '234236', 
+                'B19013_001M': '42845', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400100',
+                'NAME': 'Census Tract 4001, Alameda County, California'
+            },
+            {
+                'B01003_001E': '2147', 
+                'B01003_001M': '201', 
+                'B19013_001E': '225500', 
+                'B19013_001M': '29169', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400200',
+                'NAME': 'Census Tract 4002, Alameda County, California'
+            },
+            {
+                'B01003_001E': '5619', 
+                'B01003_001M': '571', 
+                'B19013_001E': '164000', 
+                'B19013_001M': '44675', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400300',
+                'NAME': 'Census Tract 4003, Alameda County, California'
+            }
+        ]
+        variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
+
+        result = process_census_data(data, variables, output="tidy")
+
+        # Verify basic structure
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 12  # 3 tracts × 4 variables = 12 rows
+        
+        # Verify columns (updated for new format with 'estimate' instead of 'value')
+        expected_columns = ['state', 'county', 'tract', 'NAME', 'GEOID', 'variable', 'estimate']
+        for col in expected_columns:
+            assert col in result.columns, f"Missing column: {col}"
+        
+        # Verify GEOID creation
+        expected_geoids = ['06001400100', '06001400200', '06001400300']
+        actual_geoids = result['GEOID'].unique()
+        for geoid in expected_geoids:
+            assert geoid in actual_geoids, f"Missing GEOID: {geoid}"
+        
+        # Verify variable melting
+        expected_variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
+        actual_variables = result['variable'].unique()
+        for var in expected_variables:
+            assert var in actual_variables, f"Missing variable: {var}"
+        
+        # Verify data types - estimates should be numeric after processing
+        assert result['estimate'].dtype in ['int64', 'float64', 'object']  # Can be string from API
+        
+        # Verify specific data values
+        tract_4001_pop = result[
+            (result['GEOID'] == '06001400100') & 
+            (result['variable'] == 'B01003_001E')
+        ]['estimate'].iloc[0]
+        assert tract_4001_pop == 3269  # Should be converted to numeric
+        
+        tract_4002_income = result[
+            (result['GEOID'] == '06001400200') & 
+            (result['variable'] == 'B19013_001E')
+        ]['estimate'].iloc[0]
+        assert tract_4002_income == 225500
+
+    def test_process_realistic_census_api_data_wide(self):
+        """Test processing realistic Census API data in wide format."""
+        # Same realistic data
+        data = [
+            {
+                'B01003_001E': '3269', 
+                'B01003_001M': '452', 
+                'B19013_001E': '234236', 
+                'B19013_001M': '42845', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400100',
+                'NAME': 'Census Tract 4001, Alameda County, California'
+            },
+            {
+                'B01003_001E': '2147', 
+                'B01003_001M': '201', 
+                'B19013_001E': '225500', 
+                'B19013_001M': '29169', 
+                'state': '06', 
+                'county': '001', 
+                'tract': '400200',
+                'NAME': 'Census Tract 4002, Alameda County, California'
+            }
+        ]
+        variables = ['B01003_001E', 'B01003_001M', 'B19013_001E', 'B19013_001M']
+
+        result = process_census_data(data, variables, output="wide")
+
+        # Verify basic structure
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2  # 2 tracts
+        
+        # Verify geographic columns are present and data columns follow
+        all_cols = list(result.columns)
+        assert 'state' in all_cols
+        assert 'county' in all_cols
+        assert 'tract' in all_cols
+        assert 'GEOID' in all_cols
+        assert 'NAME' in all_cols
+        
+        # Verify all variable columns are present
+        for var in variables:
+            assert var in result.columns, f"Missing variable column: {var}"
+        
+        # Verify GEOID creation from geographic parts
+        assert result['GEOID'].tolist() == ['06001400100', '06001400200']
+        
+        # Verify data values are numeric
+        assert result['B01003_001E'].iloc[0] == 3269
+        assert result['B19013_001E'].iloc[1] == 225500
+        assert result['B01003_001M'].iloc[0] == 452
+
 
 class TestAddMarginOfError:
     """Test cases for adding margin of error columns."""
@@ -331,7 +460,7 @@ class TestAddMarginOfError:
         assert "B01001_001E_moe" not in result.columns
 
     def test_add_moe_tidy_format(self):
-        """Test adding margin of error in tidy format."""
+        """Test adding margin of error in tidy format with new structure."""
         df = pd.DataFrame(
             {
                 "NAME": ["Alabama", "Alabama", "Alaska", "Alaska"],
@@ -341,7 +470,7 @@ class TestAddMarginOfError:
                     "B01001_001E",
                     "B01001_001M",
                 ],
-                "value": [5024279, 1000, 733391, 500],
+                "estimate": [5024279, 1000, 733391, 500],
                 "GEOID": ["01", "01", "02", "02"],
             }
         )
@@ -349,11 +478,19 @@ class TestAddMarginOfError:
 
         result = add_margin_of_error(df, variables, output="tidy")
 
-        # Should rename M variables to _moe
-        moe_rows = result[result["variable"].str.endswith("_moe")]
-        assert len(moe_rows) == 2
-        assert "B01001_001_moe" in result["variable"].values
-        assert "B01001_001M" not in result["variable"].values
+        # Should have estimate and moe columns, with variable names cleaned (E suffix removed)
+        assert "estimate" in result.columns
+        assert "moe" in result.columns
+        assert len(result) == 2  # 2 geographies, estimate and MOE combined into one row each
+        
+        # Check variable names have E suffix removed
+        assert "B01001_001" in result["variable"].values
+        assert not any(var.endswith("E") for var in result["variable"].values)
+        
+        # Verify data values
+        alabama_row = result[result["GEOID"] == "01"]
+        assert alabama_row["estimate"].iloc[0] == 5024279
+        assert alabama_row["moe"].iloc[0] == 1000.0  # MOE value
 
     def test_add_moe_confidence_levels(self):
         """Test MOE confidence level adjustments."""
