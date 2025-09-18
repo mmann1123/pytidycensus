@@ -518,7 +518,7 @@ def process_census_data(
             id_vars=id_vars,
             value_vars=variables,
             var_name="variable",
-            value_name="value",
+            value_name="estimate",
         )
 
         return df_long
@@ -573,13 +573,35 @@ def add_margin_of_error(
     adjustment_factor = moe_factors[moe_level]
 
     if output == "tidy":
-        # Multiply 'value' by adjustment_factor where 'variable' ends with 'M'
-        df.loc[df["variable"].str.endswith("M"), "value"] *= adjustment_factor
-
-        # Rename variable names ending in 'M' to end with '_moe'
-        df.loc[df["variable"].str.endswith("M"), "variable"] = df.loc[
-            df["variable"].str.endswith("M"), "variable"
-        ].str.replace(r"M$", "_moe", regex=True)
+        # For tidy format, we need to create a separate 'moe' column
+        # First, separate estimate and MOE rows
+        estimate_rows = df[~df["variable"].str.endswith("M")].copy()
+        moe_rows = df[df["variable"].str.endswith("M")].copy()
+        
+        # Adjust MOE values by confidence level
+        moe_rows["estimate"] *= adjustment_factor
+        
+        # Create variable mapping: remove 'M' suffix from MOE variables
+        moe_rows["variable"] = moe_rows["variable"].str.replace(r"M$", "E", regex=True)
+        
+        # Merge estimate and MOE data
+        if not moe_rows.empty:
+            # Merge on all columns except 'estimate'
+            merge_cols = [col for col in estimate_rows.columns if col != "estimate"]
+            result = estimate_rows.merge(
+                moe_rows[merge_cols + ["estimate"]].rename(columns={"estimate": "moe"}),
+                on=merge_cols,
+                how="left"
+            )
+        else:
+            # No MOE data available
+            result = estimate_rows.copy()
+            result["moe"] = pd.NA
+        
+        # Remove 'E' suffix from variable names to match R tidycensus format
+        result["variable"] = result["variable"].str.replace(r"E$", "", regex=True)
+            
+        return result
     else:
         # ACS variables have corresponding MOE variables with 'M' suffix
         # moe_mapping = {}
