@@ -64,3 +64,5 @@ CLAUDE.md
 pytidycensus/tests.py
 docs/credentials.yaml
 examples/credentials.yaml
+docs/__build/
+docs/_build/
