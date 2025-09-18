@@ -53,6 +53,8 @@ jobs:
         python -c "import pytidycensus; print('Package installed successfully')"
     
     - name: Build documentation
+      env:
+        CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
       run: |
         cd docs
         # Clean any previous builds
