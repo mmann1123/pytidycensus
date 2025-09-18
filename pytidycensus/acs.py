@@ -161,9 +161,13 @@ def get_acs(
 
     if geography == "zcta":
         geography = "zip code tabulation area"
-        if not zcta and not state:
-            raise ValueError(
-                "ZCTA data requires specifying either `zcta` parameter or `state`."
+        if state and not zcta:
+            import warnings
+            warnings.warn(
+                "ZCTAs are national geographies that cannot be filtered by state. "
+                "The state parameter will be ignored. Use the `zcta` parameter to "
+                "request specific ZIP codes, or omit both parameters to get all ZCTAs.",
+                UserWarning
             )
 
     # Validate inputs

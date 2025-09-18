@@ -545,6 +545,14 @@ def build_geography_params(
             if county:
                 county_fips = validate_county(county, state_fips[0])
                 params["in"] += f" county:{','.join(county_fips)}"
+    elif geography == "zip code tabulation area":
+        # ZCTAs are national geographies that cannot be filtered by state
+        params["for"] = "zip code tabulation area:*"
+        # Note: ZCTAs ignore state parameter since they can cross state boundaries
+    elif geography == "metropolitan statistical area/micropolitan statistical area":
+        # CBSAs are also national geographies
+        params["for"] = "metropolitan statistical area/micropolitan statistical area:*"
+        # Note: CBSAs ignore state parameter since they can cross state boundaries
     else:
         # For other geographies, use basic format
         params["for"] = f"{geography}:*"

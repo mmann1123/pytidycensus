@@ -137,6 +137,13 @@ def get_decennial(
 
     if geography == "zcta":
         geography = "zip code tabulation area"
+        if state:
+            import warnings
+            warnings.warn(
+                "ZCTAs are national geographies that cannot be filtered by state. "
+                "The state parameter will be ignored.",
+                UserWarning
+            )
 
     # Validate inputs (mirror R tidycensus)
     year = validate_year(year, "dec")

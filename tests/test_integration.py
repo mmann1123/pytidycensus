@@ -1397,6 +1397,41 @@ class TestGeographyLevelsIntegration:
             assert row["variable"] == "B01003_001", "ZCTA Variable format incorrect"
         
         print("✓ ZCTA output format matches R tidycensus")
+    
+    @pytest.mark.integration
+    def test_national_geographies_ignore_state(self, setup_api_key):
+        """Test that national geographies ignore state parameters correctly."""
+        
+        # Test that ZCTAs work with state parameter (but ignore it)
+        with pytest.warns(UserWarning, match="ZCTAs are national geographies"):
+            zcta_result = tc.get_acs(
+                geography="zcta",
+                state="VT",  # Should be ignored
+                variables="B01003_001",
+                year=2020
+            )
+        
+        # Should get all national ZCTAs, not just VT ZCTAs
+        assert len(zcta_result) > 1000, "Should get many ZCTAs (national dataset)"
+        assert "GEOID" in zcta_result.columns
+        assert "NAME" in zcta_result.columns
+        
+        print("✓ ZCTAs correctly ignore state parameter")
+        
+        # Test that CBSAs work with state parameter (but ignore it)
+        cbsa_result = tc.get_acs(
+            geography="cbsa",
+            state="VT",  # Should be ignored
+            variables="B01003_001", 
+            year=2020
+        )
+        
+        # Should get all national CBSAs
+        assert len(cbsa_result) > 500, "Should get many CBSAs (national dataset)"
+        assert "GEOID" in cbsa_result.columns
+        assert "NAME" in cbsa_result.columns
+        
+        print("✓ CBSAs correctly ignore state parameter")
 
 
 def run_table_chunking_integration_tests():
