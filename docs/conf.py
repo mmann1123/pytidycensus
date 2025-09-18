@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tomli
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -10,7 +11,18 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "pytidycensus"
 # copyright = "2024, pytidycensus contributors"
 author = "Michael Mann & Kyle Walker"
-release = "0.1.4"
+
+# Get version from pyproject.toml
+try:
+    with open(
+        os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), "rb"
+    ) as f:
+        pyproject_data = tomli.load(f)
+        release = pyproject_data["project"]["version"]
+except (FileNotFoundError, KeyError, ImportError):
+    # Fallback if file not found or missing key
+    release = "0.1.6"
+    print(f"Warning: Could not read version from pyproject.toml, using {release}")
 
 # -- General configuration ---------------------------------------------------
 

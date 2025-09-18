@@ -39,6 +39,7 @@ dependencies = [
     "certifi>=2025.8.3",
     "numpy<2",
     "pyyaml>=6.0.0",
+    "matplotlib>=3.9.0",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +51,7 @@ dev = [
     "isort>=5.9",
     "flake8>=3.9",
     "mypy>=0.910",
+    "toml>=0.10.2",
 ]
 docs = [
     "sphinx>=4.0",

@@ -70,6 +70,7 @@ Table of Contents
    :caption: User Guide:
 
    getting_started
+   pytidycensus_intro
    examples
 
 .. toctree::
