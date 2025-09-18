@@ -520,6 +520,7 @@ def process_census_data(
             var_name="variable",
             value_name="estimate",
         )
+        df_long["estimate"] = pd.to_numeric(df_long["estimate"], errors="coerce")
 
         return df_long
 
@@ -577,13 +578,13 @@ def add_margin_of_error(
         # First, separate estimate and MOE rows
         estimate_rows = df[~df["variable"].str.endswith("M")].copy()
         moe_rows = df[df["variable"].str.endswith("M")].copy()
-        
+
         # Adjust MOE values by confidence level
         moe_rows["estimate"] *= adjustment_factor
-        
+
         # Create variable mapping: remove 'M' suffix from MOE variables
         moe_rows["variable"] = moe_rows["variable"].str.replace(r"M$", "E", regex=True)
-        
+
         # Merge estimate and MOE data
         if not moe_rows.empty:
             # Merge on all columns except 'estimate'
@@ -591,16 +592,16 @@ def add_margin_of_error(
             result = estimate_rows.merge(
                 moe_rows[merge_cols + ["estimate"]].rename(columns={"estimate": "moe"}),
                 on=merge_cols,
-                how="left"
+                how="left",
             )
         else:
             # No MOE data available
             result = estimate_rows.copy()
             result["moe"] = pd.NA
-        
+
         # Remove 'E' suffix from variable names to match R tidycensus format
         result["variable"] = result["variable"].str.replace(r"E$", "", regex=True)
-            
+
         return result
     else:
         # ACS variables have corresponding MOE variables with 'M' suffix

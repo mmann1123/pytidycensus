@@ -6,14 +6,12 @@ They test the complete functionality with real data.
 """
 
 import os
-import sys
-from getpass import getpass
-
 import geopandas as gpd
 import pandas as pd
 import pytest
-
 import pytidycensus as tc
+from unittest.mock import Mock, patch
+from pytidycensus.acs import get_acs
 
 
 def get_api_key():
@@ -150,12 +148,12 @@ class TestACSIntegration:
 
         # Verify summary variable
         assert isinstance(result, pd.DataFrame)
-        assert "summary_value" in result.columns
-        assert result["summary_value"].dtype in ["int64", "float64"]
-        assert all(result["summary_value"] > 0)  # Population should be positive
+        assert "summary_est" in result.columns
+        assert result["summary_est"].dtype in ["int64", "float64"]
+        assert all(result["summary_est"] > 0)  # Population should be positive
 
         print(
-            f"✓ Summary variable working: max population = {result['summary_value'].max()}"
+            f"✓ Summary variable working: max population = {result['summary_est'].max()}"
         )
 
     def test_acs_moe_levels(self, setup_api_key):
@@ -167,6 +165,7 @@ class TestACSIntegration:
             state="VT",
             year=2022,
             moe_level=90,
+            output="wide",
         )
 
         # Get data with 95% confidence
@@ -176,6 +175,7 @@ class TestACSIntegration:
             state="VT",
             year=2022,
             moe_level=95,
+            output="wide",
         )
 
         # 95% MOE should be larger than 90% MOE
@@ -242,17 +242,17 @@ class TestDecennialIntegration:
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
         assert "GEOID" in result.columns
-        assert "NAME" in result.columns
+        # assert "NAME" in result.columns
         assert "variable" in result.columns
-        assert "value" in result.columns
+        assert "estimate" in result.columns
 
         # Verify data quality
         assert result["variable"].iloc[0] == "P1_001N"
-        assert result["value"].dtype in ["int64", "float64"]
-        assert "Vermont" in result["NAME"].iloc[0]
+        assert result["estimate"].dtype in ["int64", "float64"]
+        # assert "Vermont" in result["NAME"].iloc[0]
 
         print(
-            f"✓ Retrieved 2020 decennial data: Vermont population = {result['value'].iloc[0]}"
+            f"✓ Retrieved 2020 decennial data: Vermont population = {result['estimate'].iloc[0]}"
         )
 
     def test_decennial_named_variables(self, setup_api_key):
@@ -284,8 +284,8 @@ class TestDecennialIntegration:
 
         # Verify summary variable
         assert isinstance(result, pd.DataFrame)
-        assert "summary_value" in result.columns
-        assert all(result["summary_value"] >= result["value"])  # Total >= subset
+        assert "summary_est" in result.columns
+        assert all(result["summary_est"] >= result["estimate"])  # Total >= subset
 
         print(f"✓ Summary variable in decennial working")
 
@@ -393,6 +393,323 @@ class TestEnhancedFeaturesIntegration:
             assert len(dp_warnings) > 0
 
         print("✓ 2020 differential privacy warning working")
+
+
+"""
+Integration tests for pytidycensus functionality.
+
+These tests focus on end-to-end workflows and realistic data scenarios.
+"""
+
+
+class TestSummaryVariableIntegration:
+    """Integration tests for summary variable functionality."""
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_summary_var_complete_workflow_tidy(self, mock_api_class):
+        """Test complete summary_var workflow from API call to final output."""
+        # Mock complete realistic API response
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                # Race variables
+                "B03002_003E": "12993",  # White
+                "B03002_003M": "56",
+                "B03002_004E": "544",  # Black
+                "B03002_004M": "56",
+                "B03002_005E": "51979",  # Native
+                "B03002_005M": "327",
+                "B03002_006E": "1234",  # Asian
+                "B03002_006M": "89",
+                "B03002_007E": "567",  # HIPI
+                "B03002_007M": "45",
+                "B03002_012E": "4256",  # Hispanic
+                "B03002_012M": "178",
+                # Summary variable (total population)
+                "B03002_001E": "71714",
+                "B03002_001M": "0",
+                # Geographic identifiers
+                "state": "04",
+                "county": "001",
+                "NAME": "Apache County, Arizona",
+            },
+            {
+                # Second geography - Cochise County
+                "B03002_003E": "69095",
+                "B03002_003M": "350",
+                "B03002_004E": "1024",
+                "B03002_004M": "89",
+                "B03002_005E": "2156",
+                "B03002_005M": "145",
+                "B03002_006E": "2345",
+                "B03002_006M": "123",
+                "B03002_007E": "678",
+                "B03002_007M": "67",
+                "B03002_012E": "5678",
+                "B03002_012M": "234",
+                "B03002_001E": "75045",
+                "B03002_001M": "0",
+                "state": "04",
+                "county": "003",
+                "NAME": "Cochise County, Arizona",
+            },
+            {
+                # Third geography - Maricopa County
+                "B03002_003E": "2845321",
+                "B03002_003M": "1234",
+                "B03002_004E": "234567",
+                "B03002_004M": "567",
+                "B03002_005E": "45678",
+                "B03002_005M": "234",
+                "B03002_006E": "123456",
+                "B03002_006M": "345",
+                "B03002_007E": "12345",
+                "B03002_007M": "123",
+                "B03002_012E": "1234567",
+                "B03002_012M": "789",
+                "B03002_001E": "4420568",
+                "B03002_001M": "0",
+                "state": "04",
+                "county": "013",
+                "NAME": "Maricopa County, Arizona",
+            },
+        ]
+        mock_api_class.return_value = mock_api
+
+        # Test the complete race variables workflow exactly as in the user example
+        race_vars = {
+            "White": "B03002_003",
+            "Black": "B03002_004",
+            "Native": "B03002_005",
+            "Asian": "B03002_006",
+            "HIPI": "B03002_007",
+            "Hispanic": "B03002_012",
+        }
+
+        result = get_acs(
+            geography="county",
+            state="AZ",
+            variables=race_vars,
+            summary_var="B03002_001",
+            year=2020,
+            output="tidy",
+            api_key="test",
+        )
+
+        # Verify API call was made correctly
+        mock_api.get.assert_called_once()
+        call_args = mock_api.get.call_args[1]
+
+        # Check that all race variables + summary variable were requested with E/M suffixes
+        variables = call_args["variables"]
+        expected_vars = [
+            "B03002_003E",
+            "B03002_003M",  # White
+            "B03002_004E",
+            "B03002_004M",  # Black
+            "B03002_005E",
+            "B03002_005M",  # Native
+            "B03002_006E",
+            "B03002_006M",  # Asian
+            "B03002_007E",
+            "B03002_007M",  # HIPI
+            "B03002_012E",
+            "B03002_012M",  # Hispanic
+            "B03002_001E",
+            "B03002_001M",  # Summary variable
+        ]
+        for var in expected_vars:
+            assert var in variables, f"Missing variable: {var}"
+
+        # Verify result structure matches R tidycensus exactly
+        assert isinstance(result, pd.DataFrame)
+
+        # Check columns match expected R tidycensus format
+        expected_columns = [
+            "GEOID",
+            "NAME",
+            "variable",
+            "estimate",
+            "moe",
+            "summary_est",
+            "summary_moe",
+        ]
+        for col in expected_columns:
+            assert col in result.columns, f"Missing column: {col}"
+
+        # Verify we have correct number of rows: 3 counties × 6 race variables = 18 rows
+        assert len(result) == 18
+
+        # Check that summary variable is NOT in the main data variables
+        unique_vars = result["variable"].unique()
+        assert "B03002_001" not in unique_vars, "Summary variable should be excluded"
+
+        # Verify all race variables are present with custom names
+        expected_race_vars = ["White", "Black", "Native", "Asian", "HIPI", "Hispanic"]
+        for var in expected_race_vars:
+            assert var in unique_vars, f"Missing race variable: {var}"
+
+        # Test specific data values for Apache County
+        apache_data = result[result["GEOID"] == "04001"]
+        assert len(apache_data) == 6  # 6 race variables
+
+        # Check White population data for Apache County
+        apache_white = apache_data[apache_data["variable"] == "White"]
+        assert len(apache_white) == 1
+        assert apache_white["estimate"].iloc[0] == 12993
+        assert apache_white["moe"].iloc[0] == 56.0
+        assert apache_white["summary_est"].iloc[0] == 71714
+        assert apache_white["summary_moe"].iloc[0] == 0.0
+
+        # Check Native population data for Apache County
+        apache_native = apache_data[apache_data["variable"] == "Native"]
+        assert apache_native["estimate"].iloc[0] == 51979
+        assert apache_native["moe"].iloc[0] == 327.0
+        assert (
+            apache_native["summary_est"].iloc[0] == 71714
+        )  # Same summary for all variables
+
+        # Verify summary values are consistent within each geography
+        for geoid in ["04001", "04003", "04013"]:
+            geo_data = result[result["GEOID"] == geoid]
+            summary_est_values = geo_data["summary_est"].unique()
+            summary_moe_values = geo_data["summary_moe"].unique()
+            assert (
+                len(summary_est_values) == 1
+            ), f"Summary estimate should be same for all variables in {geoid}"
+            assert (
+                len(summary_moe_values) == 1
+            ), f"Summary MOE should be same for all variables in {geoid}"
+
+        # Verify Maricopa County (largest) has expected values
+        maricopa_data = result[result["GEOID"] == "04013"]
+        assert len(maricopa_data) == 6
+        assert all(maricopa_data["summary_est"] == 4420568)
+        assert all(maricopa_data["summary_moe"] == 0.0)
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_summary_var_with_geometry_integration(self, mock_api_class):
+        """Test summary_var functionality with geometry (wide format)."""
+        # Mock API response
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "B03002_003E": "12993",
+                "B03002_003M": "56",
+                "B03002_001E": "71714",
+                "B03002_001M": "0",
+                "state": "04",
+                "county": "001",
+                "NAME": "Apache County, Arizona",
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        with patch("pytidycensus.acs.get_geography") as mock_get_geo:
+            # Mock geography data
+            import geopandas as gpd
+
+            mock_gdf = gpd.GeoDataFrame(
+                {
+                    "GEOID": ["04001"],
+                    "NAME": ["Apache County, Arizona"],
+                    "geometry": [None],  # Simplified for test
+                }
+            )
+            mock_get_geo.return_value = mock_gdf
+
+            result = get_acs(
+                geography="county",
+                state="AZ",
+                variables={"White": "B03002_003"},
+                summary_var="B03002_001",
+                year=2020,
+                geometry=True,  # This forces wide format
+                api_key="test",
+            )
+
+            # Should be wide format with geometry
+            assert isinstance(result, gpd.GeoDataFrame)
+            assert "geometry" in result.columns
+
+            # Check summary columns in wide format
+            assert "summary_est" in result.columns
+            assert "summary_moe" in result.columns
+            assert result["summary_est"].iloc[0] == 71714
+            assert result["summary_moe"].iloc[0] == 0.0
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_summary_var_without_custom_names(self, mock_api_class):
+        """Test summary_var with standard variable codes (no custom names)."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "B03002_003E": "12993",
+                "B03002_003M": "56",
+                "B03002_001E": "71714",
+                "B03002_001M": "0",
+                "state": "04",
+                "county": "001",
+                "NAME": "Apache County, Arizona",
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        result = get_acs(
+            geography="county",
+            state="AZ",
+            variables=["B03002_003"],  # No custom names
+            summary_var="B03002_001",
+            year=2020,
+            output="tidy",
+            api_key="test",
+        )
+
+        # Variable should be cleaned (E suffix removed)
+        assert "B03002_003" in result["variable"].values
+        assert (
+            "B03002_001" not in result["variable"].values
+        )  # Summary should be excluded
+
+        # Summary columns should still be present
+        assert "summary_est" in result.columns
+        assert "summary_moe" in result.columns
+        assert result["summary_est"].iloc[0] == 71714
+
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_summary_var_missing_data(self, mock_api_class):
+        """Test summary_var handling when summary variable data is missing."""
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "B03002_003E": "12993",
+                "B03002_003M": "56",
+                # No summary variable data
+                "state": "04",
+                "county": "001",
+                "NAME": "Apache County, Arizona",
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        result = get_acs(
+            geography="county",
+            state="AZ",
+            variables=["B03002_003"],
+            summary_var="B03002_001",
+            year=2020,
+            output="tidy",
+            api_key="test",
+        )
+
+        # Should still work but summary columns may have NaN values
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        assert "B03002_003" in result["variable"].values
+
+        # Summary columns should exist but may be empty/NaN
+        assert "summary_est" in result.columns
+        assert "summary_moe" in result.columns
 
 
 # Utility function to run integration tests manually

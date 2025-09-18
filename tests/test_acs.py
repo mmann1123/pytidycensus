@@ -646,6 +646,10 @@ class TestGetACS:
         summary_moe_values = apache_rows["summary_moe"].unique()
         assert len(summary_est_values) == 1 and summary_est_values[0] == 71714
         assert len(summary_moe_values) == 1 and summary_moe_values[0] == 0.0
+        
+        # Verify summary columns are numeric types
+        assert result["summary_est"].dtype in ['int64', 'float64'], f"summary_est dtype is {result['summary_est'].dtype}"
+        assert result["summary_moe"].dtype in ['int64', 'float64'], f"summary_moe dtype is {result['summary_moe'].dtype}"
 
 
 class TestGetACSVariables:
