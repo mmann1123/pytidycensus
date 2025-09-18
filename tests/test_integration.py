@@ -6,11 +6,13 @@ They test the complete functionality with real data.
 """
 
 import os
+from unittest.mock import Mock, patch
+
 import geopandas as gpd
 import pandas as pd
 import pytest
+
 import pytidycensus as tc
-from unittest.mock import Mock, patch
 from pytidycensus.acs import get_acs
 
 

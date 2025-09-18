@@ -31,11 +31,11 @@ class TestGetACS:
         ]
         mock_api_class.return_value = mock_api
 
-        # Mock processing functions  
+        # Mock processing functions
         mock_df_tidy = pd.DataFrame(
             {
                 "NAME": ["Alabama"],
-                "GEOID": ["01"], 
+                "GEOID": ["01"],
                 "state": ["01"],
                 "variable": ["B01001_001"],  # E suffix removed
                 "estimate": [5024279],
@@ -439,25 +439,25 @@ class TestGetACS:
         mock_api = Mock()
         mock_api.get.return_value = [
             {
-                'B01003_001E': '3269', 
-                'B01003_001M': '452', 
-                'B19013_001E': '234236', 
-                'B19013_001M': '42845', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400100',
-                'NAME': 'Census Tract 4001, Alameda County, California'
+                "B01003_001E": "3269",
+                "B01003_001M": "452",
+                "B19013_001E": "234236",
+                "B19013_001M": "42845",
+                "state": "06",
+                "county": "001",
+                "tract": "400100",
+                "NAME": "Census Tract 4001, Alameda County, California",
             },
             {
-                'B01003_001E': '2147', 
-                'B01003_001M': '201', 
-                'B19013_001E': '225500', 
-                'B19013_001M': '29169', 
-                'state': '06', 
-                'county': '001', 
-                'tract': '400200',
-                'NAME': 'Census Tract 4002, Alameda County, California'
-            }
+                "B01003_001E": "2147",
+                "B01003_001M": "201",
+                "B19013_001E": "225500",
+                "B19013_001M": "29169",
+                "state": "06",
+                "county": "001",
+                "tract": "400200",
+                "NAME": "Census Tract 4002, Alameda County, California",
+            },
         ]
         mock_api_class.return_value = mock_api
 
@@ -468,66 +468,79 @@ class TestGetACS:
             state="CA",
             county="001",
             output="tidy",
-            api_key="test"
+            api_key="test",
         )
 
         # Verify API call structure
         mock_api.get.assert_called_once()
         call_args = mock_api.get.call_args[1]
-        
+
         # Check the API call parameters match the current structure
         assert call_args["year"] == 2022  # Default year
         assert call_args["dataset"] == "acs"
         assert call_args["survey"] == "acs5"  # Default survey
         assert call_args["show_call"] == False  # Default
-        
+
         # Verify geography parameter structure
         assert "geography" in call_args
         geography_params = call_args["geography"]
         assert "for" in geography_params
         assert "in" in geography_params
-        
+
         # Verify variables include both estimate and MOE variables
         variables = call_args["variables"]
         assert "B01003_001E" in variables  # Population estimate
         assert "B01003_001M" in variables  # Population MOE
-        assert "B19013_001E" in variables  # Income estimate  
+        assert "B19013_001E" in variables  # Income estimate
         assert "B19013_001M" in variables  # Income MOE
 
         # Verify tidy format output structure
         assert isinstance(result, pd.DataFrame)
-        expected_columns = ["state", "county", "tract", "NAME", "GEOID", "variable", "estimate", "moe"]
+        expected_columns = [
+            "state",
+            "county",
+            "tract",
+            "NAME",
+            "GEOID",
+            "variable",
+            "estimate",
+            "moe",
+        ]
         for col in expected_columns:
             assert col in result.columns, f"Missing column: {col}"
-        
+
         # Verify data format
         assert len(result) == 4  # 2 geographies × 2 variables = 4 rows
-        
+
         # Check that variable names have E suffix removed
         unique_vars = result["variable"].unique()
         assert "B01003_001" in unique_vars  # No E suffix
         assert "B19013_001" in unique_vars  # No E suffix
         assert not any(var.endswith("E") for var in unique_vars)  # No E suffixes
-        
+
         # Verify estimate and moe columns contain numeric data
-        assert result["estimate"].dtype in ['int64', 'float64', 'object']  # Can be string from API
-        assert result["moe"].dtype in ['int64', 'float64', 'object']
-        
+        assert result["estimate"].dtype in [
+            "int64",
+            "float64",
+            "object",
+        ]  # Can be string from API
+        assert result["moe"].dtype in ["int64", "float64", "object"]
+
         # Verify GEOID format (state + county + tract)
         geoids = result["GEOID"].unique()
         assert "06001400100" in geoids
         assert "06001400200" in geoids
 
-    @patch("pytidycensus.acs.CensusAPI")  
+    @patch("pytidycensus.acs.CensusAPI")
     def test_get_acs_api_call_parameters(self, mock_api_class):
         """Test that get_acs calls the API with correct parameters."""
         mock_api = Mock()
         mock_api.get.return_value = [
             {
                 "B01003_001E": "1000",
-                "B01003_001M": "100", 
+                "B01003_001M": "100",
                 "state": "01",
-                "NAME": "Alabama"
+                "NAME": "Alabama",
             }
         ]
         mock_api_class.return_value = mock_api
@@ -537,26 +550,33 @@ class TestGetACS:
             geography="state",
             variables="B01003_001",
             year=2021,
-            survey="acs1", 
+            survey="acs1",
             api_key="test_key",
-            show_call=True
+            show_call=True,
         )
 
         # Verify API was called with correct structure
         mock_api.get.assert_called_once()
         call_kwargs = mock_api.get.call_args[1]
-        
+
         # Verify all expected parameters are present
-        expected_params = ["year", "dataset", "variables", "geography", "survey", "show_call"]
+        expected_params = [
+            "year",
+            "dataset",
+            "variables",
+            "geography",
+            "survey",
+            "show_call",
+        ]
         for param in expected_params:
             assert param in call_kwargs, f"Missing API parameter: {param}"
-            
+
         # Verify parameter values
         assert call_kwargs["year"] == 2021
         assert call_kwargs["dataset"] == "acs"
         assert call_kwargs["survey"] == "acs1"
         assert call_kwargs["show_call"] == True
-        
+
         # Verify variables include both E and M suffixes
         variables = call_kwargs["variables"]
         assert "B01003_001E" in variables
@@ -569,41 +589,41 @@ class TestGetACS:
         mock_api = Mock()
         mock_api.get.return_value = [
             {
-                'B03002_003E': '12993',   # White
-                'B03002_003M': '56',      # White MOE
-                'B03002_004E': '544',     # Black  
-                'B03002_004M': '56',      # Black MOE
-                'B03002_005E': '51979',   # Native
-                'B03002_005M': '327',     # Native MOE
-                'B03002_001E': '71714',   # Total (summary var)
-                'B03002_001M': '0',       # Total MOE
-                'state': '04',
-                'county': '001',
-                'NAME': 'Apache County, Arizona'
+                "B03002_003E": "12993",  # White
+                "B03002_003M": "56",  # White MOE
+                "B03002_004E": "544",  # Black
+                "B03002_004M": "56",  # Black MOE
+                "B03002_005E": "51979",  # Native
+                "B03002_005M": "327",  # Native MOE
+                "B03002_001E": "71714",  # Total (summary var)
+                "B03002_001M": "0",  # Total MOE
+                "state": "04",
+                "county": "001",
+                "NAME": "Apache County, Arizona",
             },
             {
-                'B03002_003E': '69095',   # White
-                'B03002_003M': '350',     # White MOE
-                'B03002_004E': '1024',    # Black  
-                'B03002_004M': '89',      # Black MOE
-                'B03002_005E': '2156',    # Native
-                'B03002_005M': '145',     # Native MOE
-                'B03002_001E': '75045',   # Total (summary var)
-                'B03002_001M': '0',       # Total MOE
-                'state': '04',
-                'county': '003',
-                'NAME': 'Cochise County, Arizona'
-            }
+                "B03002_003E": "69095",  # White
+                "B03002_003M": "350",  # White MOE
+                "B03002_004E": "1024",  # Black
+                "B03002_004M": "89",  # Black MOE
+                "B03002_005E": "2156",  # Native
+                "B03002_005M": "145",  # Native MOE
+                "B03002_001E": "75045",  # Total (summary var)
+                "B03002_001M": "0",  # Total MOE
+                "state": "04",
+                "county": "003",
+                "NAME": "Cochise County, Arizona",
+            },
         ]
         mock_api_class.return_value = mock_api
 
         # Test race variables with summary var
         race_vars = {
             "White": "B03002_003",
-            "Black": "B03002_004", 
-            "Native": "B03002_005"
+            "Black": "B03002_004",
+            "Native": "B03002_005",
         }
-        
+
         result = get_acs(
             geography="county",
             state="AZ",
@@ -611,45 +631,63 @@ class TestGetACS:
             summary_var="B03002_001",
             year=2020,
             output="tidy",
-            api_key="test"
+            api_key="test",
         )
 
         # Verify result structure
         assert isinstance(result, pd.DataFrame)
-        
+
         # Check expected columns for R tidycensus format
-        expected_columns = ["GEOID", "NAME", "variable", "estimate", "moe", "summary_est", "summary_moe"]
+        expected_columns = [
+            "GEOID",
+            "NAME",
+            "variable",
+            "estimate",
+            "moe",
+            "summary_est",
+            "summary_moe",
+        ]
         for col in expected_columns:
             assert col in result.columns, f"Missing column: {col}"
-        
+
         # Verify we have 6 rows (2 counties × 3 race variables)
         assert len(result) == 6
-        
+
         # Check that summary variable is NOT in the main data
         unique_vars = result["variable"].unique()
-        assert "B03002_001" not in unique_vars, "Summary variable should be excluded from main data"
+        assert (
+            "B03002_001" not in unique_vars
+        ), "Summary variable should be excluded from main data"
         assert "White" in unique_vars  # Custom variable names should be preserved
         assert "Black" in unique_vars
         assert "Native" in unique_vars
-        
+
         # Verify summary values are correctly joined
-        apache_white = result[(result["GEOID"] == "04001") & (result["variable"] == "White")]
+        apache_white = result[
+            (result["GEOID"] == "04001") & (result["variable"] == "White")
+        ]
         assert len(apache_white) == 1
         assert apache_white["estimate"].iloc[0] == 12993
         assert apache_white["moe"].iloc[0] == 56.0
         assert apache_white["summary_est"].iloc[0] == 71714
         assert apache_white["summary_moe"].iloc[0] == 0.0
-        
+
         # Verify summary values are the same for all variables in same geography
         apache_rows = result[result["GEOID"] == "04001"]
         summary_est_values = apache_rows["summary_est"].unique()
         summary_moe_values = apache_rows["summary_moe"].unique()
         assert len(summary_est_values) == 1 and summary_est_values[0] == 71714
         assert len(summary_moe_values) == 1 and summary_moe_values[0] == 0.0
-        
+
         # Verify summary columns are numeric types
-        assert result["summary_est"].dtype in ['int64', 'float64'], f"summary_est dtype is {result['summary_est'].dtype}"
-        assert result["summary_moe"].dtype in ['int64', 'float64'], f"summary_moe dtype is {result['summary_moe'].dtype}"
+        assert result["summary_est"].dtype in [
+            "int64",
+            "float64",
+        ], f"summary_est dtype is {result['summary_est'].dtype}"
+        assert result["summary_moe"].dtype in [
+            "int64",
+            "float64",
+        ], f"summary_moe dtype is {result['summary_moe'].dtype}"
 
 
 class TestGetACSVariables:

@@ -16,73 +16,80 @@ from geopandas import GeoDataFrame
 def load_county_lookup() -> pd.DataFrame:
     """
     Load county lookup table from national_county.txt.
-    
+
     Returns
     -------
     pd.DataFrame
         DataFrame with columns: state_abbrev, state_fips, county_fips, county_name
     """
     # Get the path to the data file
-    data_path = os.path.join(os.path.dirname(__file__), 'data', 'national_county.txt')
-    
+    data_path = os.path.join(os.path.dirname(__file__), "data", "national_county.txt")
+
     # Load the county lookup data
     county_df = pd.read_csv(
-        data_path, 
-        names=['state_abbrev', 'state_fips', 'county_fips', 'county_name', 'h1'],
-        dtype={'state_fips': str, 'county_fips': str}
+        data_path,
+        names=["state_abbrev", "state_fips", "county_fips", "county_name", "h1"],
+        dtype={"state_fips": str, "county_fips": str},
     )
-    
+
     # Convert state abbreviations to full state names using the us library
-    county_df['state_name'] = county_df['state_abbrev'].apply(
-        lambda abbrev: us.states.lookup(abbrev).name if us.states.lookup(abbrev) else abbrev
+    county_df["state_name"] = county_df["state_abbrev"].apply(
+        lambda abbrev: (
+            us.states.lookup(abbrev).name if us.states.lookup(abbrev) else abbrev
+        )
     )
-    
+
     # Create full GEOID for county-level matching (state + county)
-    county_df['county_geoid'] = county_df['state_fips'] + county_df['county_fips']
-    
+    county_df["county_geoid"] = county_df["state_fips"] + county_df["county_fips"]
+
     # For county-level entries, combine county name with state name
-    county_df['full_name'] = county_df['county_name'] + ', ' + county_df['state_name']
-    
+    county_df["full_name"] = county_df["county_name"] + ", " + county_df["state_name"]
+
     # Create state-level entries for state matching
-    state_df = county_df.drop_duplicates('state_fips')[['state_name', 'state_fips']].copy()
-    state_df['county_geoid'] = state_df['state_fips']   # State GEOID is just state FIPS
-    state_df['full_name'] = state_df['state_name']      # Use full state name for states
-    
+    state_df = county_df.drop_duplicates("state_fips")[
+        ["state_name", "state_fips"]
+    ].copy()
+    state_df["county_geoid"] = state_df["state_fips"]  # State GEOID is just state FIPS
+    state_df["full_name"] = state_df["state_name"]  # Use full state name for states
+
     # Combine state and county data
-    lookup_df = pd.concat([
-        state_df[['county_geoid', 'full_name']],
-        county_df[['county_geoid', 'full_name']]
-    ], ignore_index=True).rename(columns={'full_name': 'county_name'})
-    
+    lookup_df = pd.concat(
+        [
+            state_df[["county_geoid", "full_name"]],
+            county_df[["county_geoid", "full_name"]],
+        ],
+        ignore_index=True,
+    ).rename(columns={"full_name": "county_name"})
+
     return lookup_df
 
 
 def add_name_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add NAME column using national_county.txt lookup table for geographic areas.
-    
+
     Works for state, county, and tract level geographies by matching GEOID.
     For tract-level data, shows county and state name without tract number.
-    
+
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame with GEOID column
-        
+
     Returns
     -------
     pd.DataFrame
         DataFrame with NAME column added
     """
-    if 'GEOID' not in df.columns or 'NAME' in df.columns:
+    if "GEOID" not in df.columns or "NAME" in df.columns:
         return df
-    
+
     # Load county lookup data
     county_lookup = load_county_lookup()
-    
+
     # Create a copy to work with
     df_copy = df.copy()
-    
+
     # Create lookup key based on GEOID length
     # State: 2 chars, County: 5 chars, Tract: 11 chars (use first 5 for county lookup)
     def get_lookup_key(geoid):
@@ -93,22 +100,21 @@ def add_name_column(df: pd.DataFrame) -> pd.DataFrame:
         else:
             # Tract level or higher - extract county portion (first 5 characters)
             return geoid_str[:5]
-    
-    df_copy['lookup_geoid'] = df_copy['GEOID'].apply(get_lookup_key)
-    
+
+    df_copy["lookup_geoid"] = df_copy["GEOID"].apply(get_lookup_key)
+
     # Merge with lookup table to add NAME column
     df_with_name = df_copy.merge(
-        county_lookup,
-        left_on='lookup_geoid',
-        right_on='county_geoid',
-        how='left'
+        county_lookup, left_on="lookup_geoid", right_on="county_geoid", how="left"
     )
-    
+
     # Rename the county_name column to NAME and drop the extra columns
-    if 'county_name' in df_with_name.columns:
-        df_with_name['NAME'] = df_with_name['county_name']
-        df_with_name = df_with_name.drop(['county_name', 'county_geoid', 'lookup_geoid'], axis=1)
-    
+    if "county_name" in df_with_name.columns:
+        df_with_name["NAME"] = df_with_name["county_name"]
+        df_with_name = df_with_name.drop(
+            ["county_name", "county_geoid", "lookup_geoid"], axis=1
+        )
+
     return df_with_name
 
 

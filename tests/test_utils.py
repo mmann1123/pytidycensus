@@ -635,8 +635,9 @@ class TestNameColumnFunctionality:
 
     def test_add_name_column(self):
         """Test adding NAME column using lookup table."""
-        from pytidycensus.utils import add_name_column
         import pandas as pd
+
+        from pytidycensus.utils import add_name_column
 
         # Test DataFrame with state, county, and tract GEOIDs
         test_df = pd.DataFrame(
@@ -688,8 +689,9 @@ class TestNameColumnFunctionality:
 
     def test_add_name_column_no_duplicate(self):
         """Test that NAME column is not duplicated if it already exists."""
-        from pytidycensus.utils import add_name_column
         import pandas as pd
+
+        from pytidycensus.utils import add_name_column
 
         # DataFrame already with NAME column
         test_df = pd.DataFrame(

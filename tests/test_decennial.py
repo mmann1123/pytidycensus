@@ -371,69 +371,74 @@ class TestDecennialTableChunking:
         # Test case 1: Small list (no chunking needed)
         small_vars = [f"P1_{str(i).zfill(3)}N" for i in range(1, 10)]  # 9 variables
         MAX_VARIABLES_PER_REQUEST = 48
-        
+
         if len(small_vars) <= MAX_VARIABLES_PER_REQUEST:
             chunks = [small_vars]  # No chunking
         else:
-            chunks = [small_vars[i:i + MAX_VARIABLES_PER_REQUEST]
-                     for i in range(0, len(small_vars), MAX_VARIABLES_PER_REQUEST)]
-        
+            chunks = [
+                small_vars[i : i + MAX_VARIABLES_PER_REQUEST]
+                for i in range(0, len(small_vars), MAX_VARIABLES_PER_REQUEST)
+            ]
+
         assert len(chunks) == 1
         assert len(chunks[0]) == 9
-        
+
         # Test case 2: Large list (chunking needed)
         large_vars = [f"P1_{str(i).zfill(3)}N" for i in range(1, 72)]  # 71 variables
-        
+
         if len(large_vars) <= MAX_VARIABLES_PER_REQUEST:
             chunks = [large_vars]
         else:
-            chunks = [large_vars[i:i + MAX_VARIABLES_PER_REQUEST]
-                     for i in range(0, len(large_vars), MAX_VARIABLES_PER_REQUEST)]
-        
+            chunks = [
+                large_vars[i : i + MAX_VARIABLES_PER_REQUEST]
+                for i in range(0, len(large_vars), MAX_VARIABLES_PER_REQUEST)
+            ]
+
         assert len(chunks) == 2  # Should be split into 2 chunks
         assert len(chunks[0]) == 48  # First chunk has max size
         assert len(chunks[1]) == 23  # Second chunk has remainder
         assert len(chunks[0]) + len(chunks[1]) == 71  # Total is preserved
 
     @patch("pytidycensus.decennial.CensusAPI")
-    @patch("pytidycensus.decennial.build_geography_params") 
+    @patch("pytidycensus.decennial.build_geography_params")
     @patch("pytidycensus.variables.load_variables")
     @patch("pytidycensus.decennial.process_census_data")
-    def test_get_decennial_large_table_triggers_chunking(self, mock_process, mock_load_vars, mock_geo_params, mock_api_class):
+    def test_get_decennial_large_table_triggers_chunking(
+        self, mock_process, mock_load_vars, mock_geo_params, mock_api_class
+    ):
         """Test that large table requests trigger chunking behavior."""
         # Mock a large table with 71 variables (like P1 table)
         p1_vars = [f"P1_{str(i).zfill(3)}N" for i in range(1, 72)]  # P1_001N to P1_071N
-        mock_vars_df = pd.DataFrame({
-            "name": p1_vars,
-            "label": [f"Variable {i}" for i in range(1, 72)]
-        })
+        mock_vars_df = pd.DataFrame(
+            {"name": p1_vars, "label": [f"Variable {i}" for i in range(1, 72)]}
+        )
         mock_load_vars.return_value = mock_vars_df
-        
+
         # Mock API and processing
         mock_api = MagicMock()
         mock_api_class.return_value = mock_api
         mock_api.get.return_value = []  # Simple return to avoid processing errors
         mock_geo_params.return_value = {"for": "state:50"}
-        
+
         # Mock process_census_data to return simple DataFrames
-        chunk1_df = pd.DataFrame({"GEOID": ["50"], "variable": ["P1_001N"], "estimate": [1000]})
-        chunk2_df = pd.DataFrame({"GEOID": ["50"], "variable": ["P1_049N"], "estimate": [2000]})
-        mock_process.side_effect = [chunk1_df, chunk2_df]
-        
-        get_decennial(
-            geography="state",
-            table="P1",
-            state="VT", 
-            year=2020,
-            api_key="test_key"
+        chunk1_df = pd.DataFrame(
+            {"GEOID": ["50"], "variable": ["P1_001N"], "estimate": [1000]}
         )
-        
+        chunk2_df = pd.DataFrame(
+            {"GEOID": ["50"], "variable": ["P1_049N"], "estimate": [2000]}
+        )
+        mock_process.side_effect = [chunk1_df, chunk2_df]
+
+        get_decennial(
+            geography="state", table="P1", state="VT", year=2020, api_key="test_key"
+        )
+
         # Verify chunking occurred (2 API calls for 71 variables)
         assert mock_api.get.call_count == 2
-        
+
         # Verify chunk sizes in API calls
-        first_call_vars = mock_api.get.call_args_list[0][1]['variables'] 
-        second_call_vars = mock_api.get.call_args_list[1][1]['variables']
+        first_call_vars = mock_api.get.call_args_list[0][1]["variables"]
+        second_call_vars = mock_api.get.call_args_list[1][1]["variables"]
         assert len(first_call_vars) == 48  # First chunk
         assert len(second_call_vars) == 23  # Second chunk
         assert len(first_call_vars) + len(second_call_vars) == 71  # Total variables
@@ -442,35 +447,34 @@ class TestDecennialTableChunking:
     @patch("pytidycensus.decennial.build_geography_params")
     @patch("pytidycensus.variables.load_variables")
     @patch("pytidycensus.decennial.process_census_data")
-    def test_get_decennial_small_table_no_chunking(self, mock_process, mock_load_vars, mock_geo_params, mock_api_class):
+    def test_get_decennial_small_table_no_chunking(
+        self, mock_process, mock_load_vars, mock_geo_params, mock_api_class
+    ):
         """Test that small tables don't trigger chunking."""
         # Mock a small table with only 10 variables
         small_vars = [f"P2_{str(i).zfill(3)}N" for i in range(1, 11)]  # 10 variables
-        mock_vars_df = pd.DataFrame({
-            "name": small_vars,
-            "label": [f"Variable {i}" for i in range(1, 11)]
-        })
+        mock_vars_df = pd.DataFrame(
+            {"name": small_vars, "label": [f"Variable {i}" for i in range(1, 11)]}
+        )
         mock_load_vars.return_value = mock_vars_df
-        
+
         # Mock API and processing
         mock_api = MagicMock()
         mock_api_class.return_value = mock_api
         mock_api.get.return_value = []
         mock_geo_params.return_value = {"for": "state:50"}
-        mock_process.return_value = pd.DataFrame({"GEOID": ["50"], "variable": ["P2_001N"], "estimate": [100]})
-        
-        get_decennial(
-            geography="state",
-            table="P2",
-            state="VT",
-            year=2020,
-            api_key="test_key"
+        mock_process.return_value = pd.DataFrame(
+            {"GEOID": ["50"], "variable": ["P2_001N"], "estimate": [100]}
         )
-        
+
+        get_decennial(
+            geography="state", table="P2", state="VT", year=2020, api_key="test_key"
+        )
+
         # Verify no chunking (single API call)
         assert mock_api.get.call_count == 1
-        
+
         # Verify all variables requested in single call
-        call_vars = mock_api.get.call_args_list[0][1]['variables']
+        call_vars = mock_api.get.call_args_list[0][1]["variables"]
         assert len(call_vars) == 10
         assert set(call_vars) == set(small_vars)

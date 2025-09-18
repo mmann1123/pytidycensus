@@ -244,7 +244,7 @@ def get_decennial(
     # Handle large variable lists by chunking (Census API limit is 50 variables)
     # Reserve space for geography variables by using 48 as chunk size
     MAX_VARIABLES_PER_REQUEST = 48
-    
+
     try:
         if len(all_variables) <= MAX_VARIABLES_PER_REQUEST:
             # Single API request for small variable lists
@@ -259,19 +259,23 @@ def get_decennial(
             df = process_census_data(data, all_variables, output)
         else:
             # Multiple API requests for large variable lists (like full tables)
-            print(f"Large table request: {len(all_variables)} variables will be retrieved in chunks")
-            
+            print(
+                f"Large table request: {len(all_variables)} variables will be retrieved in chunks"
+            )
+
             # Split variables into chunks
             variable_chunks = [
-                all_variables[i:i + MAX_VARIABLES_PER_REQUEST]
+                all_variables[i : i + MAX_VARIABLES_PER_REQUEST]
                 for i in range(0, len(all_variables), MAX_VARIABLES_PER_REQUEST)
             ]
-            
+
             chunk_dfs = []
             for i, chunk in enumerate(variable_chunks):
                 if show_call:
-                    print(f"Processing chunk {i+1}/{len(variable_chunks)} with {len(chunk)} variables")
-                
+                    print(
+                        f"Processing chunk {i+1}/{len(variable_chunks)} with {len(chunk)} variables"
+                    )
+
                 chunk_data = api.get(
                     year=year,
                     dataset="dec",
@@ -282,7 +286,7 @@ def get_decennial(
                 )
                 chunk_df = process_census_data(chunk_data, chunk, output)
                 chunk_dfs.append(chunk_df)
-            
+
             # Combine all chunks
             if output == "tidy":
                 # For tidy format, concatenate all dataframes
@@ -290,19 +294,26 @@ def get_decennial(
             else:
                 # For wide format, merge on GEOID and geography columns
                 df = chunk_dfs[0]
-                geo_cols = [col for col in df.columns if col in ['GEOID', 'NAME', 'state', 'county', 'tract', 'block group']]
-                
+                geo_cols = [
+                    col
+                    for col in df.columns
+                    if col
+                    in ["GEOID", "NAME", "state", "county", "tract", "block group"]
+                ]
+
                 for chunk_df in chunk_dfs[1:]:
                     # Find common columns to join on (geography identifiers)
                     join_cols = [col for col in geo_cols if col in chunk_df.columns]
                     if join_cols:
-                        df = df.merge(chunk_df, on=join_cols, how='outer')
+                        df = df.merge(chunk_df, on=join_cols, how="outer")
                     else:
                         # Fallback to GEOID if available
-                        if 'GEOID' in df.columns and 'GEOID' in chunk_df.columns:
-                            df = df.merge(chunk_df, on='GEOID', how='outer')
+                        if "GEOID" in df.columns and "GEOID" in chunk_df.columns:
+                            df = df.merge(chunk_df, on="GEOID", how="outer")
                         else:
-                            print("Warning: Unable to merge chunks - no common geography columns found")
+                            print(
+                                "Warning: Unable to merge chunks - no common geography columns found"
+                            )
                             df = pd.concat([df, chunk_df], ignore_index=True)
 
         # Handle named variables (replace variable codes with custom names)
@@ -323,17 +334,26 @@ def get_decennial(
         # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
             # Remove "E" suffix for clean comparison
-            summary_var_clean = summary_var.rstrip("E") if summary_var.endswith("E") else summary_var
-            
+            summary_var_clean = (
+                summary_var.rstrip("E") if summary_var.endswith("E") else summary_var
+            )
+
             if output == "tidy":
                 # In tidy format, join summary value by GEOID
-                if "variable" in df.columns and summary_var_clean in df["variable"].values:
+                if (
+                    "variable" in df.columns
+                    and summary_var_clean in df["variable"].values
+                ):
                     summary_est_rows = df[df["variable"] == summary_var_clean]
                     if not summary_est_rows.empty:
                         summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
-                        summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
-                        summary_est_df["summary_est"] = pd.to_numeric(summary_est_df["summary_est"], errors="coerce")
-                        
+                        summary_est_df = summary_est_df.rename(
+                            columns={"estimate": "summary_est"}
+                        )
+                        summary_est_df["summary_est"] = pd.to_numeric(
+                            summary_est_df["summary_est"], errors="coerce"
+                        )
+
                         # Remove summary variable from main data
                         df = df[df["variable"] != summary_var_clean]
                         # Join summary values
@@ -348,7 +368,9 @@ def get_decennial(
                 # In wide format, rename summary column
                 if summary_var_clean in df.columns:
                     df = df.rename(columns={summary_var_clean: "summary_est"})
-                    df["summary_est"] = pd.to_numeric(df["summary_est"], errors="coerce")
+                    df["summary_est"] = pd.to_numeric(
+                        df["summary_est"], errors="coerce"
+                    )
                 else:
                     # If summary variable not found, add column with NA values
                     df["summary_est"] = pd.NA
