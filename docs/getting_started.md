@@ -161,6 +161,11 @@ harris_tracts = tc.get_acs(
     county="201"  # Harris County FIPS code
 )
 ```
+We have implemented a county name lookup, so you can also use:
+
+```python
+    county="Harris County"  # instead of FIPS code
+```
 
 ## Survey Types
 
@@ -205,7 +210,7 @@ The Population Estimates Program provides annual population estimates and demogr
 state_pop = tc.get_estimates(
     geography="state",
     variables="POP", 
-    year=2022
+    vintage=2022
 )
 ```
 
@@ -216,7 +221,7 @@ state_pop = tc.get_estimates(
 components = tc.get_estimates(
     geography="state",
     variables=["BIRTHS", "DEATHS", "DOMESTICMIG", "INTERNATIONALMIG"],
-    year=2022
+    vintage=2022
 )
 ```
 
