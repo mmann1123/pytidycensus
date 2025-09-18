@@ -296,10 +296,15 @@ def get_acs(
         if geometry:
             output = "wide"
 
-        # Process data (use processed variables with E suffix)
-        df = process_census_data(
-            data, all_variables, output
-        )  #        df = process_census_data(data, processed_variables, output)
+        # Filter variables to only those present in the data
+        if data:
+            available_vars = list(data[0].keys())
+            filtered_variables = [var for var in all_variables if var in available_vars]
+        else:
+            filtered_variables = all_variables
+
+        # Process data (use filtered variables)
+        df = process_census_data(data, filtered_variables, output)
 
         # Add margin of error handling with MOE level adjustment
         df = add_margin_of_error(df, all_variables, moe_level=moe_level, output=output)
@@ -351,21 +356,81 @@ def get_acs(
 
         # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
-            summary_col = summary_var
-            if summary_col in df.columns:
-                if output == "tidy":
-                    # In tidy format, join summary value by GEOID
-                    summary_df = df[df["variable"] == summary_var][
-                        ["GEOID", "value"]
-                    ].copy()
-                    summary_df = summary_df.rename(columns={"value": "summary_value"})
-                    # Remove summary variable from main data
-                    df = df[df["variable"] != summary_var]
-                    # Join summary values
-                    df = df.merge(summary_df, on="GEOID", how="left")
+            # For tidy format, we need to handle summary variable differently
+            if output == "tidy":
+                # Find summary variable rows (after E suffix removal)
+                summary_var_clean = (
+                    summary_var.replace("E", "")
+                    if summary_var.endswith("E")
+                    else summary_var
+                )
+
+                # Check if summary variable exists in the data
+                if (
+                    "variable" in df.columns
+                    and summary_var_clean in df["variable"].values
+                ):
+                    summary_est_rows = df[df["variable"] == summary_var_clean]
+
+                    if not summary_est_rows.empty:
+                        # Create summary estimate and MOE dataframes
+                        summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
+                        summary_est_df = summary_est_df.rename(
+                            columns={"estimate": "summary_est"}
+                        )
+                        # Ensure summary_est is numeric
+                        summary_est_df["summary_est"] = pd.to_numeric(
+                            summary_est_df["summary_est"], errors="coerce"
+                        )
+
+                        summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
+                        summary_moe_df = summary_moe_df.rename(
+                            columns={"moe": "summary_moe"}
+                        )
+                        # Ensure summary_moe is numeric
+                        summary_moe_df["summary_moe"] = pd.to_numeric(
+                            summary_moe_df["summary_moe"], errors="coerce"
+                        )
+
+                        # Remove summary variable from main data
+                        df = df[df["variable"] != summary_var_clean]
+
+                        # Join summary values
+                        df = df.merge(summary_est_df, on="GEOID", how="left")
+                        df = df.merge(summary_moe_df, on="GEOID", how="left")
+                    else:
+                        # Add empty summary columns if no data
+                        df["summary_est"] = pd.NA
+                        df["summary_moe"] = pd.NA
                 else:
-                    # In wide format, rename summary column
-                    df = df.rename(columns={summary_var: "summary_value"})
+                    # Add empty summary columns if summary variable not found
+                    df["summary_est"] = pd.NA
+                    df["summary_moe"] = pd.NA
+            else:
+                # In wide format, rename summary columns
+                summary_col = summary_var
+                if summary_col in df.columns:
+                    df = df.rename(columns={summary_col: "summary_est"})
+                    # Ensure summary_est is numeric
+                    df["summary_est"] = pd.to_numeric(
+                        df["summary_est"], errors="coerce"
+                    )
+                    # Also rename MOE column if it exists
+                    summary_moe_col = (
+                        summary_var.replace("E", "_moe")
+                        if summary_var.endswith("E")
+                        else f"{summary_var}_moe"
+                    )
+                    if summary_moe_col in df.columns:
+                        df = df.rename(columns={summary_moe_col: "summary_moe"})
+                        # Ensure summary_moe is numeric
+                        df["summary_moe"] = pd.to_numeric(
+                            df["summary_moe"], errors="coerce"
+                        )
+                else:
+                    # Add empty summary columns if summary variable not found
+                    df["summary_est"] = pd.NA
+                    df["summary_moe"] = pd.NA
 
         # Add geometry if requested
         if geometry:

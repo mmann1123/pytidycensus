@@ -236,20 +236,85 @@ def get_decennial(
     all_variables = variables.copy()
     if summary_var and summary_var not in all_variables:
         all_variables.append(summary_var)
-        variable_names[summary_var] = "summary_value"
-    # Make API request
-    try:
-        data = api.get(
-            year=year,
-            dataset="dec",
-            variables=all_variables,
-            geography=geo_params,
-            survey=sumfile,
-            show_call=show_call,
-        )
+        # Initialize variable_names if it doesn't exist
+        if variable_names is None:
+            variable_names = {}
+        variable_names[summary_var] = "summary_est"
 
-        # Process data
-        df = process_census_data(data, all_variables, output)
+    # Handle large variable lists by chunking (Census API limit is 50 variables)
+    # Reserve space for geography variables by using 48 as chunk size
+    MAX_VARIABLES_PER_REQUEST = 48
+
+    try:
+        if len(all_variables) <= MAX_VARIABLES_PER_REQUEST:
+            # Single API request for small variable lists
+            data = api.get(
+                year=year,
+                dataset="dec",
+                variables=all_variables,
+                geography=geo_params,
+                survey=sumfile,
+                show_call=show_call,
+            )
+            df = process_census_data(data, all_variables, output)
+        else:
+            # Multiple API requests for large variable lists (like full tables)
+            print(
+                f"Large table request: {len(all_variables)} variables will be retrieved in chunks"
+            )
+
+            # Split variables into chunks
+            variable_chunks = [
+                all_variables[i : i + MAX_VARIABLES_PER_REQUEST]
+                for i in range(0, len(all_variables), MAX_VARIABLES_PER_REQUEST)
+            ]
+
+            chunk_dfs = []
+            for i, chunk in enumerate(variable_chunks):
+                if show_call:
+                    print(
+                        f"Processing chunk {i+1}/{len(variable_chunks)} with {len(chunk)} variables"
+                    )
+
+                chunk_data = api.get(
+                    year=year,
+                    dataset="dec",
+                    variables=chunk,
+                    geography=geo_params,
+                    survey=sumfile,
+                    show_call=show_call,
+                )
+                chunk_df = process_census_data(chunk_data, chunk, output)
+                chunk_dfs.append(chunk_df)
+
+            # Combine all chunks
+            if output == "tidy":
+                # For tidy format, concatenate all dataframes
+                df = pd.concat(chunk_dfs, ignore_index=True)
+            else:
+                # For wide format, merge on GEOID and geography columns
+                df = chunk_dfs[0]
+                geo_cols = [
+                    col
+                    for col in df.columns
+                    if col
+                    in ["GEOID", "NAME", "state", "county", "tract", "block group"]
+                ]
+
+                for chunk_df in chunk_dfs[1:]:
+                    # Find common columns to join on (geography identifiers)
+                    join_cols = [col for col in geo_cols if col in chunk_df.columns]
+                    if join_cols:
+                        df = df.merge(chunk_df, on=join_cols, how="outer")
+                    else:
+                        # Fallback to GEOID if available
+                        if "GEOID" in df.columns and "GEOID" in chunk_df.columns:
+                            df = df.merge(chunk_df, on="GEOID", how="outer")
+                        else:
+                            print(
+                                "Warning: Unable to merge chunks - no common geography columns found"
+                            )
+                            df = pd.concat([df, chunk_df], ignore_index=True)
 
         # Handle named variables (replace variable codes with custom names)
         if variable_names and output == "tidy":
@@ -266,22 +331,49 @@ def get_decennial(
             }
             df = df.rename(columns=rename_dict)
 
-        # # Handle summary variable joining (mirror R tidycensus)
+        # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
+            # Remove "E" suffix for clean comparison
+            summary_var_clean = (
+                summary_var.rstrip("E") if summary_var.endswith("E") else summary_var
+            )
+
             if output == "tidy":
                 # In tidy format, join summary value by GEOID
-                summary_df = df[df["variable"] == summary_var][
-                    ["GEOID", "value"]
-                ].copy()
-                summary_df = summary_df.rename(columns={"value": "summary_value"})
-                # Remove summary variable from main data
-                df = df[df["variable"] != summary_var]
-                # Join summary values
-                df = df.merge(summary_df, on="GEOID", how="left")
+                if (
+                    "variable" in df.columns
+                    and summary_var_clean in df["variable"].values
+                ):
+                    summary_est_rows = df[df["variable"] == summary_var_clean]
+                    if not summary_est_rows.empty:
+                        summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
+                        summary_est_df = summary_est_df.rename(
+                            columns={"estimate": "summary_est"}
+                        )
+                        summary_est_df["summary_est"] = pd.to_numeric(
+                            summary_est_df["summary_est"], errors="coerce"
+                        )
+
+                        # Remove summary variable from main data
+                        df = df[df["variable"] != summary_var_clean]
+                        # Join summary values
+                        df = df.merge(summary_est_df, on="GEOID", how="left")
+                    else:
+                        # If summary variable not found, add column with NA values
+                        df["summary_est"] = pd.NA
+                else:
+                    # If summary variable not found, add column with NA values
+                    df["summary_est"] = pd.NA
             else:
                 # In wide format, rename summary column
-                if summary_var in df.columns:
-                    df = df.rename(columns={summary_var: "summary_value"})
+                if summary_var_clean in df.columns:
+                    df = df.rename(columns={summary_var_clean: "summary_est"})
+                    df["summary_est"] = pd.to_numeric(
+                        df["summary_est"], errors="coerce"
+                    )
+                else:
+                    # If summary variable not found, add column with NA values
+                    df["summary_est"] = pd.NA
 
         # Convert Census missing values to NA (mirror R tidycensus)
         missing_values = [
