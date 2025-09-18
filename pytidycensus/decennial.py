@@ -241,19 +241,69 @@ def get_decennial(
             variable_names = {}
         variable_names[summary_var] = "summary_est"
 
-    # Make API request
+    # Handle large variable lists by chunking (Census API limit is 50 variables)
+    # Reserve space for geography variables by using 48 as chunk size
+    MAX_VARIABLES_PER_REQUEST = 48
+    
     try:
-        data = api.get(
-            year=year,
-            dataset="dec",
-            variables=all_variables,
-            geography=geo_params,
-            survey=sumfile,
-            show_call=show_call,
-        )
-
-        # Process data
-        df = process_census_data(data, all_variables, output)
+        if len(all_variables) <= MAX_VARIABLES_PER_REQUEST:
+            # Single API request for small variable lists
+            data = api.get(
+                year=year,
+                dataset="dec",
+                variables=all_variables,
+                geography=geo_params,
+                survey=sumfile,
+                show_call=show_call,
+            )
+            df = process_census_data(data, all_variables, output)
+        else:
+            # Multiple API requests for large variable lists (like full tables)
+            print(f"Large table request: {len(all_variables)} variables will be retrieved in chunks")
+            
+            # Split variables into chunks
+            variable_chunks = [
+                all_variables[i:i + MAX_VARIABLES_PER_REQUEST]
+                for i in range(0, len(all_variables), MAX_VARIABLES_PER_REQUEST)
+            ]
+            
+            chunk_dfs = []
+            for i, chunk in enumerate(variable_chunks):
+                if show_call:
+                    print(f"Processing chunk {i+1}/{len(variable_chunks)} with {len(chunk)} variables")
+                
+                chunk_data = api.get(
+                    year=year,
+                    dataset="dec",
+                    variables=chunk,
+                    geography=geo_params,
+                    survey=sumfile,
+                    show_call=show_call,
+                )
+                chunk_df = process_census_data(chunk_data, chunk, output)
+                chunk_dfs.append(chunk_df)
+            
+            # Combine all chunks
+            if output == "tidy":
+                # For tidy format, concatenate all dataframes
+                df = pd.concat(chunk_dfs, ignore_index=True)
+            else:
+                # For wide format, merge on GEOID and geography columns
+                df = chunk_dfs[0]
+                geo_cols = [col for col in df.columns if col in ['GEOID', 'NAME', 'state', 'county', 'tract', 'block group']]
+                
+                for chunk_df in chunk_dfs[1:]:
+                    # Find common columns to join on (geography identifiers)
+                    join_cols = [col for col in geo_cols if col in chunk_df.columns]
+                    if join_cols:
+                        df = df.merge(chunk_df, on=join_cols, how='outer')
+                    else:
+                        # Fallback to GEOID if available
+                        if 'GEOID' in df.columns and 'GEOID' in chunk_df.columns:
+                            df = df.merge(chunk_df, on='GEOID', how='outer')
+                        else:
+                            print("Warning: Unable to merge chunks - no common geography columns found")
+                            df = pd.concat([df, chunk_df], ignore_index=True)
 
         # Handle named variables (replace variable codes with custom names)
         if variable_names and output == "tidy":
