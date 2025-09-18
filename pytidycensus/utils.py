@@ -457,9 +457,11 @@ def validate_geography(geography: str) -> str:
         "block",
         "place",
         "msa",
+        "metropolitan statistical area/micropolitan statistical area",
         "csa",
         "necta",
         "zcta",
+        "zip code tabulation area",
         "congressional district",
         "state legislative district (upper chamber)",
         "state legislative district (lower chamber)",
@@ -597,9 +599,40 @@ def process_census_data(
         for col in df.columns
         if col in ["state", "county", "tract", "block group", "place"]
     ]
-    if geo_cols:
+    
+    # Handle special geography identifiers that are already GEOID-like
+    geoid_like_cols = [
+        "metropolitan statistical area/micropolitan statistical area",
+        "zip code tabulation area",
+        "us",
+        "region",
+        "division",
+        "congressional district",
+        "state legislative district (upper chamber)",
+        "state legislative district (lower chamber)",
+        "public use microdata area",
+        "school district (elementary)",
+        "school district (secondary)",
+        "school district (unified)",
+    ]
+    
+    # Check if we have a geoid-like column
+    geoid_source_col = None
+    for col in geoid_like_cols:
+        if col in df.columns:
+            geoid_source_col = col
+            break
+    
+    if geoid_source_col:
+        # Use the existing geoid-like column as GEOID
+        df["GEOID"] = df[geoid_source_col].astype(str)
+        # Remove the original column since we now have GEOID
+        df = df.drop(columns=[geoid_source_col])
+    elif geo_cols:
+        # Build GEOID from multiple geography columns for hierarchical geographies
         df["GEOID"] = df[geo_cols].fillna("").astype(str).agg("".join, axis=1)
-    geo_cols.append("GEOID")
+    
+    geo_cols = ["GEOID"]
 
     # Reorder columns to put geographic identifiers first
     if output == "wide" and isinstance(df, (pd.DataFrame, GeoDataFrame)):

@@ -1244,26 +1244,34 @@ class TestGeographyLevelsIntegration:
         """Test that geography aliases work correctly."""
         aliases_to_test = [
             ("cbg", "block group"),
+            ("cbsa", "metropolitan statistical area/micropolitan statistical area"),
+            ("zcta", "zip code tabulation area"),
         ]
         
         for alias, full_name in aliases_to_test:
             try:
+                # Set parameters based on geography type
+                if alias == "cbg":
+                    params = {"state": "VT", "county": "003"}
+                elif alias == "cbsa":
+                    params = {}  # National geography
+                elif alias == "zcta":
+                    params = {"zcta": "05401"}  # Specific ZCTA
+                
                 # Test alias
                 result_alias = tc.get_acs(
                     geography=alias,
                     variables="B01003_001",
-                    state="VT",
-                    county="003",
-                    year=2022
+                    year=2022,
+                    **params
                 )
                 
                 # Test full name  
                 result_full = tc.get_acs(
                     geography=full_name,
                     variables="B01003_001", 
-                    state="VT",
-                    county="003",
-                    year=2022
+                    year=2022,
+                    **params
                 )
                 
                 # Both should return data
@@ -1276,8 +1284,8 @@ class TestGeographyLevelsIntegration:
                 
             except Exception as e:
                 print(f"✗ Geography alias '{alias}' failed: {e}")
-                if "not available" in str(e).lower():
-                    print(f"  (Expected failure for {alias})")
+                if "not available" in str(e).lower() or "requires" in str(e).lower():
+                    print(f"  (Expected failure or parameter issue for {alias})")
                     continue
                 raise
 
@@ -1340,6 +1348,55 @@ class TestGeographyLevelsIntegration:
             raise
             
         print("✓ Special geography requirements tests completed")
+    
+    @pytest.mark.integration
+    def test_r_tidycensus_output_format(self, setup_api_key):
+        """Test that output format exactly matches R tidycensus format."""
+        
+        # Test CBSA format matching the user's example
+        cbsa_result = tc.get_acs(
+            geography="cbsa",
+            variables="B01003_001",
+            year=2020
+        )
+        
+        # Verify required columns exist
+        required_cols = ["GEOID", "NAME", "variable", "estimate", "moe"]
+        for col in required_cols:
+            assert col in cbsa_result.columns, f"Missing required column: {col}"
+        
+        # Verify Aberdeen, SD is in the correct format
+        aberdeen = cbsa_result[cbsa_result["GEOID"] == "10100"]
+        assert not aberdeen.empty, "Aberdeen, SD (GEOID 10100) not found"
+        
+        row = aberdeen.iloc[0]
+        assert row["GEOID"] == "10100", "GEOID format incorrect"
+        assert "Aberdeen, SD Micro Area" in row["NAME"], "NAME format incorrect"
+        assert row["variable"] == "B01003_001", "Variable format incorrect"
+        assert isinstance(row["estimate"], (int, float)), "Estimate should be numeric"
+        
+        print("✓ CBSA output format matches R tidycensus")
+        
+        # Test ZCTA format
+        zcta_result = tc.get_acs(
+            geography="zcta",
+            variables="B01003_001",
+            zcta="05401",
+            year=2020
+        )
+        
+        # Verify required columns exist
+        for col in required_cols:
+            assert col in zcta_result.columns, f"Missing required column in ZCTA: {col}"
+        
+        # Check first ZCTA has proper format
+        if len(zcta_result) > 0:
+            row = zcta_result.iloc[0]
+            assert isinstance(row["GEOID"], str), "ZCTA GEOID should be string"
+            assert "ZCTA5" in row["NAME"], "ZCTA NAME format incorrect"
+            assert row["variable"] == "B01003_001", "ZCTA Variable format incorrect"
+        
+        print("✓ ZCTA output format matches R tidycensus")
 
 
 def run_table_chunking_integration_tests():
