@@ -6,10 +6,11 @@ import importlib.resources
 import os
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Union
+
 import pandas as pd
 import us
-from geopandas import GeoDataFrame
 import yaml
+from geopandas import GeoDataFrame
 
 
 def get_credentials():
@@ -607,7 +608,7 @@ def process_census_data(
         for col in df.columns
         if col in ["state", "county", "tract", "block group", "place"]
     ]
-    
+
     # Handle special geography identifiers that are already GEOID-like
     geoid_like_cols = [
         "metropolitan statistical area/micropolitan statistical area",
@@ -623,14 +624,14 @@ def process_census_data(
         "school district (secondary)",
         "school district (unified)",
     ]
-    
+
     # Check if we have a geoid-like column
     geoid_source_col = None
     for col in geoid_like_cols:
         if col in df.columns:
             geoid_source_col = col
             break
-    
+
     if geoid_source_col:
         # Use the existing geoid-like column as GEOID
         df["GEOID"] = df[geoid_source_col].astype(str)
@@ -639,7 +640,7 @@ def process_census_data(
     elif geo_cols:
         # Build GEOID from multiple geography columns for hierarchical geographies
         df["GEOID"] = df[geo_cols].fillna("").astype(str).agg("".join, axis=1)
-    
+
     geo_cols = ["GEOID"]
 
     # Reorder columns to put geographic identifiers first

@@ -139,10 +139,11 @@ def get_decennial(
         geography = "zip code tabulation area"
         if state:
             import warnings
+
             warnings.warn(
                 "ZCTAs are national geographies that cannot be filtered by state. "
                 "The state parameter will be ignored.",
-                UserWarning
+                UserWarning,
             )
 
     # Validate inputs (mirror R tidycensus)
@@ -236,14 +237,14 @@ def get_decennial(
     # Add NAME variable for special geographies that support it
     special_name_geographies = [
         "metropolitan statistical area/micropolitan statistical area",
-        "zip code tabulation area", 
+        "zip code tabulation area",
         "congressional district",
         "state legislative district (upper chamber)",
         "state legislative district (lower chamber)",
         "public use microdata area",
         "place",
     ]
-    
+
     if geography in special_name_geographies and "NAME" not in variables:
         variables = variables + ["NAME"]
 

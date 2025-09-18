@@ -163,11 +163,12 @@ def get_acs(
         geography = "zip code tabulation area"
         if state and not zcta:
             import warnings
+
             warnings.warn(
                 "ZCTAs are national geographies that cannot be filtered by state. "
                 "The state parameter will be ignored. Use the `zcta` parameter to "
                 "request specific ZIP codes, or omit both parameters to get all ZCTAs.",
-                UserWarning
+                UserWarning,
             )
 
     # Validate inputs
@@ -260,7 +261,7 @@ def get_acs(
         if var.endswith("E"):
             moe_var = var[:-1] + "M"
             all_variables.append(moe_var)
-    
+
     # Add NAME variable for special geographies that support it
     special_name_geographies = [
         "metropolitan statistical area/micropolitan statistical area",
@@ -271,7 +272,7 @@ def get_acs(
         "public use microdata area",
         "place",
     ]
-    
+
     if geography in special_name_geographies and "NAME" not in all_variables:
         all_variables.append("NAME")
 
@@ -323,7 +324,7 @@ def get_acs(
 
         # Separate data variables from identifier variables like NAME
         data_variables = [var for var in filtered_variables if var != "NAME"]
-        
+
         # Process data (use only data variables, not NAME)
         df = process_census_data(data, data_variables, output)
 

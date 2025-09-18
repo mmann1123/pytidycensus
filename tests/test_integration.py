@@ -1102,38 +1102,68 @@ class TestGeographyLevelsIntegration:
             ("msa", {}, "Metropolitan Statistical Area"),
             ("zcta", {"state": "VT"}, "ZIP Code Tabulation Area"),
             ("congressional district", {"state": "VT"}, "Congressional district"),
-            ("state legislative district (upper chamber)", {"state": "VT"}, "State senate district"),
-            ("state legislative district (lower chamber)", {"state": "VT"}, "State house district"),
+            (
+                "state legislative district (upper chamber)",
+                {"state": "VT"},
+                "State senate district",
+            ),
+            (
+                "state legislative district (lower chamber)",
+                {"state": "VT"},
+                "State house district",
+            ),
             ("public use microdata area", {"state": "VT"}, "PUMA"),
-            ("school district (elementary)", {"state": "VT"}, "Elementary school district"),
-            ("school district (secondary)", {"state": "VT"}, "Secondary school district"),
+            (
+                "school district (elementary)",
+                {"state": "VT"},
+                "Elementary school district",
+            ),
+            (
+                "school district (secondary)",
+                {"state": "VT"},
+                "Secondary school district",
+            ),
             ("school district (unified)", {"state": "VT"}, "Unified school district"),
         ]
-        
+
         # Test a subset of geographies to avoid hitting rate limits
         test_geographies = geography_tests[:8]  # Test first 8 levels
-        
+
         for geography, params, description in test_geographies:
             try:
                 result = tc.get_acs(
                     geography=geography,
                     variables="B01003_001",  # Total population
                     year=2022,
-                    **params
+                    **params,
                 )
-                
+
                 assert isinstance(result, pd.DataFrame), f"Failed for {description}"
                 assert len(result) > 0, f"No data returned for {description}"
-                
+
                 # Check for geographic identifier column (varies by geography level)
-                geo_id_cols = ["GEOID", "us", "region", "division", "state", "county", "tract", "block group", "place"]
+                geo_id_cols = [
+                    "GEOID",
+                    "us",
+                    "region",
+                    "division",
+                    "state",
+                    "county",
+                    "tract",
+                    "block group",
+                    "place",
+                ]
                 has_geo_id = any(col in result.columns for col in geo_id_cols)
-                assert has_geo_id, f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
-                
-                assert "estimate" in result.columns, f"Missing estimate for {description}"
-                
+                assert (
+                    has_geo_id
+                ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
+
+                assert (
+                    "estimate" in result.columns
+                ), f"Missing estimate for {description}"
+
                 print(f"✓ {description} geography works")
-                
+
             except Exception as e:
                 print(f"✗ {description} geography failed: {e}")
                 # Don't fail the test for expected failures
@@ -1142,7 +1172,7 @@ class TestGeographyLevelsIntegration:
                     continue
                 raise
 
-    @pytest.mark.integration  
+    @pytest.mark.integration
     def test_get_decennial_geography_levels(self, setup_api_key):
         """Test all documented geography levels for get_decennial()."""
         # Geography levels that are supported for decennial Census
@@ -1157,34 +1187,48 @@ class TestGeographyLevelsIntegration:
             ("place", {"state": "VT"}, "Incorporated place"),
             ("congressional district", {"state": "VT"}, "Congressional district"),
         ]
-        
+
         # Test a subset to avoid rate limits
         test_geographies = geography_tests[:8]
-        
+
         for geography, params, description in test_geographies:
             try:
                 # Use 2020 for voting districts requirement
                 year = 2020 if geography == "voting district" else 2020
-                
+
                 result = tc.get_decennial(
                     geography=geography,
                     variables="P1_001N",  # Total population
                     year=year,
-                    **params
+                    **params,
                 )
-                
+
                 assert isinstance(result, pd.DataFrame), f"Failed for {description}"
                 assert len(result) > 0, f"No data returned for {description}"
-                
+
                 # Check for geographic identifier column (varies by geography level)
-                geo_id_cols = ["GEOID", "us", "region", "division", "state", "county", "tract", "block group", "place"]
+                geo_id_cols = [
+                    "GEOID",
+                    "us",
+                    "region",
+                    "division",
+                    "state",
+                    "county",
+                    "tract",
+                    "block group",
+                    "place",
+                ]
                 has_geo_id = any(col in result.columns for col in geo_id_cols)
-                assert has_geo_id, f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
-                
-                assert "estimate" in result.columns, f"Missing estimate for {description}"
-                
+                assert (
+                    has_geo_id
+                ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
+
+                assert (
+                    "estimate" in result.columns
+                ), f"Missing estimate for {description}"
+
                 print(f"✓ {description} geography works")
-                
+
             except Exception as e:
                 print(f"✗ {description} geography failed: {e}")
                 # Don't fail for expected failures
@@ -1199,41 +1243,64 @@ class TestGeographyLevelsIntegration:
         # Geography levels that are supported for population estimates
         geography_tests = [
             ("us", {}, "United States"),
-            ("region", {}, "Census region"), 
+            ("region", {}, "Census region"),
             ("division", {}, "Census division"),
             ("state", {"state": "VT"}, "State"),
             ("county", {"state": "VT"}, "County"),
-            ("metropolitan statistical area/micropolitan statistical area", {}, "Metropolitan Statistical Area"),
+            (
+                "metropolitan statistical area/micropolitan statistical area",
+                {},
+                "Metropolitan Statistical Area",
+            ),
             ("place", {"state": "VT"}, "Incorporated place"),
         ]
-        
+
         for geography, params, description in geography_tests:
             try:
                 result = tc.get_estimates(
                     geography=geography,
                     variables="POP",  # Population estimate
                     year=2022,
-                    **params
+                    **params,
                 )
-                
+
                 assert isinstance(result, pd.DataFrame), f"Failed for {description}"
                 assert len(result) > 0, f"No data returned for {description}"
-                
+
                 # Check for geographic identifier column (varies by geography level)
-                geo_id_cols = ["GEOID", "us", "region", "division", "state", "county", "tract", "block group", "place"]
+                geo_id_cols = [
+                    "GEOID",
+                    "us",
+                    "region",
+                    "division",
+                    "state",
+                    "county",
+                    "tract",
+                    "block group",
+                    "place",
+                ]
                 has_geo_id = any(col in result.columns for col in geo_id_cols)
-                assert has_geo_id, f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
-                
+                assert (
+                    has_geo_id
+                ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
+
                 # Check for estimate column (varies by function)
-                estimate_cols = ["estimate", "POPESTIMATE2022", "POPESTIMATE2021", "POPESTIMATE2020"]
+                estimate_cols = [
+                    "estimate",
+                    "POPESTIMATE2022",
+                    "POPESTIMATE2021",
+                    "POPESTIMATE2020",
+                ]
                 has_estimate = any(col in result.columns for col in estimate_cols)
-                assert has_estimate, f"Missing estimate column for {description}, columns: {result.columns.tolist()}"
-                
+                assert (
+                    has_estimate
+                ), f"Missing estimate column for {description}, columns: {result.columns.tolist()}"
+
                 print(f"✓ {description} geography works")
-                
+
             except Exception as e:
                 print(f"✗ {description} geography failed: {e}")
-                # Don't fail for expected failures  
+                # Don't fail for expected failures
                 if "not available" in str(e).lower() or "invalid" in str(e).lower():
                     print(f"  (Expected failure for {description})")
                     continue
@@ -1247,7 +1314,7 @@ class TestGeographyLevelsIntegration:
             ("cbsa", "metropolitan statistical area/micropolitan statistical area"),
             ("zcta", "zip code tabulation area"),
         ]
-        
+
         for alias, full_name in aliases_to_test:
             try:
                 # Set parameters based on geography type
@@ -1257,31 +1324,25 @@ class TestGeographyLevelsIntegration:
                     params = {}  # National geography
                 elif alias == "zcta":
                     params = {"zcta": "05401"}  # Specific ZCTA
-                
+
                 # Test alias
                 result_alias = tc.get_acs(
-                    geography=alias,
-                    variables="B01003_001",
-                    year=2022,
-                    **params
+                    geography=alias, variables="B01003_001", year=2022, **params
                 )
-                
-                # Test full name  
+
+                # Test full name
                 result_full = tc.get_acs(
-                    geography=full_name,
-                    variables="B01003_001", 
-                    year=2022,
-                    **params
+                    geography=full_name, variables="B01003_001", year=2022, **params
                 )
-                
+
                 # Both should return data
                 assert isinstance(result_alias, pd.DataFrame)
                 assert isinstance(result_full, pd.DataFrame)
                 assert len(result_alias) > 0
                 assert len(result_full) > 0
-                
+
                 print(f"✓ Geography alias '{alias}' works correctly")
-                
+
             except Exception as e:
                 print(f"✗ Geography alias '{alias}' failed: {e}")
                 if "not available" in str(e).lower() or "requires" in str(e).lower():
@@ -1297,27 +1358,24 @@ class TestGeographyLevelsIntegration:
             ("county", {"state": "VT"}),
             ("tract", {"state": "VT", "county": "003"}),
         ]
-        
+
         for geography, params in name_column_geographies:
             try:
                 result = tc.get_acs(
-                    geography=geography,
-                    variables="B01003_001",
-                    year=2022,
-                    **params
+                    geography=geography, variables="B01003_001", year=2022, **params
                 )
-                
+
                 assert isinstance(result, pd.DataFrame), f"Failed for {geography}"
                 assert "NAME" in result.columns, f"Missing NAME column for {geography}"
                 assert len(result) > 0, f"No data returned for {geography}"
-                
+
                 # Check NAME column has proper format
                 name_sample = result["NAME"].iloc[0]
                 assert isinstance(name_sample, str), f"NAME not string for {geography}"
                 assert len(name_sample) > 0, f"Empty NAME for {geography}"
-                
+
                 print(f"✓ NAME column works for {geography}")
-                
+
             except Exception as e:
                 print(f"✗ NAME column test failed for {geography}: {e}")
                 raise
@@ -1325,7 +1383,7 @@ class TestGeographyLevelsIntegration:
     @pytest.mark.integration
     def test_special_geography_requirements(self, setup_api_key):
         """Test special geography requirements and restrictions."""
-        
+
         # Test PUMAs not available in 2020 PL file
         try:
             result = tc.get_decennial(
@@ -1333,11 +1391,11 @@ class TestGeographyLevelsIntegration:
                 variables="P1_001N",
                 state="VT",
                 year=2020,
-                sumfile="pl"  # Should fail
+                sumfile="pl",  # Should fail
             )
             # If we get here without error, that's unexpected
             print("⚠️ PUMAs with 2020 PL didn't fail as expected")
-            
+
         except ValueError as e:
             if "not available" in str(e) and "PL" in str(e):
                 print("✓ Correctly blocks PUMAs in 2020 PL file")
@@ -1346,91 +1404,84 @@ class TestGeographyLevelsIntegration:
         except Exception as e:
             print(f"✗ PUMA restriction test failed: {e}")
             raise
-            
+
         print("✓ Special geography requirements tests completed")
-    
+
     @pytest.mark.integration
     def test_r_tidycensus_output_format(self, setup_api_key):
         """Test that output format exactly matches R tidycensus format."""
-        
+
         # Test CBSA format matching the user's example
-        cbsa_result = tc.get_acs(
-            geography="cbsa",
-            variables="B01003_001",
-            year=2020
-        )
-        
+        cbsa_result = tc.get_acs(geography="cbsa", variables="B01003_001", year=2020)
+
         # Verify required columns exist
         required_cols = ["GEOID", "NAME", "variable", "estimate", "moe"]
         for col in required_cols:
             assert col in cbsa_result.columns, f"Missing required column: {col}"
-        
+
         # Verify Aberdeen, SD is in the correct format
         aberdeen = cbsa_result[cbsa_result["GEOID"] == "10100"]
         assert not aberdeen.empty, "Aberdeen, SD (GEOID 10100) not found"
-        
+
         row = aberdeen.iloc[0]
         assert row["GEOID"] == "10100", "GEOID format incorrect"
         assert "Aberdeen, SD Micro Area" in row["NAME"], "NAME format incorrect"
         assert row["variable"] == "B01003_001", "Variable format incorrect"
         assert isinstance(row["estimate"], (int, float)), "Estimate should be numeric"
-        
+
         print("✓ CBSA output format matches R tidycensus")
-        
+
         # Test ZCTA format
         zcta_result = tc.get_acs(
-            geography="zcta",
-            variables="B01003_001",
-            zcta="05401",
-            year=2020
+            geography="zcta", variables="B01003_001", zcta="05401", year=2020
         )
-        
+
         # Verify required columns exist
         for col in required_cols:
             assert col in zcta_result.columns, f"Missing required column in ZCTA: {col}"
-        
+
         # Check first ZCTA has proper format
         if len(zcta_result) > 0:
             row = zcta_result.iloc[0]
             assert isinstance(row["GEOID"], str), "ZCTA GEOID should be string"
             assert "ZCTA5" in row["NAME"], "ZCTA NAME format incorrect"
             assert row["variable"] == "B01003_001", "ZCTA Variable format incorrect"
-        
+
         print("✓ ZCTA output format matches R tidycensus")
-    
+
     @pytest.mark.integration
     def test_national_geographies_ignore_state(self, setup_api_key):
         """Test that national geographies ignore state parameters correctly."""
-        
+
         # Test that ZCTAs work with state parameter (but ignore it)
         with pytest.warns(UserWarning, match="ZCTAs are national geographies"):
             zcta_result = tc.get_acs(
                 geography="zcta",
                 state="VT",  # Should be ignored
                 variables="B01003_001",
-                year=2020
+                year=2020,
             )
-        
+
         # Should get all national ZCTAs, not just VT ZCTAs
         assert len(zcta_result) > 1000, "Should get many ZCTAs (national dataset)"
         assert "GEOID" in zcta_result.columns
         assert "NAME" in zcta_result.columns
-        
+
         print("✓ ZCTAs correctly ignore state parameter")
-        
+
         # Test that CBSAs work with state parameter (but ignore it)
         cbsa_result = tc.get_acs(
             geography="cbsa",
             state="VT",  # Should be ignored
-            variables="B01003_001", 
-            year=2020
+            variables="B01003_001",
+            year=2020,
         )
-        
+
         # Should get all national CBSAs
         assert len(cbsa_result) > 500, "Should get many CBSAs (national dataset)"
         assert "GEOID" in cbsa_result.columns
         assert "NAME" in cbsa_result.columns
-        
+
         print("✓ CBSAs correctly ignore state parameter")
 
 
