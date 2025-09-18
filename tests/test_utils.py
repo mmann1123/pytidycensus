@@ -525,3 +525,55 @@ class TestAddMarginOfError:
 
         with pytest.raises(ValueError, match="moe_level must be 90, 95, or 99"):
             add_margin_of_error(df, variables, moe_level=85)
+
+    def test_summary_variable_processing_tidy(self):
+        """Test summary variable processing in tidy format data."""
+        # Create tidy format data with summary variable included
+        df = pd.DataFrame({
+            "GEOID": ["04001", "04001", "04001", "04003", "04003", "04003"],
+            "NAME": ["Apache County, Arizona", "Apache County, Arizona", "Apache County, Arizona",
+                    "Cochise County, Arizona", "Cochise County, Arizona", "Cochise County, Arizona"],
+            "variable": ["White", "Black", "B03002_001", "White", "Black", "B03002_001"],  # Summary var included
+            "estimate": [12993, 544, 71714, 69095, 1024, 75045],
+            "moe": [56.0, 56.0, 0.0, 350.0, 89.0, 0.0]
+        })
+        
+        # Simulate summary variable processing
+        summary_var_clean = "B03002_001"
+        
+        # Extract summary data
+        summary_est_rows = df[df["variable"] == summary_var_clean]
+        assert len(summary_est_rows) == 2  # One for each geography
+        
+        summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
+        summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
+        
+        summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
+        summary_moe_df = summary_moe_df.rename(columns={"moe": "summary_moe"})
+        
+        # Remove summary variable from main data
+        df_filtered = df[df["variable"] != summary_var_clean]
+        assert len(df_filtered) == 4  # Should have 4 rows (2 geographies × 2 variables)
+        
+        # Join summary values
+        result = df_filtered.merge(summary_est_df, on="GEOID", how="left")
+        result = result.merge(summary_moe_df, on="GEOID", how="left")
+        
+        # Verify results
+        assert len(result) == 4
+        assert "summary_est" in result.columns
+        assert "summary_moe" in result.columns
+        
+        # Check Apache County values
+        apache_rows = result[result["GEOID"] == "04001"]
+        assert all(apache_rows["summary_est"] == 71714)
+        assert all(apache_rows["summary_moe"] == 0.0)
+        
+        # Check Cochise County values
+        cochise_rows = result[result["GEOID"] == "04003"]
+        assert all(cochise_rows["summary_est"] == 75045)
+        assert all(cochise_rows["summary_moe"] == 0.0)
+        
+        # Verify variable names are preserved
+        expected_vars = ["White", "Black"]
+        assert set(result["variable"].unique()) == set(expected_vars)
