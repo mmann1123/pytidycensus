@@ -39,7 +39,7 @@ dependencies = [
     "certifi>=2025.8.3",
     "numpy<2",
     "pyyaml>=6.0.0",
-    "matplotlib>=3.9.0",
+    "matplotlib>=3.10.6",
 ]
 
 [project.optional-dependencies]
