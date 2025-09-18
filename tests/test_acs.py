@@ -562,6 +562,91 @@ class TestGetACS:
         assert "B01003_001E" in variables
         assert "B01003_001M" in variables
 
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_get_acs_summary_var_tidy_format(self, mock_api_class):
+        """Test summary_var functionality in tidy format with realistic race data."""
+        # Mock realistic API response with race variables and summary var
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                'B03002_003E': '12993',   # White
+                'B03002_003M': '56',      # White MOE
+                'B03002_004E': '544',     # Black  
+                'B03002_004M': '56',      # Black MOE
+                'B03002_005E': '51979',   # Native
+                'B03002_005M': '327',     # Native MOE
+                'B03002_001E': '71714',   # Total (summary var)
+                'B03002_001M': '0',       # Total MOE
+                'state': '04',
+                'county': '001',
+                'NAME': 'Apache County, Arizona'
+            },
+            {
+                'B03002_003E': '69095',   # White
+                'B03002_003M': '350',     # White MOE
+                'B03002_004E': '1024',    # Black  
+                'B03002_004M': '89',      # Black MOE
+                'B03002_005E': '2156',    # Native
+                'B03002_005M': '145',     # Native MOE
+                'B03002_001E': '75045',   # Total (summary var)
+                'B03002_001M': '0',       # Total MOE
+                'state': '04',
+                'county': '003',
+                'NAME': 'Cochise County, Arizona'
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        # Test race variables with summary var
+        race_vars = {
+            "White": "B03002_003",
+            "Black": "B03002_004", 
+            "Native": "B03002_005"
+        }
+        
+        result = get_acs(
+            geography="county",
+            state="AZ",
+            variables=race_vars,
+            summary_var="B03002_001",
+            year=2020,
+            output="tidy",
+            api_key="test"
+        )
+
+        # Verify result structure
+        assert isinstance(result, pd.DataFrame)
+        
+        # Check expected columns for R tidycensus format
+        expected_columns = ["GEOID", "NAME", "variable", "estimate", "moe", "summary_est", "summary_moe"]
+        for col in expected_columns:
+            assert col in result.columns, f"Missing column: {col}"
+        
+        # Verify we have 6 rows (2 counties × 3 race variables)
+        assert len(result) == 6
+        
+        # Check that summary variable is NOT in the main data
+        unique_vars = result["variable"].unique()
+        assert "B03002_001" not in unique_vars, "Summary variable should be excluded from main data"
+        assert "White" in unique_vars  # Custom variable names should be preserved
+        assert "Black" in unique_vars
+        assert "Native" in unique_vars
+        
+        # Verify summary values are correctly joined
+        apache_white = result[(result["GEOID"] == "04001") & (result["variable"] == "White")]
+        assert len(apache_white) == 1
+        assert apache_white["estimate"].iloc[0] == 12993
+        assert apache_white["moe"].iloc[0] == 56.0
+        assert apache_white["summary_est"].iloc[0] == 71714
+        assert apache_white["summary_moe"].iloc[0] == 0.0
+        
+        # Verify summary values are the same for all variables in same geography
+        apache_rows = result[result["GEOID"] == "04001"]
+        summary_est_values = apache_rows["summary_est"].unique()
+        summary_moe_values = apache_rows["summary_moe"].unique()
+        assert len(summary_est_values) == 1 and summary_est_values[0] == 71714
+        assert len(summary_moe_values) == 1 and summary_moe_values[0] == 0.0
+
 
 class TestGetACSVariables:
     """Test cases for the get_acs_variables function."""

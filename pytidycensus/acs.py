@@ -351,21 +351,35 @@ def get_acs(
 
         # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
-            summary_col = summary_var
-            if summary_col in df.columns:
-                if output == "tidy":
-                    # In tidy format, join summary value by GEOID
-                    summary_df = df[df["variable"] == summary_var][
-                        ["GEOID", "value"]
-                    ].copy()
-                    summary_df = summary_df.rename(columns={"value": "summary_value"})
+            # For tidy format, we need to handle summary variable differently
+            if output == "tidy":
+                # Find summary variable rows (after E suffix removal)
+                summary_var_clean = summary_var.replace("E", "") if summary_var.endswith("E") else summary_var
+                summary_est_rows = df[df["variable"] == summary_var_clean]
+                
+                if not summary_est_rows.empty:
+                    # Create summary estimate and MOE dataframes
+                    summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
+                    summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
+                    
+                    summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
+                    summary_moe_df = summary_moe_df.rename(columns={"moe": "summary_moe"})
+                    
                     # Remove summary variable from main data
-                    df = df[df["variable"] != summary_var]
+                    df = df[df["variable"] != summary_var_clean]
+                    
                     # Join summary values
-                    df = df.merge(summary_df, on="GEOID", how="left")
-                else:
-                    # In wide format, rename summary column
-                    df = df.rename(columns={summary_var: "summary_value"})
+                    df = df.merge(summary_est_df, on="GEOID", how="left")
+                    df = df.merge(summary_moe_df, on="GEOID", how="left")
+            else:
+                # In wide format, rename summary columns  
+                summary_col = summary_var
+                if summary_col in df.columns:
+                    df = df.rename(columns={summary_col: "summary_est"})
+                # Also rename MOE column if it exists
+                summary_moe_col = summary_var.replace("E", "_moe") if summary_var.endswith("E") else f"{summary_var}_moe"
+                if summary_moe_col in df.columns:
+                    df = df.rename(columns={summary_moe_col: "summary_moe"})
 
         # Add geometry if requested
         if geometry:
