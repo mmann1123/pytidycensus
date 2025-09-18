@@ -369,9 +369,13 @@ def get_acs(
                         # Create summary estimate and MOE dataframes
                         summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
                         summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
+                        # Ensure summary_est is numeric
+                        summary_est_df["summary_est"] = pd.to_numeric(summary_est_df["summary_est"], errors="coerce")
                         
                         summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
                         summary_moe_df = summary_moe_df.rename(columns={"moe": "summary_moe"})
+                        # Ensure summary_moe is numeric
+                        summary_moe_df["summary_moe"] = pd.to_numeric(summary_moe_df["summary_moe"], errors="coerce")
                         
                         # Remove summary variable from main data
                         df = df[df["variable"] != summary_var_clean]
@@ -392,10 +396,14 @@ def get_acs(
                 summary_col = summary_var
                 if summary_col in df.columns:
                     df = df.rename(columns={summary_col: "summary_est"})
+                    # Ensure summary_est is numeric
+                    df["summary_est"] = pd.to_numeric(df["summary_est"], errors="coerce")
                     # Also rename MOE column if it exists
                     summary_moe_col = summary_var.replace("E", "_moe") if summary_var.endswith("E") else f"{summary_var}_moe"
                     if summary_moe_col in df.columns:
                         df = df.rename(columns={summary_moe_col: "summary_moe"})
+                        # Ensure summary_moe is numeric
+                        df["summary_moe"] = pd.to_numeric(df["summary_moe"], errors="coerce")
                 else:
                     # Add empty summary columns if summary variable not found
                     df["summary_est"] = pd.NA
