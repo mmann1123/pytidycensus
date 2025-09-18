@@ -333,9 +333,9 @@ class TestDecennialIntegration:
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
-        assert result["value"].iloc[0] > 600000  # Vermont population ~625k in 2010
+        assert result["estimate"].iloc[0] > 600000  # Vermont population ~625k in 2010
 
-        print(f"✓ 2010 decennial data: Vermont population = {result['value'].iloc[0]}")
+        print(f"✓ 2010 decennial data: Vermont population = {result['estimate'].iloc[0]}")
 
 
 class TestEnhancedFeaturesIntegration:

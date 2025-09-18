@@ -236,7 +236,11 @@ def get_decennial(
     all_variables = variables.copy()
     if summary_var and summary_var not in all_variables:
         all_variables.append(summary_var)
-        variable_names[summary_var] = "summary_value"
+        # Initialize variable_names if it doesn't exist
+        if variable_names is None:
+            variable_names = {}
+        variable_names[summary_var] = "summary_est"
+
     # Make API request
     try:
         data = api.get(
@@ -266,22 +270,38 @@ def get_decennial(
             }
             df = df.rename(columns=rename_dict)
 
-        # # Handle summary variable joining (mirror R tidycensus)
+        # Handle summary variable joining (mirror R tidycensus)
         if summary_var:
+            # Remove "E" suffix for clean comparison
+            summary_var_clean = summary_var.rstrip("E") if summary_var.endswith("E") else summary_var
+            
             if output == "tidy":
                 # In tidy format, join summary value by GEOID
-                summary_df = df[df["variable"] == summary_var][
-                    ["GEOID", "value"]
-                ].copy()
-                summary_df = summary_df.rename(columns={"value": "summary_value"})
-                # Remove summary variable from main data
-                df = df[df["variable"] != summary_var]
-                # Join summary values
-                df = df.merge(summary_df, on="GEOID", how="left")
+                if "variable" in df.columns and summary_var_clean in df["variable"].values:
+                    summary_est_rows = df[df["variable"] == summary_var_clean]
+                    if not summary_est_rows.empty:
+                        summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
+                        summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
+                        summary_est_df["summary_est"] = pd.to_numeric(summary_est_df["summary_est"], errors="coerce")
+                        
+                        # Remove summary variable from main data
+                        df = df[df["variable"] != summary_var_clean]
+                        # Join summary values
+                        df = df.merge(summary_est_df, on="GEOID", how="left")
+                    else:
+                        # If summary variable not found, add column with NA values
+                        df["summary_est"] = pd.NA
+                else:
+                    # If summary variable not found, add column with NA values
+                    df["summary_est"] = pd.NA
             else:
                 # In wide format, rename summary column
-                if summary_var in df.columns:
-                    df = df.rename(columns={summary_var: "summary_value"})
+                if summary_var_clean in df.columns:
+                    df = df.rename(columns={summary_var_clean: "summary_est"})
+                    df["summary_est"] = pd.to_numeric(df["summary_est"], errors="coerce")
+                else:
+                    # If summary variable not found, add column with NA values
+                    df["summary_est"] = pd.NA
 
         # Convert Census missing values to NA (mirror R tidycensus)
         missing_values = [
