@@ -38,6 +38,7 @@ dependencies = [
     "appdirs>=1.4.0",
     "certifi>=2025.8.3",
     "numpy<2",
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]
