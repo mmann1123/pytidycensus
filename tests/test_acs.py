@@ -95,6 +95,78 @@ class TestGetACS:
         assert "B19013_001M" in call_args  # MOE variables
 
     @patch("pytidycensus.acs.CensusAPI")
+    @patch("pytidycensus.variables.load_variables")
+    def test_get_acs_table_b01001_returns_expected_values(self, mock_load_vars, mock_api_class):
+        """Test that table B01001 returns expected values matching R tidycensus output."""
+        # Mock variables loading for B01001 (first 4 variables from the R output)
+        mock_vars_df = pd.DataFrame(
+            {
+                "name": ["B01001_001E", "B01001_002E", "B01001_003E", "B01001_004E"],
+                "label": ["Total", "Male", "Male under 5 years", "Male 5 to 9 years"],
+                "concept": ["SEX BY AGE", "SEX BY AGE", "SEX BY AGE", "SEX BY AGE"],
+                "predicateType": ["int", "int", "int", "int"],
+                "group": ["B01001", "B01001", "B01001", "B01001"],
+                "limit": [0, 0, 0, 0],
+                "table": ["B01001", "B01001", "B01001", "B01001"],
+            }
+        )
+        mock_load_vars.return_value = mock_vars_df
+
+        # Mock API response with the exact values from R output
+        mock_api = Mock()
+        mock_api.get.return_value = [
+            {
+                "state": "01",
+                "NAME": "Alabama",
+                "B01001_001E": "4893186",  # Total population
+                "B01001_001M": "-222222222",  # No MOE for total (will be converted to NA)
+                "B01001_002E": "2365734",  # Male
+                "B01001_002M": "1090",  # MOE for male
+                "B01001_003E": "149579",  # Male under 5
+                "B01001_003M": "672",  # MOE for male under 5
+                "B01001_004E": "150937",  # Male 5 to 9
+                "B01001_004M": "2202",  # MOE for male 5 to 9
+            }
+        ]
+        mock_api_class.return_value = mock_api
+
+        # Execute the function
+        result = get_acs(geography="state", table="B01001", year=2020, api_key="test")
+
+        # Verify the result structure and values
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 4  # 4 variables for Alabama
+
+        # Check that all expected columns are present
+        expected_columns = {"GEOID", "NAME", "variable", "estimate", "moe"}
+        assert expected_columns.issubset(set(result.columns))
+
+        # Verify specific values match R output
+        # Convert to dict for easier lookup
+        result_dict = {}
+        for _, row in result.iterrows():
+            result_dict[row["variable"]] = {"estimate": row["estimate"], "moe": row["moe"]}
+
+        # Check estimates match R output
+        assert result_dict["B01001_001"]["estimate"] == 4893186
+        assert result_dict["B01001_002"]["estimate"] == 2365734
+        assert result_dict["B01001_003"]["estimate"] == 149579
+        assert result_dict["B01001_004"]["estimate"] == 150937
+
+        # Check MOE values (first should be NA/null, others should match)
+        assert pd.isna(result_dict["B01001_001"]["moe"])  # Total population has no MOE in R
+        assert result_dict["B01001_002"]["moe"] == 1090
+        assert result_dict["B01001_003"]["moe"] == 672
+        assert result_dict["B01001_004"]["moe"] == 2202
+
+        # Verify GEOID and NAME are correct
+        assert all(result["GEOID"] == "01")
+        assert all(result["NAME"] == "Alabama")
+
+        # Verify that load_variables was called correctly
+        mock_load_vars.assert_called_once_with(2020, "acs", "acs5", cache=False)
+
+    @patch("pytidycensus.acs.CensusAPI")
     @patch("pytidycensus.acs.get_geography")
     def test_get_acs_with_geometry(self, mock_get_geo, mock_api_class):
         """Test ACS data retrieval with geometry."""
