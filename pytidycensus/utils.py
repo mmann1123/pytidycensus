@@ -723,6 +723,8 @@ def add_margin_of_error(
 
     if output == "tidy":
         # For tidy format, we need to create a separate 'moe' column
+        # Ensure variable column is string type for str accessor
+        df["variable"] = df["variable"].astype(str)
         # First, separate estimate and MOE rows
         estimate_rows = df[~df["variable"].str.endswith("M")].copy()
         moe_rows = df[df["variable"].str.endswith("M")].copy()
