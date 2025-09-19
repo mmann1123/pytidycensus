@@ -1,0 +1,45 @@
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]  # Changed from [pre-commit] to [commit]
+fail_fast: false
+minimum_pre_commit_version: "2.9.0"
+
+# Remove the 'allow_unstaged_changes' from the root level
+
+repos:
+-   repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+    -   id: isort
+        args: ["--profile", "black"]
+        # Add this to each hook that should run on unstaged files
+        always_run: true
+
+-   repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+    -   id: black
+        language_version: python3
+        always_run: true
+
+-   repo: https://github.com/pycqa/autoflake
+    rev: v2.3.1
+    hooks:
+    -   id: autoflake
+        args: [
+            "--remove-all-unused-imports",
+            "--remove-unused-variables",
+            "--in-place"
+        ]
+        always_run: true
+
+-   repo: local
+    hooks:
+    -   id: docformatter
+        name: docformatter
+        description: 'Formats docstrings to follow PEP 257'
+        entry: docformatter
+        language: python
+        types: [python]
+        args: ["--in-place", "--wrap-summaries=100"]
+        additional_dependencies: ['docformatter==1.7.5']
+        always_run: true

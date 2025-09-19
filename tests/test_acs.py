@@ -1,8 +1,6 @@
-"""
-Tests for ACS data retrieval functions.
-"""
+"""Tests for ACS data retrieval functions."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import geopandas as gpd
 import pandas as pd
@@ -45,9 +43,7 @@ class TestGetACS:
         mock_process.return_value = mock_df_tidy
         mock_add_moe.return_value = mock_df_tidy
 
-        result = get_acs(
-            geography="state", variables="B01001_001E", year=2022, api_key="test"
-        )
+        result = get_acs(geography="state", variables="B01001_001E", year=2022, api_key="test")
 
         # Verify API was called correctly
         mock_api.get.assert_called_once()
@@ -122,9 +118,7 @@ class TestGetACS:
         with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
-            mock_df = pd.DataFrame(
-                {"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]}
-            )
+            mock_df = pd.DataFrame({"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]})
             mock_process.return_value = mock_df
             mock_add_moe.return_value = mock_df
 
@@ -151,9 +145,7 @@ class TestGetACS:
             get_acs(geography="state", api_key="test")
 
         # Both variables and table
-        with pytest.raises(
-            ValueError, match="Specify variables or a table to retrieve"
-        ):
+        with pytest.raises(ValueError, match="Specify variables or a table to retrieve"):
             get_acs(
                 geography="state",
                 variables="B01001_001E",
@@ -207,9 +199,7 @@ class TestGetACS:
         """Test get_acs with multiple variables."""
         with patch("pytidycensus.acs.CensusAPI") as mock_api_class, patch(
             "pytidycensus.acs.process_census_data"
-        ) as mock_process, patch(
-            "pytidycensus.acs.add_margin_of_error"
-        ) as mock_add_moe:
+        ) as mock_process, patch("pytidycensus.acs.add_margin_of_error") as mock_add_moe:
             mock_api = Mock()
             mock_api.get.return_value = []
             mock_api_class.return_value = mock_api
@@ -268,24 +258,18 @@ class TestGetACS:
         """Test warning when geometry merge fails due to missing GEOID."""
         # Mock API response without GEOID
         mock_api = Mock()
-        mock_api.get.return_value = [
-            {"NAME": "Alabama", "B01001_001E": "5024279", "state": "01"}
-        ]
+        mock_api.get.return_value = [{"NAME": "Alabama", "B01001_001E": "5024279", "state": "01"}]
         mock_api_class.return_value = mock_api
 
         # Mock geometry data with GEOID
-        mock_gdf = gpd.GeoDataFrame(
-            {"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]}
-        )
+        mock_gdf = gpd.GeoDataFrame({"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]})
         mock_get_geo.return_value = mock_gdf
 
         with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
             "pytidycensus.acs.add_margin_of_error"
         ) as mock_add_moe:
             # Census data without GEOID
-            mock_df = pd.DataFrame(
-                {"NAME": ["Alabama"], "B01001_001E": [5024279], "state": ["01"]}
-            )
+            mock_df = pd.DataFrame({"NAME": ["Alabama"], "B01001_001E": [5024279], "state": ["01"]})
             mock_process.return_value = mock_df
             mock_add_moe.return_value = mock_df
 
@@ -307,9 +291,7 @@ class TestGetACS:
         mock_api.get.side_effect = Exception("API request failed")
         mock_api_class.return_value = mock_api
 
-        with pytest.raises(
-            Exception, match="Failed to retrieve ACS data: API request failed"
-        ):
+        with pytest.raises(Exception, match="Failed to retrieve ACS data: API request failed"):
             get_acs(geography="state", variables="B01001_001E", api_key="test")
 
     @patch("pytidycensus.acs.CensusAPI")
@@ -391,9 +373,7 @@ class TestGetACS:
     def test_get_acs_invalid_moe_level(self):
         """Test get_acs with invalid MOE level."""
         with pytest.raises(ValueError, match="moe_level must be 90, 95, or 99"):
-            get_acs(
-                geography="state", variables="B01001_001E", moe_level=85, api_key="test"
-            )
+            get_acs(geography="state", variables="B01001_001E", moe_level=85, api_key="test")
 
     @patch("pytidycensus.acs.CensusAPI")
     def test_get_acs_geometry_forces_wide_output(self, mock_api_class):
@@ -406,17 +386,11 @@ class TestGetACS:
 
         with patch("pytidycensus.acs.get_geography") as mock_get_geo, patch(
             "pytidycensus.acs.process_census_data"
-        ) as mock_process, patch(
-            "pytidycensus.acs.add_margin_of_error"
-        ) as mock_add_moe:
-            mock_gdf = gpd.GeoDataFrame(
-                {"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]}
-            )
+        ) as mock_process, patch("pytidycensus.acs.add_margin_of_error") as mock_add_moe:
+            mock_gdf = gpd.GeoDataFrame({"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]})
             mock_get_geo.return_value = mock_gdf
 
-            mock_df = pd.DataFrame(
-                {"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]}
-            )
+            mock_df = pd.DataFrame({"NAME": ["Alabama"], "B01001_001E": [5024279], "GEOID": ["01"]})
             mock_process.return_value = mock_df
             mock_add_moe.return_value = mock_df
 
@@ -655,17 +629,13 @@ class TestGetACS:
 
         # Check that summary variable is NOT in the main data
         unique_vars = result["variable"].unique()
-        assert (
-            "B03002_001" not in unique_vars
-        ), "Summary variable should be excluded from main data"
+        assert "B03002_001" not in unique_vars, "Summary variable should be excluded from main data"
         assert "White" in unique_vars  # Custom variable names should be preserved
         assert "Black" in unique_vars
         assert "Native" in unique_vars
 
         # Verify summary values are correctly joined
-        apache_white = result[
-            (result["GEOID"] == "04001") & (result["variable"] == "White")
-        ]
+        apache_white = result[(result["GEOID"] == "04001") & (result["variable"] == "White")]
         assert len(apache_white) == 1
         assert apache_white["estimate"].iloc[0] == 12993
         assert apache_white["moe"].iloc[0] == 56.0

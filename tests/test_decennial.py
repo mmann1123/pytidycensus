@@ -1,6 +1,4 @@
-"""
-Tests for decennial Census data retrieval functions.
-"""
+"""Tests for decennial Census data retrieval functions."""
 
 from unittest.mock import MagicMock, Mock, patch
 
@@ -20,9 +18,7 @@ class TestGetDecennial:
         """Test basic decennial Census data retrieval."""
         # Mock API response
         mock_api = Mock()
-        mock_api.get.return_value = [
-            {"NAME": "Alabama", "P1_001N": "5024279", "state": "01"}
-        ]
+        mock_api.get.return_value = [{"NAME": "Alabama", "P1_001N": "5024279", "state": "01"}]
         mock_api_class.return_value = mock_api
 
         # Mock processing function
@@ -37,9 +33,7 @@ class TestGetDecennial:
         )
         mock_process.return_value = mock_df
 
-        result = get_decennial(
-            geography="state", variables="P1_001N", year=2020, api_key="test"
-        )
+        result = get_decennial(geography="state", variables="P1_001N", year=2020, api_key="test")
 
         # Verify API was called correctly
         mock_api.get.assert_called_once()
@@ -107,9 +101,7 @@ class TestGetDecennial:
         mock_get_geo.return_value = mock_gdf
 
         with patch("pytidycensus.decennial.process_census_data") as mock_process:
-            mock_df = pd.DataFrame(
-                {"NAME": ["Alabama"], "P1_001N": [5024279], "GEOID": ["01"]}
-            )
+            mock_df = pd.DataFrame({"NAME": ["Alabama"], "P1_001N": [5024279], "GEOID": ["01"]})
             mock_process.return_value = mock_df
 
             result = get_decennial(
@@ -132,18 +124,12 @@ class TestGetDecennial:
             get_decennial(geography="state", api_key="test")
 
         # Both variables and table
-        with pytest.raises(
-            ValueError, match="Specify variables or a table to retrieve"
-        ):
-            get_decennial(
-                geography="state", variables="P1_001N", table="P1", api_key="test"
-            )
+        with pytest.raises(ValueError, match="Specify variables or a table to retrieve"):
+            get_decennial(geography="state", variables="P1_001N", table="P1", api_key="test")
 
         # Invalid year
         with pytest.raises(ValueError, match="Decennial census data not available"):
-            get_decennial(
-                geography="state", variables="P1_001N", year=2019, api_key="test"
-            )
+            get_decennial(geography="state", variables="P1_001N", year=2019, api_key="test")
 
     @patch("pytidycensus.decennial.CensusAPI")
     def test_get_decennial_different_years(self, mock_api_class):
@@ -156,23 +142,17 @@ class TestGetDecennial:
             mock_process.return_value = pd.DataFrame()
 
             # Test 2020 (should use 'pl')
-            get_decennial(
-                geography="state", variables="P1_001N", year=2020, api_key="test"
-            )
+            get_decennial(geography="state", variables="P1_001N", year=2020, api_key="test")
             call_args = mock_api.get.call_args[1]
             assert call_args["survey"] == "pl"
 
             # Test 2010 (should use 'sf1')
-            get_decennial(
-                geography="state", variables="P001001", year=2010, api_key="test"
-            )
+            get_decennial(geography="state", variables="P001001", year=2010, api_key="test")
             call_args = mock_api.get.call_args[1]
             assert call_args["survey"] == "sf1"
 
             # Test 2000 (should use 'sf1')
-            get_decennial(
-                geography="state", variables="P001001", year=2000, api_key="test"
-            )
+            get_decennial(geography="state", variables="P001001", year=2000, api_key="test")
             call_args = mock_api.get.call_args[1]
             assert call_args["survey"] == "sf1"
 
@@ -251,22 +231,16 @@ class TestGetDecennial:
         """Test warning when geometry merge fails due to missing GEOID."""
         # Mock API response without GEOID
         mock_api = Mock()
-        mock_api.get.return_value = [
-            {"NAME": "Alabama", "P1_001N": "5024279", "state": "01"}
-        ]
+        mock_api.get.return_value = [{"NAME": "Alabama", "P1_001N": "5024279", "state": "01"}]
         mock_api_class.return_value = mock_api
 
         # Mock geometry data with GEOID
-        mock_gdf = gpd.GeoDataFrame(
-            {"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]}
-        )
+        mock_gdf = gpd.GeoDataFrame({"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]})
         mock_get_geo.return_value = mock_gdf
 
         with patch("pytidycensus.decennial.process_census_data") as mock_process:
             # Census data without GEOID
-            mock_df = pd.DataFrame(
-                {"NAME": ["Alabama"], "P1_001N": [5024279], "state": ["01"]}
-            )
+            mock_df = pd.DataFrame({"NAME": ["Alabama"], "P1_001N": [5024279], "state": ["01"]})
             mock_process.return_value = mock_df
 
             # Should return census data without geometry merge
@@ -301,16 +275,12 @@ class TestGetDecennial:
             mock_process.return_value = pd.DataFrame()
 
             # Test tidy output
-            get_decennial(
-                geography="state", variables="P1_001N", output="tidy", api_key="test"
-            )
+            get_decennial(geography="state", variables="P1_001N", output="tidy", api_key="test")
             call_args = mock_process.call_args[0]
             assert "tidy" in call_args
 
             # Test wide output
-            get_decennial(
-                geography="state", variables="P1_001N", output="wide", api_key="test"
-            )
+            get_decennial(geography="state", variables="P1_001N", output="wide", api_key="test")
             call_args = mock_process.call_args[0]
             assert "wide" in call_args
 
@@ -421,17 +391,11 @@ class TestDecennialTableChunking:
         mock_geo_params.return_value = {"for": "state:50"}
 
         # Mock process_census_data to return simple DataFrames
-        chunk1_df = pd.DataFrame(
-            {"GEOID": ["50"], "variable": ["P1_001N"], "estimate": [1000]}
-        )
-        chunk2_df = pd.DataFrame(
-            {"GEOID": ["50"], "variable": ["P1_049N"], "estimate": [2000]}
-        )
+        chunk1_df = pd.DataFrame({"GEOID": ["50"], "variable": ["P1_001N"], "estimate": [1000]})
+        chunk2_df = pd.DataFrame({"GEOID": ["50"], "variable": ["P1_049N"], "estimate": [2000]})
         mock_process.side_effect = [chunk1_df, chunk2_df]
 
-        get_decennial(
-            geography="state", table="P1", state="VT", year=2020, api_key="test_key"
-        )
+        get_decennial(geography="state", table="P1", state="VT", year=2020, api_key="test_key")
 
         # Verify chunking occurred (2 API calls for 71 variables)
         assert mock_api.get.call_count == 2
@@ -467,9 +431,7 @@ class TestDecennialTableChunking:
             {"GEOID": ["50"], "variable": ["P2_001N"], "estimate": [100]}
         )
 
-        get_decennial(
-            geography="state", table="P2", state="VT", year=2020, api_key="test_key"
-        )
+        get_decennial(geography="state", table="P2", state="VT", year=2020, api_key="test_key")
 
         # Verify no chunking (single API call)
         assert mock_api.get.call_count == 1

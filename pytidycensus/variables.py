@@ -1,8 +1,5 @@
-"""
-Census variable loading and caching functionality.
-"""
+"""Census variable loading and caching functionality."""
 
-import json
 import os
 import pickle
 from typing import Any, Dict, Optional
@@ -20,8 +17,7 @@ def load_variables(
     cache: bool = True,
     cache_dir: Optional[str] = None,
 ) -> pd.DataFrame:
-    """
-    Load Census variables for a given dataset and year.
+    """Load Census variables for a given dataset and year.
 
     Parameters
     ----------
@@ -70,8 +66,7 @@ def load_variables(
             with open(cache_path, "rb") as f:
                 df = pickle.load(f)
             print(
-                f"Loaded cached variables for {year} {dataset}"
-                + (f" {survey}" if survey else "")
+                f"Loaded cached variables for {year} {dataset}" + (f" {survey}" if survey else "")
             )
             return df
         except (pickle.PickleError, EOFError):
@@ -79,9 +74,7 @@ def load_variables(
             pass
 
     # Download variables from API
-    print(
-        f"Downloading variables for {year} {dataset}" + (f" {survey}" if survey else "")
-    )
+    print(f"Downloading variables for {year} {dataset}" + (f" {survey}" if survey else ""))
 
     try:
         api = CensusAPI()
@@ -103,8 +96,7 @@ def load_variables(
 
 
 def _parse_variables(variables_data: Dict[str, Any]) -> pd.DataFrame:
-    """
-    Parse raw variables JSON into a structured DataFrame.
+    """Parse raw variables JSON into a structured DataFrame.
 
     Parameters
     ----------
@@ -171,8 +163,7 @@ def search_variables(
     survey: Optional[str] = None,
     field: str = "label",
 ) -> pd.DataFrame:
-    """
-    Search for variables by pattern in labels, concepts, or names.
+    """Search for variables by pattern in labels, concepts, or names.
 
     Parameters
     ----------
@@ -225,8 +216,7 @@ def search_variables(
 def get_table_variables(
     table: str, year: int, dataset: str, survey: Optional[str] = None
 ) -> pd.DataFrame:
-    """
-    Get all variables for a specific table.
+    """Get all variables for a specific table.
 
     Parameters
     ----------
@@ -261,8 +251,7 @@ def get_table_variables(
 
 
 def clear_cache(cache_dir: Optional[str] = None) -> None:
-    """
-    Clear the variables cache.
+    """Clear the variables cache.
 
     Parameters
     ----------
@@ -282,8 +271,7 @@ def clear_cache(cache_dir: Optional[str] = None) -> None:
 
 
 def list_available_datasets(year: int) -> Dict[str, list]:
-    """
-    List available datasets for a given year.
+    """List available datasets for a given year.
 
     Parameters
     ----------

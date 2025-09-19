@@ -15,9 +15,7 @@ author = "Michael Mann & Kyle Walker"
 
 # Get version from pyproject.toml
 try:
-    with open(
-        os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), "rb"
-    ) as f:
+    with open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), "rb") as f:
         pyproject_data = tomli.load(f)
         release = pyproject_data["project"]["version"]
 except (FileNotFoundError, KeyError, ImportError):
@@ -38,9 +36,17 @@ extensions = [
     "nbsphinx",
     "myst_nb",
 ]
-# Configure MyST-NB
-nb_execution_mode = "auto"
+
+# -- MyST-NB configuration --
+# MyST-NB settings (for markdown files with code cells)
+nb_execution_mode = "force"  # 'off', 'auto', 'force', 'cache', 'inline'  # Execute and cache markdown files with code cells
 nb_execution_allow_errors = True  # Continue execution even if cells raise errors
+nb_execution_timeout = 300
+nb_execution_excludepatterns = ["*.ipynb", "*no-execute.md"]  # Skip all .ipynb files
+jupyter_cache = "_build/.jupyter_cache"  # Cache location
+
+
+# -- Templates and exclusions ------------------------------------------------
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
@@ -49,6 +55,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 nbsphinx_execute = "never"  # Don't execute notebooks during build
 nbsphinx_allow_errors = True
 nbsphinx_timeout = 300
+
 
 # -- Options for HTML output -------------------------------------------------
 

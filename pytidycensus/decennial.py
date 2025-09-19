@@ -1,9 +1,7 @@
-"""
-Decennial Census data retrieval functions.
-"""
+"""Decennial Census data retrieval functions."""
 
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import geopandas as gpd
 import pandas as pd
@@ -14,7 +12,6 @@ from .utils import (
     build_geography_params,
     process_census_data,
     validate_geography,
-    validate_state,
     validate_year,
 )
 
@@ -39,8 +36,7 @@ def get_decennial(
     show_call: bool = False,
     **kwargs,
 ) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
-    """
-    Obtain data from the US Decennial Census.
+    """Obtain data from the US Decennial Census.
 
     Parameters
     ----------
@@ -177,9 +173,7 @@ def get_decennial(
         raise ValueError("Either a vector of variables or a table must be specified.")
 
     if variables and table:
-        raise ValueError(
-            "Specify variables or a table to retrieve; they cannot be combined."
-        )
+        raise ValueError("Specify variables or a table to retrieve; they cannot be combined.")
 
     if table and len(table) > 1 if isinstance(table, list) else False:
         raise ValueError("Only one table may be requested per call.")
@@ -323,8 +317,7 @@ def get_decennial(
                 geo_cols = [
                     col
                     for col in df.columns
-                    if col
-                    in ["GEOID", "NAME", "state", "county", "tract", "block group"]
+                    if col in ["GEOID", "NAME", "state", "county", "tract", "block group"]
                 ]
 
                 for chunk_df in chunk_dfs[1:]:
@@ -351,9 +344,7 @@ def get_decennial(
         elif variable_names and output == "wide":
             # Rename columns for wide format
             rename_dict = {
-                code: name
-                for name, code in variable_names.items()
-                if code in df.columns
+                code: name for name, code in variable_names.items() if code in df.columns
             }
             df = df.rename(columns=rename_dict)
 
@@ -366,16 +357,11 @@ def get_decennial(
 
             if output == "tidy":
                 # In tidy format, join summary value by GEOID
-                if (
-                    "variable" in df.columns
-                    and summary_var_clean in df["variable"].values
-                ):
+                if "variable" in df.columns and summary_var_clean in df["variable"].values:
                     summary_est_rows = df[df["variable"] == summary_var_clean]
                     if not summary_est_rows.empty:
                         summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
-                        summary_est_df = summary_est_df.rename(
-                            columns={"estimate": "summary_est"}
-                        )
+                        summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
                         summary_est_df["summary_est"] = pd.to_numeric(
                             summary_est_df["summary_est"], errors="coerce"
                         )
@@ -394,9 +380,7 @@ def get_decennial(
                 # In wide format, rename summary column
                 if summary_var_clean in df.columns:
                     df = df.rename(columns={summary_var_clean: "summary_est"})
-                    df["summary_est"] = pd.to_numeric(
-                        df["summary_est"], errors="coerce"
-                    )
+                    df["summary_est"] = pd.to_numeric(df["summary_est"], errors="coerce")
                 else:
                     # If summary variable not found, add column with NA values
                     df["summary_est"] = pd.NA
@@ -456,11 +440,8 @@ def get_decennial(
         raise Exception(f"Failed to retrieve decennial Census data: {str(e)}")
 
 
-def get_decennial_variables(
-    year: int = 2020, sumfile: Optional[str] = None
-) -> pd.DataFrame:
-    """
-    Get available decennial Census variables for a given year.
+def get_decennial_variables(year: int = 2020, sumfile: Optional[str] = None) -> pd.DataFrame:
+    """Get available decennial Census variables for a given year.
 
     Parameters
     ----------

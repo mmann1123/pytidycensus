@@ -1,9 +1,6 @@
-"""
-American Community Survey (ACS) data retrieval functions.
-"""
+"""American Community Survey (ACS) data retrieval functions."""
 
-import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import geopandas as gpd
 import pandas as pd
@@ -15,7 +12,6 @@ from .utils import (
     build_geography_params,
     process_census_data,
     validate_geography,
-    validate_state,
     validate_year,
 )
 
@@ -40,8 +36,7 @@ def get_acs(
     show_call: bool = False,
     **kwargs,
 ) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
-    """
-    Obtain data from the American Community Survey (ACS).
+    """Obtain data from the American Community Survey (ACS).
 
     Parameters
     ----------
@@ -206,14 +201,10 @@ def get_acs(
         )
 
     if not variables and not table:
-        raise ValueError(
-            "Either a vector of variables or an ACS table must be specified."
-        )
+        raise ValueError("Either a vector of variables or an ACS table must be specified.")
 
     if variables and table:
-        raise ValueError(
-            "Specify variables or a table to retrieve; they cannot be combined."
-        )
+        raise ValueError("Specify variables or a table to retrieve; they cannot be combined.")
 
     if table and len(table) > 1 if isinstance(table, list) else False:
         raise ValueError("Only one table may be requested per call.")
@@ -283,7 +274,6 @@ def get_acs(
     geo_params = build_geography_params(geography, state, county, **kwargs)
 
     # Handle summary variable
-    summary_data = None
     if summary_var:
         # Process summary variable to ensure proper ACS format
         if not summary_var.endswith("E") and not summary_var.endswith("M"):
@@ -341,8 +331,7 @@ def get_acs(
                 # Map the processed code (with E suffix) to the custom name
                 processed_code = (
                     original_code + "E"
-                    if not original_code.endswith("E")
-                    and not original_code.endswith("M")
+                    if not original_code.endswith("E") and not original_code.endswith("M")
                     else original_code
                 )
                 code_to_name[processed_code] = custom_name
@@ -358,8 +347,7 @@ def get_acs(
                 # Handle processed variable names (with E suffix)
                 processed_code = (
                     original_code + "E"
-                    if not original_code.endswith("E")
-                    and not original_code.endswith("M")
+                    if not original_code.endswith("E") and not original_code.endswith("M")
                     else original_code
                 )
                 if processed_code in df.columns:
@@ -382,33 +370,24 @@ def get_acs(
             if output == "tidy":
                 # Find summary variable rows (after E suffix removal)
                 summary_var_clean = (
-                    summary_var.replace("E", "")
-                    if summary_var.endswith("E")
-                    else summary_var
+                    summary_var.replace("E", "") if summary_var.endswith("E") else summary_var
                 )
 
                 # Check if summary variable exists in the data
-                if (
-                    "variable" in df.columns
-                    and summary_var_clean in df["variable"].values
-                ):
+                if "variable" in df.columns and summary_var_clean in df["variable"].values:
                     summary_est_rows = df[df["variable"] == summary_var_clean]
 
                     if not summary_est_rows.empty:
                         # Create summary estimate and MOE dataframes
                         summary_est_df = summary_est_rows[["GEOID", "estimate"]].copy()
-                        summary_est_df = summary_est_df.rename(
-                            columns={"estimate": "summary_est"}
-                        )
+                        summary_est_df = summary_est_df.rename(columns={"estimate": "summary_est"})
                         # Ensure summary_est is numeric
                         summary_est_df["summary_est"] = pd.to_numeric(
                             summary_est_df["summary_est"], errors="coerce"
                         )
 
                         summary_moe_df = summary_est_rows[["GEOID", "moe"]].copy()
-                        summary_moe_df = summary_moe_df.rename(
-                            columns={"moe": "summary_moe"}
-                        )
+                        summary_moe_df = summary_moe_df.rename(columns={"moe": "summary_moe"})
                         # Ensure summary_moe is numeric
                         summary_moe_df["summary_moe"] = pd.to_numeric(
                             summary_moe_df["summary_moe"], errors="coerce"
@@ -434,9 +413,7 @@ def get_acs(
                 if summary_col in df.columns:
                     df = df.rename(columns={summary_col: "summary_est"})
                     # Ensure summary_est is numeric
-                    df["summary_est"] = pd.to_numeric(
-                        df["summary_est"], errors="coerce"
-                    )
+                    df["summary_est"] = pd.to_numeric(df["summary_est"], errors="coerce")
                     # Also rename MOE column if it exists
                     summary_moe_col = (
                         summary_var.replace("E", "_moe")
@@ -446,9 +423,7 @@ def get_acs(
                     if summary_moe_col in df.columns:
                         df = df.rename(columns={summary_moe_col: "summary_moe"})
                         # Ensure summary_moe is numeric
-                        df["summary_moe"] = pd.to_numeric(
-                            df["summary_moe"], errors="coerce"
-                        )
+                        df["summary_moe"] = pd.to_numeric(df["summary_moe"], errors="coerce")
                 else:
                     # Add empty summary columns if summary variable not found
                     df["summary_est"] = pd.NA
@@ -472,6 +447,7 @@ def get_acs(
                     "TRACTCE",
                     "BLKGRPCE",
                     "PLACEFP",
+                    "NAME",
                     # "CONCITFP",
                     # "AIANNHCE",
                     # "CBSAFP",
@@ -499,8 +475,7 @@ def get_acs(
 
 
 def get_acs_variables(year: int = 2022, survey: str = "acs5") -> pd.DataFrame:
-    """
-    Get available ACS variables for a given year and survey.
+    """Get available ACS variables for a given year and survey.
 
     Parameters
     ----------

@@ -1,6 +1,4 @@
-"""
-Pytest configuration and fixtures for pytidycensus tests.
-"""
+"""Pytest configuration and fixtures for pytidycensus tests."""
 
 import os
 import shutil
@@ -104,7 +102,6 @@ class MockGeometry:
 def sample_geodataframe():
     """Sample GeoDataFrame for testing geometry functionality."""
     import geopandas as gpd
-    import pandas as pd
     from shapely.geometry import Point
 
     # Create sample data with mock geometry

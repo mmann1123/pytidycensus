@@ -1,12 +1,10 @@
-"""
-Core Census API client for making requests to the US Census Bureau APIs.
-"""
+"""Core Census API client for making requests to the US Census Bureau APIs."""
 
 import json
 import os
 import time
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlencode, urljoin
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
 
 import appdirs
 import requests
@@ -15,8 +13,7 @@ from urllib3.util.retry import Retry
 
 
 class CensusAPI:
-    """
-    Core client for interacting with US Census Bureau APIs.
+    """Core client for interacting with US Census Bureau APIs.
 
     Handles authentication, rate limiting, caching, and error handling
     for Census API requests.
@@ -25,8 +22,7 @@ class CensusAPI:
     BASE_URL = "https://api.census.gov/data"
 
     def __init__(self, api_key: Optional[str] = None, cache_dir: Optional[str] = None):
-        """
-        Initialize Census API client.
+        """Initialize Census API client.
 
         Parameters
         ----------
@@ -69,8 +65,7 @@ class CensusAPI:
         self.last_request_time = time.time()
 
     def _build_url(self, year: int, dataset: str, survey: Optional[str] = None) -> str:
-        """
-        Build Census API URL for given parameters.
+        """Build Census API URL for given parameters.
 
         Parameters
         ----------
@@ -100,8 +95,7 @@ class CensusAPI:
         survey: Optional[str] = None,
         show_call: bool = False,
     ) -> List[Dict[str, Any]]:
-        """
-        Make a request to the Census API.
+        """Make a request to the Census API.
 
         Parameters
         ----------
@@ -182,8 +176,7 @@ class CensusAPI:
     def get_geography_codes(
         self, year: int, dataset: str, survey: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Get available geography codes for a dataset.
+        """Get available geography codes for a dataset.
 
         Parameters
         ----------
@@ -219,8 +212,7 @@ class CensusAPI:
     def get_variables(
         self, year: int, dataset: str, survey: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Get available variables for a dataset.
+        """Get available variables for a dataset.
 
         Parameters
         ----------
@@ -255,13 +247,23 @@ class CensusAPI:
 
 
 def set_census_api_key(api_key: str) -> None:
-    """
-    Set Census API key as environment variable.
+    """Set Census API key as environment variable.
 
     Parameters
     ----------
     api_key : str
         Census API key obtained from https://api.census.gov/data/key_signup.html
+
+    Raises
+    ------
+    ValueError
+        If the API key is not a string of exactly 40 characters
     """
+    if not isinstance(api_key, str):
+        raise ValueError("Census API key must be a string")
+
+    if len(api_key) != 40:
+        raise ValueError("Census API key must be exactly 40 characters long")
+
     os.environ["CENSUS_API_KEY"] = api_key
     print("Census API key has been set for this session.")

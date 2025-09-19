@@ -1,16 +1,11 @@
-"""
-Tests for geography module functionality.
-"""
+"""Tests for geography module functionality."""
 
 import os
 import tempfile
-import zipfile
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import geopandas as gpd
-import pandas as pd
 import pytest
-import requests
 from shapely.geometry import Point, Polygon
 
 from pytidycensus.geography import (
@@ -70,32 +65,24 @@ class TestTigerDownloader:
     def test_build_url_state(self, mock_tiger_downloader):
         """Test URL building for state geography."""
         url = mock_tiger_downloader._build_url(2022, "state")
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/STATE/tl_2022_us_state.zip"
-        )
+        expected = "https://www2.census.gov/geo/tiger/TIGER2022/STATE/tl_2022_us_state.zip"
         assert url == expected
 
     def test_build_url_county(self, mock_tiger_downloader):
         """Test URL building for county geography."""
         url = mock_tiger_downloader._build_url(2022, "county")
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/COUNTY/tl_2022_us_county.zip"
-        )
+        expected = "https://www2.census.gov/geo/tiger/TIGER2022/COUNTY/tl_2022_us_county.zip"
         assert url == expected
 
     def test_build_url_tract(self, mock_tiger_downloader):
         """Test URL building for tract geography."""
         url = mock_tiger_downloader._build_url(2022, "tract", state_fips="48")
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/TRACT/tl_2022_48_tract.zip"
-        )
+        expected = "https://www2.census.gov/geo/tiger/TIGER2022/TRACT/tl_2022_48_tract.zip"
         assert url == expected
 
     def test_build_url_tract_no_state(self, mock_tiger_downloader):
         """Test URL building for tract geography without state FIPS."""
-        with pytest.raises(
-            ValueError, match="State FIPS code required for tract geography"
-        ):
+        with pytest.raises(ValueError, match="State FIPS code required for tract geography"):
             mock_tiger_downloader._build_url(2022, "tract")
 
     def test_build_url_block_group(self, mock_tiger_downloader):
@@ -106,25 +93,19 @@ class TestTigerDownloader:
 
     def test_build_url_block_group_no_state(self, mock_tiger_downloader):
         """Test URL building for block group geography without state FIPS."""
-        with pytest.raises(
-            ValueError, match="State FIPS code required for block group geography"
-        ):
+        with pytest.raises(ValueError, match="State FIPS code required for block group geography"):
             mock_tiger_downloader._build_url(2022, "block group")
 
     def test_build_url_zcta(self, mock_tiger_downloader):
         """Test URL building for ZCTA geography."""
         # Test 2020+ uses ZCTA520 (2020 boundaries)
         url_2022 = mock_tiger_downloader._build_url(2022, "zcta")
-        expected_2022 = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/ZCTA520/tl_2022_us_zcta520.zip"
-        )
+        expected_2022 = "https://www2.census.gov/geo/tiger/TIGER2022/ZCTA520/tl_2022_us_zcta520.zip"
         assert url_2022 == expected_2022
 
         # Test pre-2020 uses ZCTA510 (2010 boundaries)
         url_2019 = mock_tiger_downloader._build_url(2019, "zcta")
-        expected_2019 = (
-            "https://www2.census.gov/geo/tiger/TIGER2019/ZCTA5/tl_2019_us_zcta510.zip"
-        )
+        expected_2019 = "https://www2.census.gov/geo/tiger/TIGER2019/ZCTA5/tl_2019_us_zcta510.zip"
         assert url_2019 == expected_2019
 
         # Test both aliases work
@@ -134,16 +115,12 @@ class TestTigerDownloader:
     def test_build_url_place(self, mock_tiger_downloader):
         """Test URL building for place geography."""
         url = mock_tiger_downloader._build_url(2022, "place", state_fips="48")
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/PLACE/tl_2022_48_place.zip"
-        )
+        expected = "https://www2.census.gov/geo/tiger/TIGER2022/PLACE/tl_2022_48_place.zip"
         assert url == expected
 
     def test_build_url_place_no_state(self, mock_tiger_downloader):
         """Test URL building for place geography without state FIPS."""
-        with pytest.raises(
-            ValueError, match="State FIPS code required for place geography"
-        ):
+        with pytest.raises(ValueError, match="State FIPS code required for place geography"):
             mock_tiger_downloader._build_url(2022, "place")
 
     def test_build_url_cbsa(self, mock_tiger_downloader):
@@ -151,16 +128,12 @@ class TestTigerDownloader:
         url = mock_tiger_downloader._build_url(
             2022, "metropolitan statistical area/micropolitan statistical area"
         )
-        expected = (
-            "https://www2.census.gov/geo/tiger/TIGER2022/CBSA/tl_2022_us_cbsa.zip"
-        )
+        expected = "https://www2.census.gov/geo/tiger/TIGER2022/CBSA/tl_2022_us_cbsa.zip"
         assert url == expected
 
     def test_build_url_unsupported_geography(self, mock_tiger_downloader):
         """Test URL building for unsupported geography."""
-        with pytest.raises(
-            ValueError, match="Geography 'unsupported' not yet supported"
-        ):
+        with pytest.raises(ValueError, match="Geography 'unsupported' not yet supported"):
             mock_tiger_downloader._build_url(2022, "unsupported")
 
     def test_download_and_extract_already_exists(self, mock_tiger_downloader, tmp_path):
@@ -190,9 +163,7 @@ class TestTigerDownloader:
         mock_zip = Mock()
         mock_zipfile.return_value.__enter__.return_value = mock_zip
 
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.remove"
-        ) as mock_remove:
+        with patch("builtins.open", mock_open()) as mock_file, patch("os.remove") as mock_remove:
             result = mock_tiger_downloader.download_and_extract(
                 "http://example.com/test.zip", "test.zip"
             )
@@ -234,9 +205,7 @@ class TestTigerDownloader:
         # Mock successful wget/curl download
         mock_wget_curl.return_value = None
 
-        with patch("pytidycensus.geography.zipfile.ZipFile") as mock_zipfile, patch(
-            "os.remove"
-        ):
+        with patch("pytidycensus.geography.zipfile.ZipFile") as mock_zipfile, patch("os.remove"):
             mock_zip = Mock()
             mock_zipfile.return_value.__enter__.return_value = mock_zip
 
@@ -254,9 +223,7 @@ class TestTigerDownloader:
         # Mock wget being available
         mock_which.side_effect = lambda cmd: "/usr/bin/wget" if cmd == "wget" else None
 
-        TigerDownloader.download_with_wget_or_curl(
-            "http://example.com/test.zip", "/tmp/test.zip"
-        )
+        TigerDownloader.download_with_wget_or_curl("http://example.com/test.zip", "/tmp/test.zip")
 
         # Should call wget
         mock_subprocess.assert_called_once_with(
@@ -278,9 +245,7 @@ class TestTigerDownloader:
 
         mock_which.side_effect = which_side_effect
 
-        TigerDownloader.download_with_wget_or_curl(
-            "http://example.com/test.zip", "/tmp/test.zip"
-        )
+        TigerDownloader.download_with_wget_or_curl("http://example.com/test.zip", "/tmp/test.zip")
 
         # Should call curl
         mock_subprocess.assert_called_once_with(
@@ -315,9 +280,7 @@ class TestTigerDownloader:
         test_dir.mkdir()
         (test_dir / "readme.txt").touch()
 
-        with pytest.raises(
-            FileNotFoundError, match="No shapefile found in extracted directory"
-        ):
+        with pytest.raises(FileNotFoundError, match="No shapefile found in extracted directory"):
             mock_tiger_downloader.get_shapefile_path(str(test_dir))
 
 
@@ -326,9 +289,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_basic(
-        self, mock_read_file, mock_downloader_class, mock_geodataframe
-    ):
+    def test_get_geography_basic(self, mock_read_file, mock_downloader_class, mock_geodataframe):
         """Test basic geography retrieval."""
         # Mock downloader
         mock_downloader = Mock()
@@ -433,9 +394,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_geoid_creation_state(
-        self, mock_read_file, mock_downloader_class
-    ):
+    def test_get_geography_geoid_creation_state(self, mock_read_file, mock_downloader_class):
         """Test GEOID creation for state geography."""
         # Mock downloader
         mock_downloader = Mock()
@@ -461,9 +420,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_geoid_creation_county(
-        self, mock_read_file, mock_downloader_class
-    ):
+    def test_get_geography_geoid_creation_county(self, mock_read_file, mock_downloader_class):
         """Test GEOID creation for county geography."""
         # Mock downloader
         mock_downloader = Mock()
@@ -490,9 +447,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_geoid_creation_tract(
-        self, mock_read_file, mock_downloader_class
-    ):
+    def test_get_geography_geoid_creation_tract(self, mock_read_file, mock_downloader_class):
         """Test GEOID creation for tract geography."""
         # Mock downloader
         mock_downloader = Mock()
@@ -520,9 +475,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_geoid_creation_block_group(
-        self, mock_read_file, mock_downloader_class
-    ):
+    def test_get_geography_geoid_creation_block_group(self, mock_read_file, mock_downloader_class):
         """Test GEOID creation for block group geography."""
         # Mock downloader
         mock_downloader = Mock()
@@ -593,17 +546,13 @@ class TestGetGeography:
         # Should keep essential columns for county
         expected_cols = ["GEOID", "NAME", "geometry", "STATEFP", "COUNTYFP", "NAMELSAD"]
         assert all(
-            col in result.columns
-            for col in expected_cols
-            if col in mock_geodataframe.columns
+            col in result.columns for col in expected_cols if col in mock_geodataframe.columns
         )
         assert "BLKGRPCE" not in result.columns  # Should be filtered out
 
     @patch("pytidycensus.geography.TigerDownloader")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_get_geography_set_crs(
-        self, mock_read_file, mock_downloader_class, mock_geodataframe
-    ):
+    def test_get_geography_set_crs(self, mock_read_file, mock_downloader_class, mock_geodataframe):
         """Test CRS setting when missing."""
         # Mock downloader
         mock_downloader = Mock()
@@ -653,9 +602,7 @@ class TestConvenienceFunctions:
 
         result = get_tract_boundaries(state="TX", county="201", year=2020)
 
-        mock_get_geography.assert_called_once_with(
-            "tract", year=2020, state="TX", county="201"
-        )
+        mock_get_geography.assert_called_once_with("tract", year=2020, state="TX", county="201")
         assert isinstance(result, gpd.GeoDataFrame)
 
     @patch("pytidycensus.geography.get_geography")
@@ -676,9 +623,7 @@ class TestIntegration:
 
     @patch("pytidycensus.geography.requests.get")
     @patch("pytidycensus.geography.gpd.read_file")
-    def test_full_workflow_state_boundaries(
-        self, mock_read_file, mock_requests_get, tmp_path
-    ):
+    def test_full_workflow_state_boundaries(self, mock_read_file, mock_requests_get, tmp_path):
         """Test complete workflow for downloading state boundaries."""
         # Mock HTTP response for download
         mock_response = Mock()
