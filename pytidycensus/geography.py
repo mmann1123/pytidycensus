@@ -84,7 +84,18 @@ class TigerDownloader:
         # Try wget
         if shutil.which("wget"):
             print("Using wget to download...")
-            subprocess.run(["wget", "-O", zip_path, url], check=True)
+            subprocess.run(
+                [
+                    "wget",
+                    "--quiet",
+                    "--show-progress",
+                    "--progress=bar:force:noscroll",
+                    "-O",
+                    zip_path,
+                    url,
+                ],
+                check=True,
+            )
         # Fallback to curl
         elif shutil.which("curl"):
             print("Using curl to download...")
