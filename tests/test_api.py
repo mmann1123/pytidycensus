@@ -315,9 +315,9 @@ class TestSetCensusAPIKey:
 
     def test_set_api_key(self, capsys):
         """Test setting API key as environment variable."""
-        set_census_api_key("test_key_123")
+        set_census_api_key("r" * 40)
 
-        assert os.environ["CENSUS_API_KEY"] == "test_key_123"
+        assert os.environ["CENSUS_API_KEY"] == "r" * 40
 
         captured = capsys.readouterr()
         assert "Census API key has been set" in captured.out
