@@ -52,6 +52,10 @@ dev = [
     "flake8>=3.9",
     "mypy>=0.910",
     "toml>=0.10.2",
+    "pre-commit",
+    "autopep8",
+    "autoflake",
+    "docformatter",
 ]
 docs = [
     "sphinx>=4.0",
