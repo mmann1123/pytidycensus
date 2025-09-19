@@ -1,49 +1,40 @@
-"""
-Population estimates data retrieval functions.
-"""
+"""Population estimates data retrieval functions."""
 
 import warnings
 from io import StringIO
-from typing import Any, Dict, List, Optional, Union
-
-import requests
-import urllib3
-
-# Disable SSL warnings for Census site
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from typing import List, Optional, Union
 
 import geopandas as gpd
 import pandas as pd
+import requests
+import urllib3
+
+from .api import CensusAPI
+from .geography import get_geography
+from .utils import build_geography_params, process_census_data
+
+# Disable SSL warnings for Census site
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class PopulationEstimatesError(Exception):
     """Base exception class for Population Estimates errors."""
 
-    pass
-
 
 class InvalidGeographyError(PopulationEstimatesError):
     """Raised when an invalid geography is specified."""
-
-    pass
 
 
 class InvalidVariableError(PopulationEstimatesError):
     """Raised when an invalid variable is specified."""
 
-    pass
-
 
 class DataNotAvailableError(PopulationEstimatesError):
     """Raised when requested data is not available."""
 
-    pass
-
 
 class APIError(PopulationEstimatesError):
     """Raised when there are issues with API requests."""
-
-    pass
 
 
 # Supported geographies
@@ -60,9 +51,7 @@ SUPPORTED_GEOGRAPHIES = {
 }
 
 # Geography aliases
-GEOGRAPHY_ALIASES = {
-    "metropolitan statistical area/micropolitan statistical area": "cbsa"
-}
+GEOGRAPHY_ALIASES = {"metropolitan statistical area/micropolitan statistical area": "cbsa"}
 
 # Comprehensive variable mapping
 VARIABLE_MAPPING = {
@@ -107,16 +96,6 @@ VARIABLE_DESCRIPTIONS = {
     "RDOMESTICMIG": "Domestic migration rate per 1,000 population",
     "RNETMIG": "Net migration rate per 1,000 population",
 }
-
-from .api import CensusAPI
-from .geography import get_geography
-from .utils import (
-    build_geography_params,
-    process_census_data,
-    validate_geography,
-    validate_state,
-    validate_year,
-)
 
 
 def _is_valid_state(state_input: Union[str, int]) -> bool:
@@ -338,9 +317,7 @@ def _is_valid_state(state_input: Union[str, int]) -> bool:
     }
 
     # Check different formats
-    if isinstance(state_input, int) or (
-        isinstance(state_input, str) and state_input.isdigit()
-    ):
+    if isinstance(state_input, int) or (isinstance(state_input, str) and state_input.isdigit()):
         return state_input in valid_fips
     elif isinstance(state_input, str):
         return (
@@ -394,7 +371,9 @@ def _validate_estimates_inputs(
             if geography_lower in geo or geo in geography_lower:
                 closest_matches.append(geo)
 
-        error_msg = f"Geography '{geography}' not supported. Available options: {', '.join(available)}"
+        error_msg = (
+            f"Geography '{geography}' not supported. Available options: {', '.join(available)}"
+        )
         if closest_matches:
             error_msg += f". Did you mean: {', '.join(closest_matches[:3])}?"
 
@@ -402,9 +381,7 @@ def _validate_estimates_inputs(
 
     # Validate variables
     if variables:
-        valid_variables = _get_valid_variables_for_product(
-            product or "population", actual_year
-        )
+        valid_variables = _get_valid_variables_for_product(product or "population", actual_year)
         var_list = [variables] if isinstance(variables, str) else variables
 
         if var_list != ["all"]:
@@ -415,9 +392,7 @@ def _validate_estimates_inputs(
 
             if invalid_vars:
                 error_msg = f"Invalid variables: {', '.join(invalid_vars)}. "
-                error_msg += (
-                    f"Available variables for {product or 'population'} product: "
-                )
+                error_msg += f"Available variables for {product or 'population'} product: "
                 error_msg += f"{', '.join(sorted(valid_variables)[:10])}"
                 if len(valid_variables) > 10:
                     error_msg += f" and {len(valid_variables) - 10} more"
@@ -486,8 +461,7 @@ def _get_valid_variables_for_product(product: str, year: int) -> set:
 
 
 def _filter_variables_for_dataset(dataset_path: str, variables: List[str]) -> List[str]:
-    """
-    Filter variables to only include those compatible with the selected dataset.
+    """Filter variables to only include those compatible with the selected dataset.
 
     Dataset compatibility:
     - pep/population: POP, NAME, and geographic variables
@@ -535,8 +509,7 @@ def _filter_variables_for_dataset(dataset_path: str, variables: List[str]) -> Li
 
 
 def _get_api_dataset_path(product: str, variables: List[str]) -> str:
-    """
-    Determine the correct API dataset path based on product and variables.
+    """Determine the correct API dataset path based on product and variables.
 
     Returns:
     - "pep/population" for basic population estimates
@@ -580,8 +553,7 @@ def _validate_and_set_product(
     breakdown: Optional[List[str]],
     year: int,
 ) -> str:
-    """
-    Validate and set the product parameter based on inputs.
+    """Validate and set the product parameter based on inputs.
 
     Returns the appropriate product type:
     - "characteristics" for demographic breakdowns (ASRH datasets)
@@ -661,8 +633,7 @@ def get_estimates(
     show_call: bool = False,
     **kwargs,
 ) -> Union[pd.DataFrame, gpd.GeoDataFrame]:
-    """
-    Obtain data from the US Census Bureau Population Estimates Program.
+    """Obtain data from the US Census Bureau Population Estimates Program.
 
     The Population Estimates Program (PEP) produces estimates of the population for the United States,
     its states, counties, cities, and towns. For years 2020 and later, data is retrieved from flat
@@ -875,9 +846,7 @@ def get_estimates(
                         "No matching geographic boundaries found for the requested data. "
                         "The geography and data parameters may be incompatible."
                     )
-                elif (
-                    len(result) < df_before_merge * 0.5
-                ):  # Lost more than half the data
+                elif len(result) < df_before_merge * 0.5:  # Lost more than half the data
                     warnings.warn(
                         f"Geometry merge resulted in significant data loss: "
                         f"{df_before_merge} -> {len(result)} rows. "
@@ -905,9 +874,7 @@ def get_estimates(
         raise e
     except Exception as e:
         # Wrap unexpected exceptions
-        raise PopulationEstimatesError(
-            f"Failed to retrieve population estimates: {str(e)}"
-        )
+        raise PopulationEstimatesError(f"Failed to retrieve population estimates: {str(e)}")
 
 
 def _get_estimates_from_csv(
@@ -925,9 +892,7 @@ def _get_estimates_from_csv(
     """Get estimates data from CSV files for years 2020+."""
 
     # Build CSV URL based on geography and vintage
-    base_url = (
-        f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{vintage}"
-    )
+    base_url = f"https://www2.census.gov/programs-surveys/popest/datasets/2020-{vintage}"
 
     # Handle characteristics product (uses ASRH datasets)
     if product == "characteristics":
@@ -936,12 +901,8 @@ def _get_estimates_from_csv(
         elif geography == "county":
             if state:
                 # State-specific county file
-                state_code = _get_state_fips(
-                    state[0] if isinstance(state, list) else state
-                )
-                csv_url = (
-                    f"{base_url}/counties/asrh/cc-est{vintage}-alldata-{state_code}.csv"
-                )
+                state_code = _get_state_fips(state[0] if isinstance(state, list) else state)
+                csv_url = f"{base_url}/counties/asrh/cc-est{vintage}-alldata-{state_code}.csv"
             else:
                 # All counties file
                 csv_url = f"{base_url}/counties/asrh/cc-est{vintage}-alldata.csv"
@@ -950,9 +911,7 @@ def _get_estimates_from_csv(
         elif geography == "combined statistical area":
             csv_url = f"{base_url}/metro/asrh/csa-est{vintage}-alldata-char.csv"
         else:
-            raise ValueError(
-                f"Geography '{geography}' not supported for characteristics product"
-            )
+            raise ValueError(f"Geography '{geography}' not supported for characteristics product")
 
     # Handle population/components products (uses totals datasets)
     else:
@@ -981,9 +940,7 @@ def _get_estimates_from_csv(
         elif geography == "place":
             csv_url = f"{base_url}/cities/totals/sub-est{vintage}.csv"
         else:
-            raise ValueError(
-                f"Geography '{geography}' not supported for CSV-based estimates"
-            )
+            raise ValueError(f"Geography '{geography}' not supported for CSV-based estimates")
 
     # Download and read CSV
     try:
@@ -1010,9 +967,7 @@ def _get_estimates_from_csv(
                 f"URL: {csv_url}"
             )
         else:
-            raise APIError(
-                f"HTTP error {e.response.status_code} while downloading data: {e}"
-            )
+            raise APIError(f"HTTP error {e.response.status_code} while downloading data: {e}")
     except pd.errors.ParserError as e:
         # Try alternative encoding
         try:
@@ -1030,9 +985,7 @@ def _get_estimates_from_csv(
                 f"Original error: {e}. Retry with UTF-8: {e2}"
             )
     except Exception as e:
-        raise APIError(
-            f"Unexpected error downloading data from Census Bureau: {str(e)}"
-        )
+        raise APIError(f"Unexpected error downloading data from Census Bureau: {str(e)}")
 
     # Process the CSV data
     df = _process_estimates_csv(
@@ -1249,14 +1202,10 @@ def _process_estimates_csv(
             )
 
             # Extract year from variable name (e.g., POPESTIMATE2022 -> 2022)
-            result_df["year"] = (
-                result_df["variable"].str.extract(r"(\d{4})$")[0].astype(int)
-            )
+            result_df["year"] = result_df["variable"].str.extract(r"(\d{4})$")[0].astype(int)
 
             # Clean up variable names (remove year suffix)
-            result_df["variable"] = result_df["variable"].str.replace(
-                r"\d{4}$", "", regex=True
-            )
+            result_df["variable"] = result_df["variable"].str.replace(r"\d{4}$", "", regex=True)
 
             # Reorder columns
             result_df = result_df[
@@ -1313,8 +1262,7 @@ def _create_base_result(df: pd.DataFrame, geography: str) -> pd.DataFrame:
             df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(2)
         else:
             df_filtered = df[
-                (df["STATE"].astype(str) != "00")
-                & (df["STATE"].astype(int).between(1, 56))
+                (df["STATE"].astype(str) != "00") & (df["STATE"].astype(int).between(1, 56))
             ].copy()
             df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(2)
 
@@ -1325,9 +1273,9 @@ def _create_base_result(df: pd.DataFrame, geography: str) -> pd.DataFrame:
         else:
             df_filtered = df[df["COUNTY"].astype(str) != "000"].copy()
 
-        df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(
-            2
-        ) + df_filtered["COUNTY"].astype(str).str.zfill(3)
+        df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(2) + df_filtered[
+            "COUNTY"
+        ].astype(str).str.zfill(3)
 
         # Create county name
         if "CTYNAME" in df_filtered.columns and "STNAME" in df_filtered.columns:
@@ -1363,17 +1311,15 @@ def _create_base_result(df: pd.DataFrame, geography: str) -> pd.DataFrame:
                 df_filtered = df.copy()
             df_filtered["GEOID"] = df_filtered["CSA"].astype(str)
         else:
-            raise ValueError(
-                "Combined Statistical Area data not available in this dataset"
-            )
+            raise ValueError("Combined Statistical Area data not available in this dataset")
 
     elif geography == "place":
         # Places (SUMLEV == 162)
         if "SUMLEV" in df.columns:
             df_filtered = df[df["SUMLEV"].astype(str) == "162"].copy()
-            df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(
-                2
-            ) + df_filtered["PLACE"].astype(str).str.zfill(5)
+            df_filtered["GEOID"] = df_filtered["STATE"].astype(str).str.zfill(2) + df_filtered[
+                "PLACE"
+            ].astype(str).str.zfill(5)
 
             # Create place name with state
             if "NAME" in df_filtered.columns and "STNAME" in df_filtered.columns:
@@ -1503,9 +1449,7 @@ def _extract_variables(
     return df[available_cols]
 
 
-def _apply_geography_filter(
-    df: pd.DataFrame, geography: str, state, county
-) -> pd.DataFrame:
+def _apply_geography_filter(df: pd.DataFrame, geography: str, state, county) -> pd.DataFrame:
     """Apply geography filtering to ASRH data."""
 
     # Geography filtering based on SUMLEV codes
@@ -1568,43 +1512,26 @@ def _apply_breakdown_filter(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFr
 
     if requested_dims == {"RACE"}:
         # Race-only breakdown
-        df = df[
-            (df["SEX"] == 0)
-            & (df["ORIGIN"] == 0)
-            & (df["RACE"] != 0)
-            & (df["AGE"] == 0)
-        ]
+        df = df[(df["SEX"] == 0) & (df["ORIGIN"] == 0) & (df["RACE"] != 0) & (df["AGE"] == 0)]
 
     elif requested_dims == {"SEX", "RACE"}:
         # Sex and race breakdown
-        df = df[
-            (df["SEX"] != 0)
-            & (df["ORIGIN"] == 0)
-            & (df["RACE"] != 0)
-            & (df["AGE"] == 0)
-        ]
+        df = df[(df["SEX"] != 0) & (df["ORIGIN"] == 0) & (df["RACE"] != 0) & (df["AGE"] == 0)]
 
     elif requested_dims == {"SEX"}:
         # Sex-only not available in pure form - sum across all races for each sex
         # Filter to get sex breakdown with ORIGIN=0, AGE=0, any RACE, then aggregate
-        sex_data = df[
-            (df["SEX"] != 0)
-            & (df["ORIGIN"] == 0)
-            & (df["RACE"] != 0)
-            & (df["AGE"] == 0)
-        ]
+        sex_data = df[(df["SEX"] != 0) & (df["ORIGIN"] == 0) & (df["RACE"] != 0) & (df["AGE"] == 0)]
         # Group by sex and sum across races to get sex totals
         if not sex_data.empty:
             # Identify year columns for aggregation
-            year_cols = [
-                col for col in sex_data.columns if col.startswith("POPESTIMATE")
-            ]
+            year_cols = [col for col in sex_data.columns if col.startswith("POPESTIMATE")]
             id_cols = ["STATE", "NAME", "SEX", "GEOID"]
 
             # Sum across races for each sex
-            groupby_cols = [
-                col for col in id_cols if col in sex_data.columns and col != "SEX"
-            ] + ["SEX"]
+            groupby_cols = [col for col in id_cols if col in sex_data.columns and col != "SEX"] + [
+                "SEX"
+            ]
             agg_dict = {col: "sum" for col in year_cols if col in sex_data.columns}
 
             if agg_dict:
@@ -1624,49 +1551,24 @@ def _apply_breakdown_filter(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFr
     elif requested_dims == {"ORIGIN"}:
         # Origin-only breakdown - provide origin totals across race categories
         # Get the least detailed origin breakdown available
-        df = df[
-            (df["SEX"] == 0)
-            & (df["ORIGIN"] != 0)
-            & (df["RACE"] == 1)
-            & (df["AGE"] == 0)
-        ]
+        df = df[(df["SEX"] == 0) & (df["ORIGIN"] != 0) & (df["RACE"] == 1) & (df["AGE"] == 0)]
 
     elif requested_dims == {"ORIGIN", "RACE"}:
         # Origin and race breakdown
-        df = df[
-            (df["SEX"] == 0)
-            & (df["ORIGIN"] != 0)
-            & (df["RACE"] != 0)
-            & (df["AGE"] == 0)
-        ]
+        df = df[(df["SEX"] == 0) & (df["ORIGIN"] != 0) & (df["RACE"] != 0) & (df["AGE"] == 0)]
 
     elif "ORIGIN" in requested_dims and "SEX" in requested_dims:
         # Any combination with ORIGIN and SEX - use fully crossed data
         if "RACE" in requested_dims:
             # All three dimensions
-            df = df[
-                (df["SEX"] != 0)
-                & (df["ORIGIN"] != 0)
-                & (df["RACE"] != 0)
-                & (df["AGE"] == 0)
-            ]
+            df = df[(df["SEX"] != 0) & (df["ORIGIN"] != 0) & (df["RACE"] != 0) & (df["AGE"] == 0)]
         else:
             # ORIGIN + SEX, aggregate across races
-            df = df[
-                (df["SEX"] != 0)
-                & (df["ORIGIN"] != 0)
-                & (df["RACE"] == 1)
-                & (df["AGE"] == 0)
-            ]
+            df = df[(df["SEX"] != 0) & (df["ORIGIN"] != 0) & (df["RACE"] == 1) & (df["AGE"] == 0)]
 
     else:
         # Default: include total records only
-        df = df[
-            (df["SEX"] == 0)
-            & (df["ORIGIN"] == 0)
-            & (df["RACE"] == 0)
-            & (df["AGE"] == 0)
-        ]
+        df = df[(df["SEX"] == 0) & (df["ORIGIN"] == 0) & (df["RACE"] == 0) & (df["AGE"] == 0)]
 
     return df
 
@@ -1749,22 +1651,19 @@ def _process_characteristics_csv(
         if geography == "state" and "STATE" in df.columns:
             df["GEOID"] = df["STATE"].astype(str).str.zfill(2)
         elif geography == "county" and "STATE" in df.columns and "COUNTY" in df.columns:
-            df["GEOID"] = df["STATE"].astype(str).str.zfill(2) + df["COUNTY"].astype(
-                str
-            ).str.zfill(3)
+            df["GEOID"] = df["STATE"].astype(str).str.zfill(2) + df["COUNTY"].astype(str).str.zfill(
+                3
+            )
 
     # Reshape data based on output format
     if output == "tidy":
-        return _reshape_characteristics_tidy(
-            df, variables, year_columns, breakdown_cols
-        )
+        return _reshape_characteristics_tidy(df, variables, year_columns, breakdown_cols)
     else:
         return df
 
 
 def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFrame:
-    """
-    Add human-readable labels for breakdown categories.
+    """Add human-readable labels for breakdown categories.
 
     Parameters
     ----------
@@ -1826,11 +1725,8 @@ def _add_breakdown_labels(df: pd.DataFrame, breakdown: List[str]) -> pd.DataFram
     return df
 
 
-def discover_available_variables(
-    vintage: int = 2024, geography: str = "state"
-) -> pd.DataFrame:
-    """
-    Discover all available variables in a PEP dataset.
+def discover_available_variables(vintage: int = 2024, geography: str = "state") -> pd.DataFrame:
+    """Discover all available variables in a PEP dataset.
 
     Parameters
     ----------
@@ -1855,9 +1751,7 @@ def discover_available_variables(
 
         response = requests.get(csv_url, verify=False)
         response.raise_for_status()
-        df = pd.read_csv(
-            StringIO(response.text), encoding="latin1", nrows=1
-        )  # Just get headers
+        df = pd.read_csv(StringIO(response.text), encoding="latin1", nrows=1)  # Just get headers
 
         # Extract variable information
         variables = []
@@ -1906,9 +1800,7 @@ def discover_available_variables(
                 if match:
                     year = match.group(1)
                     var_base = col.replace(year, "")
-                    if var_base not in [
-                        v.split("_")[0] for v in variables
-                    ]:  # Avoid duplicates
+                    if var_base not in [v.split("_")[0] for v in variables]:  # Avoid duplicates
                         variables.append(f"{var_base}_{year}")
                         descriptions.append(f"{desc} ({year})")
                     matched = True
@@ -1928,8 +1820,7 @@ def discover_available_variables(
 
 
 def get_estimates_variables(year: int = 2022) -> pd.DataFrame:
-    """
-    Get available population estimates variables for a given year.
+    """Get available population estimates variables for a given year.
 
     Parameters
     ----------

@@ -1,6 +1,4 @@
-"""
-Utility functions for data processing and validation.
-"""
+"""Utility functions for data processing and validation."""
 
 import importlib.resources
 import os
@@ -24,29 +22,43 @@ def get_credentials():
 
 @lru_cache(maxsize=1)
 def load_county_lookup() -> pd.DataFrame:
-    """
-    Load county lookup table from national_county.txt.
+    """Load county lookup table from national_county.txt.
 
     Returns
     -------
     pd.DataFrame
         DataFrame with columns: state_abbrev, state_fips, county_fips, county_name
     """
-    # Get the path to the data file
-    data_path = os.path.join(os.path.dirname(__file__), "data", "national_county.txt")
+    # Get the path to the data file using importlib.resources (modern approach)
+    try:
+        # Try using importlib.resources (Python 3.9+)
+        from importlib import resources
 
-    # Load the county lookup data
-    county_df = pd.read_csv(
-        data_path,
-        names=["state_abbrev", "state_fips", "county_fips", "county_name", "h1"],
-        dtype={"state_fips": str, "county_fips": str},
-    )
+        data_path = resources.files("pytidycensus.data") / "national_county.txt"
+        with data_path.open() as f:
+            county_df = pd.read_csv(
+                f,
+                names=[
+                    "state_abbrev",
+                    "state_fips",
+                    "county_fips",
+                    "county_name",
+                    "h1",
+                ],
+                dtype={"state_fips": str, "county_fips": str},
+            )
+    except (ImportError, AttributeError, FileNotFoundError):
+        # Fallback to traditional path method
+        data_path = os.path.join(os.path.dirname(__file__), "data", "national_county.txt")
+        county_df = pd.read_csv(
+            data_path,
+            names=["state_abbrev", "state_fips", "county_fips", "county_name", "h1"],
+            dtype={"state_fips": str, "county_fips": str},
+        )
 
     # Convert state abbreviations to full state names using the us library
     county_df["state_name"] = county_df["state_abbrev"].apply(
-        lambda abbrev: (
-            us.states.lookup(abbrev).name if us.states.lookup(abbrev) else abbrev
-        )
+        lambda abbrev: (us.states.lookup(abbrev).name if us.states.lookup(abbrev) else abbrev)
     )
 
     # Create full GEOID for county-level matching (state + county)
@@ -56,9 +68,7 @@ def load_county_lookup() -> pd.DataFrame:
     county_df["full_name"] = county_df["county_name"] + ", " + county_df["state_name"]
 
     # Create state-level entries for state matching
-    state_df = county_df.drop_duplicates("state_fips")[
-        ["state_name", "state_fips"]
-    ].copy()
+    state_df = county_df.drop_duplicates("state_fips")[["state_name", "state_fips"]].copy()
     state_df["county_geoid"] = state_df["state_fips"]  # State GEOID is just state FIPS
     state_df["full_name"] = state_df["state_name"]  # Use full state name for states
 
@@ -75,8 +85,7 @@ def load_county_lookup() -> pd.DataFrame:
 
 
 def add_name_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add NAME column using national_county.txt lookup table for geographic areas.
+    """Add NAME column using national_county.txt lookup table for geographic areas.
 
     Works for state, county, and tract level geographies by matching GEOID.
     For tract-level data, shows county and state name without tract number.
@@ -121,16 +130,13 @@ def add_name_column(df: pd.DataFrame) -> pd.DataFrame:
     # Rename the county_name column to NAME and drop the extra columns
     if "county_name" in df_with_name.columns:
         df_with_name["NAME"] = df_with_name["county_name"]
-        df_with_name = df_with_name.drop(
-            ["county_name", "county_geoid", "lookup_geoid"], axis=1
-        )
+        df_with_name = df_with_name.drop(["county_name", "county_geoid", "lookup_geoid"], axis=1)
 
     return df_with_name
 
 
 def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
-    """
-    Validate and convert state identifiers to FIPS codes.
+    """Validate and convert state identifiers to FIPS codes.
 
     Parameters
     ----------
@@ -176,11 +182,8 @@ def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
     return fips_codes
 
 
-def validate_county(
-    county: Union[str, int, List[Union[str, int]]], state_fips: str
-) -> List[str]:
-    """
-    Validate and convert county identifiers to FIPS codes.
+def validate_county(county: Union[str, int, List[Union[str, int]]], state_fips: str) -> List[str]:
+    """Validate and convert county identifiers to FIPS codes.
 
     Parameters
     ----------
@@ -235,9 +238,7 @@ def validate_county(
 def _load_national_county_txt():
     lookup = {}
     try:
-        with importlib.resources.open_text(
-            "pytidycensus.data", "national_county.txt"
-        ) as f:
+        with importlib.resources.open_text("pytidycensus.data", "national_county.txt") as f:
             for line in f:
                 parts = line.strip().split(",")
                 if len(parts) < 4:
@@ -245,9 +246,7 @@ def _load_national_county_txt():
                 state_abr, state_fips, county_fips, county_name = parts[:4]
 
                 county_name = _normalize_county_name(county_name)
-                lookup[(state_fips.zfill(2), county_name.lower().strip())] = (
-                    county_fips.zfill(3)
-                )
+                lookup[(state_fips.zfill(2), county_name.lower().strip())] = county_fips.zfill(3)
     except FileNotFoundError:
         print("Warning: national_county.txt not found, county lookups may fail.")
     return lookup
@@ -255,8 +254,7 @@ def _load_national_county_txt():
 
 @lru_cache(maxsize=128)
 def _get_county_data(state_fips: str) -> Dict[str, str]:
-    """
-    Fetch county data for a given state from Census API.
+    """Fetch county data for a given state from Census API.
 
     This function is cached to avoid repeated API calls for the same state.
 
@@ -306,8 +304,7 @@ def _get_county_data(state_fips: str) -> Dict[str, str]:
 
 
 def _normalize_county_name(name: str) -> str:
-    """
-    Normalize county name for lookup.
+    """Normalize county name for lookup.
 
     Parameters
     ----------
@@ -338,8 +335,7 @@ def _normalize_county_name(name: str) -> str:
 
 
 def lookup_county_fips(county_name: str, state_fips: str) -> Optional[str]:
-    """
-    Look up county FIPS code by name.
+    """Look up county FIPS code by name.
 
     Parameters
     ----------
@@ -392,8 +388,7 @@ def lookup_county_fips(county_name: str, state_fips: str) -> Optional[str]:
 
 
 def validate_year(year: int, dataset: str) -> int:
-    """
-    Validate year for given dataset.
+    """Validate year for given dataset.
 
     Parameters
     ----------
@@ -429,8 +424,7 @@ def validate_year(year: int, dataset: str) -> int:
 
 
 def validate_geography(geography: str) -> str:
-    """
-    Validate geography parameter.
+    """Validate geography parameter.
 
     Parameters
     ----------
@@ -489,8 +483,7 @@ def build_geography_params(
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     **kwargs,
 ) -> Dict[str, str]:
-    """
-    Build geography parameters for Census API call.
+    """Build geography parameters for Census API call.
 
     Parameters
     ----------
@@ -567,8 +560,7 @@ def build_geography_params(
 def process_census_data(
     data: List[Dict[str, Any]], variables: List[str], output: str = "tidy"
 ) -> pd.DataFrame:
-    """
-    Process raw Census API response into pandas DataFrame.
+    """Process raw Census API response into pandas DataFrame.
 
     Parameters
     ----------
@@ -604,9 +596,7 @@ def process_census_data(
 
     # Create GEOID from geography columns
     geo_cols = [
-        col
-        for col in df.columns
-        if col in ["state", "county", "tract", "block group", "place"]
+        col for col in df.columns if col in ["state", "county", "tract", "block group", "place"]
     ]
 
     # Handle special geography identifiers that are already GEOID-like
@@ -650,9 +640,7 @@ def process_census_data(
 
         # Get the remaining columns (excluding geo cols and geometry)
         if isinstance(df, GeoDataFrame):
-            remaining_cols = [
-                col for col in all_cols if col not in geo_cols and col != "geometry"
-            ]
+            remaining_cols = [col for col in all_cols if col not in geo_cols and col != "geometry"]
             # Reorder: geo columns first, then data columns, then geometry last
             df = df[geo_cols + remaining_cols + ["geometry"]]
         else:
@@ -692,8 +680,7 @@ def process_census_data(
 def add_margin_of_error(
     df: pd.DataFrame, variables: List[str], moe_level: int = 90, output: str = "tidy"
 ) -> pd.DataFrame:
-    """
-    Add margin of error columns for ACS data with confidence level adjustment.
+    """Add margin of error columns for ACS data with confidence level adjustment.
 
     Parameters
     ----------
@@ -709,7 +696,6 @@ def add_margin_of_error(
     pd.DataFrame
         Data with margin of error columns
     """
-    import numpy as np
 
     # Replace ACS missing value codes with NaN
     missing_codes = [
@@ -783,9 +769,7 @@ def add_margin_of_error(
         # Rename and adjust MOE columns
         for var, moe_var in moe_mapping.items():
             # Apply confidence level adjustment
-            df[f"{var}_moe"] = (
-                df[moe_var].astype(float, errors="ignore") * adjustment_factor
-            )
+            df[f"{var}_moe"] = df[moe_var].astype(float, errors="ignore") * adjustment_factor
             df = df.drop(columns=[moe_var])
 
     df.replace(missing_codes, pd.NA, inplace=True)

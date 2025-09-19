@@ -1,16 +1,12 @@
-"""
-Geographic boundary data retrieval and processing using TIGER shapefiles.
-"""
+"""Geographic boundary data retrieval and processing using TIGER shapefiles."""
 
 import os
 import tempfile
 import zipfile
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urljoin
+from typing import List, Optional, Union
 
 import certifi
 import geopandas as gpd
-import pandas as pd
 import requests
 
 from .utils import validate_county, validate_state
@@ -22,8 +18,7 @@ class TigerDownloader:
     BASE_URL = "https://www2.census.gov/geo/tiger"
 
     def __init__(self, cache_dir: Optional[str] = None):
-        """
-        Initialize TIGER downloader.
+        """Initialize TIGER downloader.
 
         Parameters
         ----------
@@ -34,8 +29,7 @@ class TigerDownloader:
         os.makedirs(self.cache_dir, exist_ok=True)
 
     def _build_url(self, year: int, geography: str, **kwargs) -> str:
-        """
-        Build URL for TIGER shapefile download.
+        """Build URL for TIGER shapefile download.
 
         Parameters
         ----------
@@ -90,7 +84,18 @@ class TigerDownloader:
         # Try wget
         if shutil.which("wget"):
             print("Using wget to download...")
-            subprocess.run(["wget", "-O", zip_path, url], check=True)
+            subprocess.run(
+                [
+                    "wget",
+                    "--quiet",
+                    "--show-progress",
+                    "--progress=bar:force:noscroll",
+                    "-O",
+                    zip_path,
+                    url,
+                ],
+                check=True,
+            )
         # Fallback to curl
         elif shutil.which("curl"):
             print("Using curl to download...")
@@ -99,8 +104,7 @@ class TigerDownloader:
             raise RuntimeError("Neither wget nor curl is available on this system.")
 
     def download_and_extract(self, url: str, filename: str) -> str:
-        """
-        Download and extract TIGER shapefile.
+        """Download and extract TIGER shapefile.
 
         Parameters
         ----------
@@ -147,8 +151,7 @@ class TigerDownloader:
         return extract_dir
 
     def get_shapefile_path(self, extract_dir: str) -> str:
-        """
-        Find the shapefile (.shp) in the extracted directory.
+        """Find the shapefile (.shp) in the extracted directory.
 
         Parameters
         ----------
@@ -175,8 +178,7 @@ def get_geography(
     cache_dir: Optional[str] = None,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """
-    Download and load geographic boundary data from TIGER/Line shapefiles.
+    """Download and load geographic boundary data from TIGER/Line shapefiles.
 
     Parameters
     ----------
@@ -260,11 +262,7 @@ def get_geography(
     if "GEOID" not in gdf.columns:
         if geography == "state" and "STATEFP" in gdf.columns:
             gdf["GEOID"] = gdf["STATEFP"]
-        elif (
-            geography == "county"
-            and "STATEFP" in gdf.columns
-            and "COUNTYFP" in gdf.columns
-        ):
+        elif geography == "county" and "STATEFP" in gdf.columns and "COUNTYFP" in gdf.columns:
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"]
         elif (
             geography == "tract"
@@ -280,23 +278,15 @@ def get_geography(
             and "TRACTCE" in gdf.columns
             and "BLKGRPCE" in gdf.columns
         ):
-            gdf["GEOID"] = (
-                gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
-            )
+            gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
         elif (
             geography == "metropolitan statistical area/micropolitan statistical area"
             and "CBSAFP" in gdf.columns
         ):
             gdf["GEOID"] = gdf["CBSAFP"]
-        elif (
-            geography in ["zcta", "zip code tabulation area"]
-            and "ZCTA5CE20" in gdf.columns
-        ):
+        elif geography in ["zcta", "zip code tabulation area"] and "ZCTA5CE20" in gdf.columns:
             gdf["GEOID"] = gdf["ZCTA5CE20"]
-        elif (
-            geography in ["zcta", "zip code tabulation area"]
-            and "ZCTA5CE10" in gdf.columns
-        ):
+        elif geography in ["zcta", "zip code tabulation area"] and "ZCTA5CE10" in gdf.columns:
             gdf["GEOID"] = gdf["ZCTA5CE10"]
 
     # Clean up columns if not keeping all geo vars

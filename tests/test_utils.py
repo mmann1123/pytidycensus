@@ -1,6 +1,4 @@
-"""
-Tests for utility functions.
-"""
+"""Tests for utility functions."""
 
 import pandas as pd
 import pytest
@@ -496,9 +494,7 @@ class TestAddMarginOfError:
         # Should have estimate and moe columns, with variable names cleaned (E suffix removed)
         assert "estimate" in result.columns
         assert "moe" in result.columns
-        assert (
-            len(result) == 2
-        )  # 2 geographies, estimate and MOE combined into one row each
+        assert len(result) == 2  # 2 geographies, estimate and MOE combined into one row each
 
         # Check variable names have E suffix removed
         assert "B01001_001" in result["variable"].values
@@ -707,10 +703,7 @@ class TestNameColumnFunctionality:
 
         # Should still have only one NAME column with original values
         assert "NAME" in result_df.columns
-        assert (
-            len([col for col in result_df.columns if "NAME" in col or "name" in col])
-            == 1
-        )
+        assert len([col for col in result_df.columns if "NAME" in col or "name" in col]) == 1
         assert result_df["NAME"].iloc[0] == "Existing Name 1"
         assert result_df["NAME"].iloc[1] == "Existing Name 2"
 
@@ -728,9 +721,7 @@ class TestNameColumnFunctionality:
             },  # Autauga County, AL
         ]
 
-        result_df = process_census_data(
-            mock_data, variables=["B01003_001E"], output="tidy"
-        )
+        result_df = process_census_data(mock_data, variables=["B01003_001E"], output="tidy")
 
         # Should have NAME column
         assert "NAME" in result_df.columns

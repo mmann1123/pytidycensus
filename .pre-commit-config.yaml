@@ -1,0 +1,36 @@
+repos:
+-   repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+    -   id: isort
+        args: ["--profile", "black"]
+        types: [python]  # Only run on Python files
+
+-   repo: https://github.com/psf/black
+    rev: 25.9.0
+    hooks:
+    -   id: black
+        language_version: python3
+        types: [python]
+
+-   repo: https://github.com/pycqa/autoflake
+    rev: v2.3.1
+    hooks:
+    -   id: autoflake
+        args: [
+            "--remove-all-unused-imports",
+            "--remove-unused-variables",
+            "--in-place"
+        ]
+        types: [python]
+
+-   repo: local
+    hooks:
+    -   id: docformatter
+        name: docformatter
+        description: 'Formats docstrings to follow PEP 257'
+        entry: docformatter
+        language: python
+        types: [python]
+        args: ["--in-place", "--wrap-summaries=100"]
+        additional_dependencies: ['docformatter==1.7.5']

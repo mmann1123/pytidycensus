@@ -1,8 +1,7 @@
-"""
-Integration tests that make actual API calls to the Census Bureau.
+"""Integration tests that make actual API calls to the Census Bureau.
 
-These tests require a valid Census API key and internet connection.
-They test the complete functionality with real data.
+These tests require a valid Census API key and internet connection. They
+test the complete functionality with real data.
 """
 
 import os
@@ -28,9 +27,7 @@ def get_api_key():
         print("CENSUS API KEY REQUIRED FOR INTEGRATION TESTS")
         print("=" * 60)
         print("These tests require a valid Census API key to make real API calls.")
-        print(
-            "You can get a free API key at: https://api.census.gov/data/key_signup.html"
-        )
+        print("You can get a free API key at: https://api.census.gov/data/key_signup.html")
         print()
 
         if debug_mode:
@@ -154,9 +151,7 @@ class TestACSIntegration:
         assert result["summary_est"].dtype in ["int64", "float64"]
         assert all(result["summary_est"] > 0)  # Population should be positive
 
-        print(
-            f"✓ Summary variable working: max population = {result['summary_est'].max()}"
-        )
+        print(f"✓ Summary variable working: max population = {result['summary_est'].max()}")
 
     def test_acs_moe_levels(self, setup_api_key):
         """Test different MOE confidence levels."""
@@ -253,9 +248,7 @@ class TestDecennialIntegration:
         assert result["estimate"].dtype in ["int64", "float64"]
         # assert "Vermont" in result["NAME"].iloc[0]
 
-        print(
-            f"✓ Retrieved 2020 decennial data: Vermont population = {result['estimate'].iloc[0]}"
-        )
+        print(f"✓ Retrieved 2020 decennial data: Vermont population = {result['estimate'].iloc[0]}")
 
     def test_decennial_named_variables(self, setup_api_key):
         """Test decennial with named variables."""
@@ -320,9 +313,7 @@ class TestDecennialIntegration:
         assert len(result) > 0
         assert all(var.startswith("P1_") for var in result["variable"].unique())
 
-        print(
-            f"✓ Decennial table parameter: {len(result['variable'].unique())} variables from P1"
-        )
+        print(f"✓ Decennial table parameter: {len(result['variable'].unique())} variables from P1")
 
     def test_decennial_2010_data(self, setup_api_key):
         """Test 2010 decennial data."""
@@ -337,9 +328,7 @@ class TestDecennialIntegration:
         assert len(result) > 0
         assert result["estimate"].iloc[0] > 600000  # Vermont population ~625k in 2010
 
-        print(
-            f"✓ 2010 decennial data: Vermont population = {result['estimate'].iloc[0]}"
-        )
+        print(f"✓ 2010 decennial data: Vermont population = {result['estimate'].iloc[0]}")
 
 
 class TestEnhancedFeaturesIntegration:
@@ -384,15 +373,11 @@ class TestEnhancedFeaturesIntegration:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            tc.get_decennial(
-                geography="state", variables="P1_001N", state="VT", year=2020
-            )
+            tc.get_decennial(geography="state", variables="P1_001N", state="VT", year=2020)
 
             # Check for differential privacy warning
             dp_warnings = [
-                warning
-                for warning in w
-                if "differential privacy" in str(warning.message)
+                warning for warning in w if "differential privacy" in str(warning.message)
             ]
             assert len(dp_warnings) > 0
 
@@ -569,9 +554,7 @@ class TestSummaryVariableIntegration:
         apache_native = apache_data[apache_data["variable"] == "Native"]
         assert apache_native["estimate"].iloc[0] == 51979
         assert apache_native["moe"].iloc[0] == 327.0
-        assert (
-            apache_native["summary_est"].iloc[0] == 71714
-        )  # Same summary for all variables
+        assert apache_native["summary_est"].iloc[0] == 71714  # Same summary for all variables
 
         # Verify summary values are consistent within each geography
         for geoid in ["04001", "04003", "04013"]:
@@ -671,9 +654,7 @@ class TestSummaryVariableIntegration:
 
         # Variable should be cleaned (E suffix removed)
         assert "B03002_003" in result["variable"].values
-        assert (
-            "B03002_001" not in result["variable"].values
-        )  # Summary should be excluded
+        assert "B03002_001" not in result["variable"].values  # Summary should be excluded
 
         # Summary columns should still be present
         assert "summary_est" in result.columns
@@ -718,9 +699,7 @@ class TestSummaryVariableIntegration:
 
 # Utility function to run integration tests manually
 def run_integration_tests():
-    """
-    Run integration tests manually (useful for development).
-    """
+    """Run integration tests manually (useful for development)."""
     print("Running pytidycensus integration tests...")
     print("These tests make real API calls to the Census Bureau.")
     print()
@@ -740,19 +719,13 @@ def run_integration_tests():
     try:
         # Basic ACS test
         print("\n1. Testing basic ACS functionality...")
-        result = tc.get_acs(
-            geography="state", variables="B19013_001", state="VT", year=2022
-        )
+        result = tc.get_acs(geography="state", variables="B19013_001", state="VT", year=2022)
         print(f"✓ ACS test passed: {len(result)} records")
 
         # Basic decennial test
         print("\n2. Testing basic decennial functionality...")
-        result = tc.get_decennial(
-            geography="state", variables="P1_001N", state="VT", year=2020
-        )
-        print(
-            f"✓ Decennial test passed: Vermont population = {result['value'].iloc[0]}"
-        )
+        result = tc.get_decennial(geography="state", variables="P1_001N", state="VT", year=2020)
+        print(f"✓ Decennial test passed: Vermont population = {result['value'].iloc[0]}")
 
         # Named variables test
         print("\n3. Testing named variables...")
@@ -812,9 +785,7 @@ class TestDecennialTableChunkingIntegration:
         total_pop = result[result["variable"] == "P1_001N"]["estimate"].iloc[0]
         assert int(total_pop) > 600000  # Vermont has ~643k people
 
-        print(
-            f"✓ Large table chunking test passed: {len(variables)} variables retrieved"
-        )
+        print(f"✓ Large table chunking test passed: {len(variables)} variables retrieved")
 
     def test_medium_table_chunking_integration(self, setup_api_key):
         """Test chunking with a medium-sized table (P2 - 73 variables)."""
@@ -836,9 +807,7 @@ class TestDecennialTableChunkingIntegration:
         # P2 should have many variables (typically 73)
         assert len(variables) > 50  # Should be chunked
 
-        print(
-            f"✓ Medium table chunking test passed: {len(variables)} variables retrieved"
-        )
+        print(f"✓ Medium table chunking test passed: {len(variables)} variables retrieved")
 
     def test_small_table_no_chunking_integration(self, setup_api_key):
         """Test that small tables work without chunking."""
@@ -860,9 +829,7 @@ class TestDecennialTableChunkingIntegration:
         assert len(variables) == 10
         assert len(variables) < 48
 
-        print(
-            f"✓ Small table no-chunking test passed: {len(variables)} variables retrieved"
-        )
+        print(f"✓ Small table no-chunking test passed: {len(variables)} variables retrieved")
 
     def test_table_chunking_wide_format_integration(self, setup_api_key):
         """Test table chunking works with wide format output."""
@@ -984,9 +951,7 @@ class TestNameColumnIntegration:
     @pytest.mark.integration
     def test_acs_state_name_column(self, setup_api_key):
         """Test NAME column for ACS state-level data."""
-        result = tc.get_acs(
-            geography="state", variables="B01003_001", state="VT", year=2022
-        )
+        result = tc.get_acs(geography="state", variables="B01003_001", state="VT", year=2022)
 
         assert isinstance(result, pd.DataFrame)
         assert "NAME" in result.columns
@@ -998,9 +963,7 @@ class TestNameColumnIntegration:
     @pytest.mark.integration
     def test_acs_county_name_column(self, setup_api_key):
         """Test NAME column for ACS county-level data."""
-        result = tc.get_acs(
-            geography="county", variables="B01003_001", state="VT", year=2022
-        )
+        result = tc.get_acs(geography="county", variables="B01003_001", state="VT", year=2022)
 
         assert isinstance(result, pd.DataFrame)
         assert "NAME" in result.columns
@@ -1013,9 +976,7 @@ class TestNameColumnIntegration:
     @pytest.mark.integration
     def test_decennial_state_name_column(self, setup_api_key):
         """Test NAME column for decennial state-level data."""
-        result = tc.get_decennial(
-            geography="state", variables="P1_001N", state="VT", year=2020
-        )
+        result = tc.get_decennial(geography="state", variables="P1_001N", state="VT", year=2020)
 
         assert isinstance(result, pd.DataFrame)
         assert "NAME" in result.columns
@@ -1027,9 +988,7 @@ class TestNameColumnIntegration:
     @pytest.mark.integration
     def test_decennial_county_name_column(self, setup_api_key):
         """Test NAME column for decennial county-level data."""
-        result = tc.get_decennial(
-            geography="county", variables="P1_001N", state="VT", year=2020
-        )
+        result = tc.get_decennial(geography="county", variables="P1_001N", state="VT", year=2020)
 
         assert isinstance(result, pd.DataFrame)
         assert "NAME" in result.columns
@@ -1158,9 +1117,7 @@ class TestGeographyLevelsIntegration:
                     has_geo_id
                 ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
 
-                assert (
-                    "estimate" in result.columns
-                ), f"Missing estimate for {description}"
+                assert "estimate" in result.columns, f"Missing estimate for {description}"
 
                 print(f"✓ {description} geography works")
 
@@ -1223,9 +1180,7 @@ class TestGeographyLevelsIntegration:
                     has_geo_id
                 ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
 
-                assert (
-                    "estimate" in result.columns
-                ), f"Missing estimate for {description}"
+                assert "estimate" in result.columns, f"Missing estimate for {description}"
 
                 print(f"✓ {description} geography works")
 
@@ -1432,9 +1387,7 @@ class TestGeographyLevelsIntegration:
         print("✓ CBSA output format matches R tidycensus")
 
         # Test ZCTA format
-        zcta_result = tc.get_acs(
-            geography="zcta", variables="B01003_001", zcta="05401", year=2020
-        )
+        zcta_result = tc.get_acs(geography="zcta", variables="B01003_001", zcta="05401", year=2020)
 
         # Verify required columns exist
         for col in required_cols:
@@ -1486,8 +1439,7 @@ class TestGeographyLevelsIntegration:
 
 
 def run_table_chunking_integration_tests():
-    """
-    Run table chunking integration tests that require a valid Census API key.
+    """Run table chunking integration tests that require a valid Census API key.
 
     These tests verify that:
     1. Large tables (>48 variables) are automatically chunked

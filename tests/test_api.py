@@ -1,10 +1,8 @@
-"""
-Tests for the Census API client.
-"""
+"""Tests for the Census API client."""
 
 import json
 import os
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
@@ -142,9 +140,7 @@ class TestCensusAPI:
         """Test fetching variables metadata."""
         mock_response = Mock()
         mock_response.json.return_value = {
-            "variables": {
-                "B01001_001E": {"label": "Total population", "concept": "Sex by Age"}
-            }
+            "variables": {"B01001_001E": {"label": "Total population", "concept": "Sex by Age"}}
         }
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
@@ -179,9 +175,7 @@ class TestCensusAPI:
 
         api = CensusAPI(api_key="test")
 
-        with pytest.raises(
-            requests.RequestException, match="Failed to fetch data from Census API"
-        ):
+        with pytest.raises(requests.RequestException, match="Failed to fetch data from Census API"):
             api.get(2022, "acs", ["B01001_001E"], {"for": "state:*"}, "acs5")
 
     @patch("requests.Session.get")
@@ -208,9 +202,7 @@ class TestCensusAPI:
 
         api = CensusAPI(api_key="test")
 
-        with pytest.raises(
-            requests.RequestException, match="Failed to fetch geography codes"
-        ):
+        with pytest.raises(requests.RequestException, match="Failed to fetch geography codes"):
             api.get_geography_codes(2022, "acs", "acs5")
 
     @patch("requests.Session.get")
@@ -240,9 +232,7 @@ class TestCensusAPI:
 
         api = CensusAPI(api_key="test")
 
-        with pytest.raises(
-            requests.RequestException, match="Failed to fetch variables"
-        ):
+        with pytest.raises(requests.RequestException, match="Failed to fetch variables"):
             api.get_variables(2022, "acs", "acs5")
 
     @patch("requests.Session.get")
@@ -264,13 +254,9 @@ class TestCensusAPI:
     def test_json_decode_error_handling(self, mock_get):
         """Test handling of non-JSON responses from API."""
         mock_response = Mock()
-        mock_response.text = (
-            "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
-        )
+        mock_response.text = "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
         mock_response.raise_for_status.return_value = None
-        mock_response.json.side_effect = json.JSONDecodeError(
-            "Expecting value", "doc", 0
-        )
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "doc", 0)
         mock_get.return_value = mock_response
 
         api = CensusAPI(api_key="test")
@@ -282,33 +268,23 @@ class TestCensusAPI:
     def test_json_decode_error_handling_variables(self, mock_get):
         """Test handling of non-JSON responses for variables endpoint."""
         mock_response = Mock()
-        mock_response.text = (
-            "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
-        )
+        mock_response.text = "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
         mock_response.raise_for_status.return_value = None
-        mock_response.json.side_effect = json.JSONDecodeError(
-            "Expecting value", "doc", 0
-        )
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "doc", 0)
         mock_get.return_value = mock_response
 
         api = CensusAPI(api_key="test")
 
-        with pytest.raises(
-            ValueError, match="Census API returned invalid response for variables"
-        ):
+        with pytest.raises(ValueError, match="Census API returned invalid response for variables"):
             api.get_variables(2022, "acs", "acs5")
 
     @patch("requests.Session.get")
     def test_json_decode_error_handling_geography_codes(self, mock_get):
         """Test handling of non-JSON responses for geography codes endpoint."""
         mock_response = Mock()
-        mock_response.text = (
-            "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
-        )
+        mock_response.text = "<html><title>Invalid Key</title><body>Invalid API key</body></html>"
         mock_response.raise_for_status.return_value = None
-        mock_response.json.side_effect = json.JSONDecodeError(
-            "Expecting value", "doc", 0
-        )
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "doc", 0)
         mock_get.return_value = mock_response
 
         api = CensusAPI(api_key="test")
@@ -339,9 +315,9 @@ class TestSetCensusAPIKey:
 
     def test_set_api_key(self, capsys):
         """Test setting API key as environment variable."""
-        set_census_api_key("test_key_123")
+        set_census_api_key("r" * 40)
 
-        assert os.environ["CENSUS_API_KEY"] == "test_key_123"
+        assert os.environ["CENSUS_API_KEY"] == "r" * 40
 
         captured = capsys.readouterr()
         assert "Census API key has been set" in captured.out

@@ -1,11 +1,7 @@
-"""
-Tests for variables module functionality.
-"""
+"""Tests for variables module functionality."""
 
-import os
 import pickle
-import tempfile
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -149,9 +145,7 @@ class TestLoadVariables:
     """Test load_variables function."""
 
     @patch("pytidycensus.variables.CensusAPI")
-    def test_load_variables_from_api(
-        self, mock_api_class, mock_variables_data, tmp_path
-    ):
+    def test_load_variables_from_api(self, mock_api_class, mock_variables_data, tmp_path):
         """Test loading variables from API."""
         # Setup mocks
         mock_api = Mock()
@@ -292,9 +286,7 @@ class TestGetTableVariables:
         mock_load_variables.assert_called_once_with(2022, "acs", "acs5")
 
     @patch("pytidycensus.variables.load_variables")
-    def test_get_table_variables_case_insensitive(
-        self, mock_load_variables, mock_variables_df
-    ):
+    def test_get_table_variables_case_insensitive(self, mock_load_variables, mock_variables_df):
         """Test table lookup is case insensitive."""
         mock_load_variables.return_value = mock_variables_df
 
@@ -305,9 +297,7 @@ class TestGetTableVariables:
         assert all(name.startswith("B19013_") for name in result["name"])
 
     @patch("pytidycensus.variables.load_variables")
-    def test_get_table_variables_no_results(
-        self, mock_load_variables, mock_variables_df
-    ):
+    def test_get_table_variables_no_results(self, mock_load_variables, mock_variables_df):
         """Test getting variables for non-existent table."""
         mock_load_variables.return_value = mock_variables_df
 
@@ -398,9 +388,5 @@ class TestIntegration:
         # Verify results
         assert len(income_vars) == 2
         assert len(table_vars) == 2
-        assert all(
-            var in mock_variables_df["name"].values for var in income_vars["name"]
-        )
-        assert all(
-            var in mock_variables_df["name"].values for var in table_vars["name"]
-        )
+        assert all(var in mock_variables_df["name"].values for var in income_vars["name"])
+        assert all(var in mock_variables_df["name"].values for var in table_vars["name"])

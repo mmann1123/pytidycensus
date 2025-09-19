@@ -1,8 +1,6 @@
-"""
-Tests for population estimates data retrieval functions.
-"""
+"""Tests for population estimates data retrieval functions."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import geopandas as gpd
 import pandas as pd
@@ -64,9 +62,7 @@ class TestGetEstimates:
         )
         mock_get_geo.return_value = mock_gdf
 
-        result = get_estimates(
-            geography="state", variables="POP", geometry=True, year=2022
-        )
+        result = get_estimates(geography="state", variables="POP", geometry=True, year=2022)
 
         # Should call get_geography
         mock_get_geo.assert_called_once()
@@ -113,9 +109,7 @@ class TestGetEstimates:
         mock_requests_get.return_value = mock_response
 
         # Test with breakdown (should use characteristics/ASRH dataset)
-        result = get_estimates(
-            geography="state", variables="POP", breakdown=["SEX"], year=2022
-        )
+        result = get_estimates(geography="state", variables="POP", breakdown=["SEX"], year=2022)
 
         # Verify result structure
         assert isinstance(result, pd.DataFrame)
@@ -150,9 +144,7 @@ class TestGetEstimates:
         mock_requests_get.return_value = mock_response
 
         # Test time series
-        result = get_estimates(
-            geography="state", variables="POP", time_series=True, year=2022
-        )
+        result = get_estimates(geography="state", variables="POP", time_series=True, year=2022)
 
         assert isinstance(result, pd.DataFrame)
 
@@ -174,9 +166,7 @@ class TestGetEstimates:
 
     @patch("pytidycensus.estimates.requests.get")
     @patch("pytidycensus.estimates.get_geography")
-    def test_get_estimates_geometry_merge_warning(
-        self, mock_get_geo, mock_requests_get
-    ):
+    def test_get_estimates_geometry_merge_warning(self, mock_get_geo, mock_requests_get):
         """Test geometry merge with CSV data."""
         # Mock CSV response
         mock_response = Mock()
@@ -186,15 +176,11 @@ class TestGetEstimates:
         mock_requests_get.return_value = mock_response
 
         # Mock geometry data
-        mock_gdf = gpd.GeoDataFrame(
-            {"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]}
-        )
+        mock_gdf = gpd.GeoDataFrame({"GEOID": ["01"], "NAME": ["Alabama"], "geometry": [None]})
         mock_get_geo.return_value = mock_gdf
 
         # Should successfully merge geometry with CSV data
-        result = get_estimates(
-            geography="state", variables="POP", geometry=True, year=2022
-        )
+        result = get_estimates(geography="state", variables="POP", geometry=True, year=2022)
 
         # Should have geometry column from successful merge
         assert "geometry" in result.columns
@@ -223,15 +209,11 @@ class TestGetEstimates:
         mock_requests_get.return_value = mock_response
 
         # Test tidy output
-        result_tidy = get_estimates(
-            geography="state", variables="POP", output="tidy", year=2022
-        )
+        result_tidy = get_estimates(geography="state", variables="POP", output="tidy", year=2022)
         assert isinstance(result_tidy, pd.DataFrame)
 
         # Test wide output
-        result_wide = get_estimates(
-            geography="state", variables="POP", output="wide", year=2022
-        )
+        result_wide = get_estimates(geography="state", variables="POP", output="wide", year=2022)
         assert isinstance(result_wide, pd.DataFrame)
 
     @patch("pytidycensus.estimates.requests.get")
