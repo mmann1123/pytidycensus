@@ -222,6 +222,62 @@ class TestACSIntegration:
 
         print(f"✓ Geometry working: {len(result)} counties with {result.crs}")
 
+    def test_acs_b01001_table_chunking_integration(self, setup_api_key):
+        """Test that B01001 table (sex by age) works with chunking in real API calls."""
+        # B01001 has 49 variables, so with E and M variants it will trigger chunking
+        result = tc.get_acs(
+            geography="state",
+            table="B01001",
+            state="VT",  # Vermont (small state for faster testing)
+            year=2020,  # Use 2020 to match the R example
+        )
+
+        # Verify the result structure
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+
+        # Verify required columns are present
+        expected_columns = {"GEOID", "NAME", "variable", "estimate", "moe"}
+        assert expected_columns.issubset(set(result.columns))
+
+        # Verify we got all B01001 variables (should be 49)
+        unique_variables = result["variable"].nunique()
+        assert unique_variables == 49, f"Expected 49 B01001 variables, got {unique_variables}"
+
+        # Verify specific variables are present (matching R tidycensus example)
+        variables_present = set(result["variable"].unique())
+        expected_vars = {"B01001_001", "B01001_002", "B01001_003", "B01001_004"}
+        assert expected_vars.issubset(
+            variables_present
+        ), f"Missing expected variables: {expected_vars - variables_present}"
+
+        # Verify data quality - estimates should be numeric and reasonable
+        assert result["estimate"].dtype in ["int64", "float64"]
+        assert result["estimate"].min() >= 0  # Population counts should be non-negative
+
+        # Verify MOE values are present and reasonable
+        assert "moe" in result.columns
+        # MOE should be numeric (but can be NaN for some variables)
+        moe_numeric = pd.to_numeric(result["moe"], errors="coerce")
+        valid_moe = moe_numeric.dropna()
+        if len(valid_moe) > 0:
+            assert valid_moe.min() >= 0  # MOE should be non-negative when present
+
+        # Verify geographic data
+        assert "Vermont" in result["NAME"].iloc[0]
+        assert result["GEOID"].iloc[0] == "50"  # Vermont state FIPS code
+
+        # Verify total population variable is present and reasonable
+        total_pop = result[result["variable"] == "B01001_001"]["estimate"].iloc[0]
+        assert total_pop > 500000  # Vermont has over 500k people
+        assert total_pop < 1000000  # Vermont has under 1M people
+
+        print(f"✓ B01001 table chunking integration test passed:")
+        print(f"  - Retrieved {unique_variables} variables for Vermont")
+        print(f"  - Total rows: {len(result)}")
+        print(f"  - Total population (B01001_001): {total_pop:,}")
+        print(f"  - Sample variables: {sorted(list(variables_present))[:5]}")
+
 
 class TestDecennialIntegration:
     """Integration tests for get_decennial with real API calls."""
