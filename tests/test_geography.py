@@ -227,7 +227,16 @@ class TestTigerDownloader:
 
         # Should call wget
         mock_subprocess.assert_called_once_with(
-            ["wget", "-O", "/tmp/test.zip", "http://example.com/test.zip"], check=True
+            [
+                "wget",
+                "--quiet",
+                "--show-progress",
+                "--progress=bar:force:noscroll",
+                "-O",
+                "/tmp/test.zip",
+                "http://example.com/test.zip",
+            ],
+            check=True,
         )
 
     @patch("shutil.which")
