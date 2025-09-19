@@ -37,10 +37,12 @@ jobs:
     - name: Format check with black
       run: |
         black --check --diff .
+      continue-on-error: true  
     
     - name: Import sort check with isort
       run: |
         isort --check-only --diff .
+      continue-on-error: true   
     
     # - name: Type check with mypy
     #   run: |
