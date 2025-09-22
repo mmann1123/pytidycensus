@@ -254,6 +254,4 @@ Michael Mann. (2025). mmann1123/pytidycensus: Pulling_dats (v0.1.1). Zenodo. htt
 }
 ```
 
-**Come study with us at The George Washington University**
-
-![GWU Geography & Environment](docs/static/GWU_GE.png)
+[![GWU Geography & Environment](docs/static/GWU_GE.png)](https://geography.columbian.gwu.edu/)
