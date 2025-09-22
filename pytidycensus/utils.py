@@ -439,9 +439,12 @@ def validate_geography(geography: str) -> str:
     Raises
     ------
     ValueError
-        If geography is not supported
+        If geography is not recognized
+    NotImplementedError
+        If geography is recognized but not implemented
     """
-    valid_geographies = [
+    # Implemented geographies
+    implemented_geographies = [
         "us",
         "region",
         "division",
@@ -449,13 +452,8 @@ def validate_geography(geography: str) -> str:
         "county",
         "tract",
         "block group",
-        "block",
         "place",
-        "msa",
         "metropolitan statistical area/micropolitan statistical area",
-        "csa",
-        "necta",
-        "zcta",
         "zip code tabulation area",
         "congressional district",
         "state legislative district (upper chamber)",
@@ -466,13 +464,85 @@ def validate_geography(geography: str) -> str:
         "school district (unified)",
     ]
 
+    # Legacy aliases that redirect to implemented geographies
+    legacy_aliases = {
+        "cbg": "block group",
+        "msa": "metropolitan statistical area/micropolitan statistical area",
+        "zcta": "zip code tabulation area",
+    }
+
+    # Recognized but unimplemented geographies
+    unimplemented_geographies = [
+        "county subdivision",
+        "subminor civil division",
+        "place/remainder (or part)",
+        "county (or part)",
+        "consolidated city",
+        "place (or part)",
+        "alaska native regional corporation",
+        "american indian area/alaska native area/hawaiian home land",
+        "tribal subdivision/remainder",
+        "american indian area/alaska native area (reservation or statistical entity only)",
+        "american indian area (off-reservation trust land only)/hawaiian home land",
+        "tribal census tract",
+        "tribal block group",
+        "state (or part)",
+        "american indian area/alaska native area/hawaiian home land (or part)",
+        "american indian area/alaska native area (reservation or statistical entity only) (or part)",
+        "american indian area (off-reservation trust land only)/hawaiian home land (or part)",
+        "tribal census tract (or part)",
+        "tribal block group (or part)",
+        "principal city (or part)",
+        "metropolitan division",
+        "metropolitan statistical area/micropolitan statistical area (or part)",
+        "metropolitan division (or part)",
+        "combined statistical area",
+        "combined statistical area (or part)",
+        "urban area",
+        "csa",
+        "necta",
+        "block",  # Block level not available in ACS
+    ]
+
     # Normalize geography
     geography = geography.lower()
-    if geography == "cbg":
-        geography = "block group"
 
-    if geography not in valid_geographies:
-        raise ValueError(f"Geography '{geography}' not supported")
+    # Handle legacy aliases
+    if geography in legacy_aliases:
+        geography = legacy_aliases[geography]
+
+    # Check if geography is implemented
+    if geography in implemented_geographies:
+        return geography
+
+    # Check if geography is recognized but unimplemented
+    if geography in unimplemented_geographies:
+        if geography == "block":
+            raise NotImplementedError(
+                "Block-level geography is not available in ACS data. "
+                "Block-level data is only available in Decennial Census."
+            )
+        elif geography in ["csa", "necta"]:
+            geography_names = {
+                "csa": "combined statistical area",
+                "necta": "New England city and town area",
+            }
+            raise NotImplementedError(
+                f"Geography '{geography}' ({geography_names.get(geography, geography)}) "
+                f"is not yet implemented in pytidycensus."
+            )
+        else:
+            raise NotImplementedError(
+                f"Geography '{geography}' is recognized but not yet implemented in pytidycensus. "
+                f"Please check the Census API documentation for the correct parameters or "
+                f"consider contributing an implementation."
+            )
+
+    # Unknown geography
+    raise ValueError(
+        f"Geography '{geography}' is not recognized. "
+        f"Please check the spelling or refer to the Census API documentation."
+    )
 
     return geography
 
@@ -500,9 +570,15 @@ def build_geography_params(
     -------
     Dict[str, str]
         Geography parameters for API call
+
+    Raises
+    ------
+    NotImplementedError
+        If geography is recognized but not yet implemented
     """
     params = {}
 
+    # Fully implemented geographies
     if geography == "us":
         params["for"] = "us:*"
     elif geography == "region":
@@ -547,12 +623,127 @@ def build_geography_params(
         # CBSAs are also national geographies
         params["for"] = "metropolitan statistical area/micropolitan statistical area:*"
         # Note: CBSAs ignore state parameter since they can cross state boundaries
-    else:
-        # For other geographies, use basic format
+    elif geography == "place":
+        # Basic implementation - may need enhancement for specific use cases
         params["for"] = f"{geography}:*"
         if state:
             state_fips = validate_state(state)
             params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "congressional district":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "state legislative district (upper chamber)":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "state legislative district (lower chamber)":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "public use microdata area":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "school district (elementary)":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "school district (secondary)":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "school district (unified)":
+        # Basic implementation - may need enhancement for specific use cases
+        params["for"] = f"{geography}:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+
+    # Unimplemented geographies that are recognized in Census API
+    elif geography in [
+        "county subdivision",
+        "subminor civil division",
+        "place/remainder (or part)",
+        "county (or part)",
+        "consolidated city",
+        "place (or part)",
+        "alaska native regional corporation",
+        "american indian area/alaska native area/hawaiian home land",
+        "tribal subdivision/remainder",
+        "american indian area/alaska native area (reservation or statistical entity only)",
+        "american indian area (off-reservation trust land only)/hawaiian home land",
+        "tribal census tract",
+        "tribal block group",
+        "state (or part)",
+        "american indian area/alaska native area/hawaiian home land (or part)",
+        "american indian area/alaska native area (reservation or statistical entity only) (or part)",
+        "american indian area (off-reservation trust land only)/hawaiian home land (or part)",
+        "tribal census tract (or part)",
+        "tribal block group (or part)",
+        "principal city (or part)",
+        "metropolitan division",
+        "metropolitan statistical area/micropolitan statistical area (or part)",
+        "metropolitan division (or part)",
+        "combined statistical area",
+        "combined statistical area (or part)",
+        "urban area",
+        "county (or part)",
+    ]:
+        raise NotImplementedError(
+            f"Geography '{geography}' is recognized but not yet implemented in pytidycensus. "
+            f"Please check the Census API documentation for the correct parameters or "
+            f"consider contributing an implementation."
+        )
+
+    # Handle legacy aliases and abbreviations
+    elif geography in ["block", "msa", "csa", "necta", "zcta"]:
+        if geography == "block":
+            raise NotImplementedError(
+                "Block-level geography is not available in ACS data. "
+                "Block-level data is only available in Decennial Census."
+            )
+        elif geography == "msa":
+            # Redirect to full name
+            return build_geography_params(
+                "metropolitan statistical area/micropolitan statistical area",
+                state=state,
+                county=county,
+                **kwargs,
+            )
+        elif geography == "zcta":
+            # Redirect to full name
+            return build_geography_params(
+                "zip code tabulation area", state=state, county=county, **kwargs
+            )
+        elif geography in ["csa", "necta"]:
+            # These are not implemented yet
+            geography_names = {
+                "csa": "combined statistical area",
+                "necta": "New England city and town area",
+            }
+            raise NotImplementedError(
+                f"Geography '{geography}' ({geography_names.get(geography, geography)}) "
+                f"is not yet implemented in pytidycensus."
+            )
+    else:
+        # Unknown geography
+        raise ValueError(
+            f"Geography '{geography}' is not recognized. "
+            f"Please check the spelling or refer to the Census API documentation."
+        )
 
     return params
 

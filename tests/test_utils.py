@@ -132,7 +132,7 @@ class TestValidateGeography:
 
     def test_validate_invalid_geography(self):
         """Test validation with invalid geography."""
-        with pytest.raises(ValueError, match="Geography 'invalid' not supported"):
+        with pytest.raises(ValueError, match="Geography 'invalid' is not recognized"):
             validate_geography("invalid")
 
 
