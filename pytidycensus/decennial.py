@@ -144,7 +144,7 @@ def get_decennial(
 
     # Validate inputs (mirror R tidycensus)
     year = validate_year(year, "dec")
-    geography = validate_geography(geography)
+    geography = validate_geography(geography, dataset="decennial")
 
     # 1990 data not available (mirror R tidycensus)
     if year == 1990:

@@ -168,7 +168,7 @@ def get_acs(
 
     # Validate inputs
     year = validate_year(year, "acs")
-    geography = validate_geography(geography)
+    geography = validate_geography(geography, dataset="acs")
 
     # Survey validation (mirror R tidycensus)
     if survey == "acs5" and year < 2009:

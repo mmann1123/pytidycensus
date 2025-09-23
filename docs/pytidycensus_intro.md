@@ -406,3 +406,7 @@ The printed URL can be copy-pasted into a web browser where users can see the ra
 ## Conclusion
 
 This introduction to `pytidycensus` has covered the basics of retrieving and working with Census data in Python. The package provides a convenient interface to access data from the US Census Bureau's APIs, with built-in support for spatial data analysis. For more information and examples, please refer to the examples directory and the package documentation.
+
+### Credits
+
+Thannks to [Kyle Walker](https://www.tcu.edu/directory/profile/kyle-walker.php) for developing this amazing tutorial in R, which I ported to Python.
