@@ -423,13 +423,15 @@ def validate_year(year: int, dataset: str) -> int:
     return year
 
 
-def validate_geography(geography: str) -> str:
+def validate_geography(geography: str, dataset: str = None) -> str:
     """Validate geography parameter.
 
     Parameters
     ----------
     geography : str
         Geography level
+    dataset : str, optional
+        Dataset type ("acs", "decennial", "estimates") for context-aware validation
 
     Returns
     -------
@@ -441,10 +443,10 @@ def validate_geography(geography: str) -> str:
     ValueError
         If geography is not recognized
     NotImplementedError
-        If geography is recognized but not implemented
+        If geography is recognized but not implemented for the specified dataset
     """
-    # Implemented geographies
-    implemented_geographies = [
+    # Implemented geographies (common to all datasets)
+    common_implemented_geographies = [
         "us",
         "region",
         "division",
@@ -464,6 +466,11 @@ def validate_geography(geography: str) -> str:
         "school district (unified)",
     ]
 
+    # Dataset-specific geographies
+    decennial_only_geographies = [
+        "block",  # Only available in Decennial Census
+    ]
+
     # Legacy aliases that redirect to implemented geographies
     legacy_aliases = {
         "cbg": "block group",
@@ -471,7 +478,7 @@ def validate_geography(geography: str) -> str:
         "zcta": "zip code tabulation area",
     }
 
-    # Recognized but unimplemented geographies
+    # Recognized but unimplemented geographies (regardless of dataset)
     unimplemented_geographies = [
         "county subdivision",
         "subminor civil division",
@@ -501,7 +508,6 @@ def validate_geography(geography: str) -> str:
         "urban area",
         "csa",
         "necta",
-        "block",  # Block level not available in ACS
     ]
 
     # Normalize geography
@@ -511,18 +517,28 @@ def validate_geography(geography: str) -> str:
     if geography in legacy_aliases:
         geography = legacy_aliases[geography]
 
-    # Check if geography is implemented
-    if geography in implemented_geographies:
+    # Check if geography is implemented for all datasets
+    if geography in common_implemented_geographies:
         return geography
+
+    # Check if geography is available only in specific datasets
+    if geography in decennial_only_geographies:
+        if dataset == "acs":
+            raise NotImplementedError(
+                f"Geography '{geography}' is not available in ACS data. "
+                f"Block-level data is only available in Decennial Census."
+            )
+        elif dataset in ["decennial", None]:  # Allow for decennial or when dataset not specified
+            return geography
+        else:
+            raise NotImplementedError(
+                f"Geography '{geography}' is not available in {dataset} data. "
+                f"Block-level data is only available in Decennial Census."
+            )
 
     # Check if geography is recognized but unimplemented
     if geography in unimplemented_geographies:
-        if geography == "block":
-            raise NotImplementedError(
-                "Block-level geography is not available in ACS data. "
-                "Block-level data is only available in Decennial Census."
-            )
-        elif geography in ["csa", "necta"]:
+        if geography in ["csa", "necta"]:
             geography_names = {
                 "csa": "combined statistical area",
                 "necta": "New England city and town area",
@@ -671,6 +687,15 @@ def build_geography_params(
         if state:
             state_fips = validate_state(state)
             params["in"] = f"state:{','.join(state_fips)}"
+    elif geography == "block":
+        # Block geography - only available in Decennial Census
+        params["for"] = "block:*"
+        if state:
+            state_fips = validate_state(state)
+            params["in"] = f"state:{','.join(state_fips)}"
+            if county:
+                county_fips = validate_county(county, state_fips[0])
+                params["in"] += f" county:{','.join(county_fips)}"
 
     # Unimplemented geographies that are recognized in Census API
     elif geography in [
@@ -709,13 +734,8 @@ def build_geography_params(
         )
 
     # Handle legacy aliases and abbreviations
-    elif geography in ["block", "msa", "csa", "necta", "zcta"]:
-        if geography == "block":
-            raise NotImplementedError(
-                "Block-level geography is not available in ACS data. "
-                "Block-level data is only available in Decennial Census."
-            )
-        elif geography == "msa":
+    elif geography in ["msa", "csa", "necta", "zcta"]:
+        if geography == "msa":
             # Redirect to full name
             return build_geography_params(
                 "metropolitan statistical area/micropolitan statistical area",

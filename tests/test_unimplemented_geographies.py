@@ -36,12 +36,22 @@ class TestUnimplementedGeographyErrors:
         with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
             validate_geography("urban area")
 
-    def test_validate_geography_raises_not_implemented_for_block(self):
-        """Test that block geography raises specific NotImplementedError."""
-        with pytest.raises(
-            NotImplementedError, match="Block-level geography is not available in ACS data"
-        ):
-            validate_geography("block")
+    def test_validate_geography_raises_not_implemented_for_block_in_acs(self):
+        """Test that block geography raises specific NotImplementedError for ACS."""
+        with pytest.raises(NotImplementedError, match="not available in ACS data"):
+            validate_geography("block", dataset="acs")
+
+    def test_validate_geography_allows_block_in_decennial(self):
+        """Test that block geography is allowed for Decennial Census."""
+        # Should not raise any error
+        result = validate_geography("block", dataset="decennial")
+        assert result == "block"
+
+    def test_validate_geography_allows_block_when_no_dataset_specified(self):
+        """Test that block geography is allowed when no dataset is specified."""
+        # Should not raise any error (backwards compatibility)
+        result = validate_geography("block")
+        assert result == "block"
 
     def test_validate_geography_raises_not_implemented_for_necta(self):
         """Test that NECTA raises NotImplementedError."""
@@ -71,6 +81,17 @@ class TestUnimplementedGeographyErrors:
                 api_key="test",
             )
 
+    def test_get_acs_raises_not_implemented_for_block_geography(self):
+        """Test that get_acs raises NotImplementedError for block geography."""
+        with pytest.raises(NotImplementedError, match="not available in ACS data"):
+            get_acs(
+                geography="block",
+                variables="B01001_001E",
+                state="06",
+                year=2020,
+                api_key="test",
+            )
+
     def test_validate_geography_raises_value_error_for_unknown_geography(self):
         """Test that completely unknown geography raises ValueError."""
         with pytest.raises(ValueError, match="not recognized"):
@@ -92,6 +113,9 @@ class TestUnimplementedGeographyErrors:
         )
         assert validate_geography("congressional district") == "congressional district"
         assert validate_geography("public use microdata area") == "public use microdata area"
+        # Block should work for decennial or when no dataset specified
+        assert validate_geography("block", dataset="decennial") == "block"
+        assert validate_geography("block") == "block"
 
     def test_legacy_aliases_work(self):
         """Test that legacy aliases work correctly."""
