@@ -9,6 +9,8 @@
 
 **pytidycensus** is a Python library that provides an integrated interface to several United States Census Bureau APIs and geographic boundary files. It allows users to return Census and American Community Survey (ACS) data as pandas DataFrames, and optionally returns GeoPandas GeoDataFrames with feature geometry for mapping and spatial analysis.
 
+In version 1.0, pytidycensus introduces a conversational interface powered by Large Language Models (LLMs) to help users discover variables, choose geographic levels, and generate code snippets for data retrieval. This feature aims to make accessing Census data more intuitive and user-friendly.
+
 **This package is a Python port of the popular R package [tidycensus](https://walker-data.com/tidycensus/) created by Kyle Walker.**
 
 
@@ -38,6 +40,7 @@ pytidycensus supports all major Census geographic levels:
 - **Geographic Flexibility**: From national to block group level data
 - **Caching**: Built-in caching for variables and geography data
 - **Comprehensive Testing**: Full test suite with high coverage
+- **LLM Assistant**: Conversational interface for variable discovery and code generation
 
 ## Installation
 
@@ -52,6 +55,9 @@ pip install pytidycensus
 To install with optional dependencies:
 
 ```bash
+# For LLM assistant
+pip install pytidycensus[LLM]
+
 # For development tools
 pip install pytidycensus[dev]
 
@@ -75,7 +81,7 @@ Clone the repository and install in development mode:
 ```bash
 git clone https://github.com/mmann1123/pytidycensus.git
 cd pytidycensus
-pip install -e .[dev,docs]
+pip install -e .[all]
 ```
 
 ## Quick Start
@@ -193,7 +199,52 @@ time_series = tc.get_estimates(
     vintage=2023
 )
 ```
+## LLM Assistant
+For users interested in leveraging Large Language Models (LLMs) to interact with Census data, pytidycensus offers a conversational interface. This feature helps users discover relevant variables, choose appropriate geographic levels, and generate code snippets for data retrieval.
 
+Please refer to the [LLM Assistant Documentation](docs/llm_assistant.md) for detailed instructions on setup and usage.
+
+
+#### Example: Spatial Analysis with Geometry
+
+```
+👤 User: I need Wisconsin county income data for mapping
+🏛️ Assistant: I understand. What additional details do you need for this analysis?
+
+👤 User: Include geographic boundaries
+🏛️ Assistant: I understand. What additional details do you need for this analysis?
+
+👤 User: 2020 ACS data
+🏛️ Assistant: 2020 ACS data is a good choice. Should I use the 5-year estimates for better coverage?
+
+👤 User: Generate the mapping-ready code
+🏛️ Assistant: I'll generate the pytidycensus code for you now.
+
+📋 Final State: geography=county, variables=['B19013_001'], state=WI, year=2020, geometry=True
+```
+
+**Generated Code:**
+```python
+import pytidycensus as tc
+
+# Get Census data (wide format with cleaned variable names)
+data = tc.get_acs(
+    geography="county",
+    variables=["B19013_001E"],
+    state="WI",
+    year=2020,
+    output="wide",
+    geometry=True,
+    api_key=census_api_key
+)
+
+print(data.head())
+
+# Ready for mapping with GeoPandas
+data.plot(column='B19013_001', legend=True)
+```
+
+**Result:** GeoPandas GeoDataFrame ready for mapping with clean column name `B19013_001`
 
 ## Documentation
 
