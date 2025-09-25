@@ -294,17 +294,25 @@ Remember to only recommend pytidycensus functions and geographic levels.
                             }
                         )
 
-            # CRITICAL: Always add normalization variables for the topic
-            norm_info = get_normalization_variables(concept)
-            if norm_info and "denominators" in norm_info:
-                for denom_name, denom_code in norm_info["denominators"].items():
+            # Only add normalization variables if the current variables actually need them
+            # Check if any of the suggested variables need normalization
+            current_var_codes = [
+                s["code"] for s in suggestions if s.get("source") == "knowledge_base"
+            ]
+
+            # Import the new selective normalization function
+            from .knowledge_base import get_normalization_variables_for_codes
+
+            norm_vars_needed = get_normalization_variables_for_codes(current_var_codes)
+            if norm_vars_needed:
+                for norm_code, description in norm_vars_needed.items():
                     suggestions.append(
                         {
-                            "name": denom_code,
+                            "name": norm_code,
                             "concept": concept,
-                            "code": denom_code,
-                            "label": denom_name.replace("_", " ").title() + " (DENOMINATOR)",
-                            "description": f"Normalization variable for {concept} analysis - REQUIRED for rates/percentages",
+                            "code": norm_code,
+                            "label": description.replace("_", " ").title() + " (DENOMINATOR)",
+                            "description": f"Normalization variable for calculating rates/percentages - REQUIRED for proper analysis",
                             "source": "normalization",
                         }
                     )
