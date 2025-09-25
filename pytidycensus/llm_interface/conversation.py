@@ -93,7 +93,7 @@ class ConversationState:
 
     # Options
     geometry: bool = False
-    output_format: str = "tidy"
+    output_format: str = "wide"
 
     # Conversation flow
     stage: str = "initial"  # initial, clarifying, variables, geography, ready, executed

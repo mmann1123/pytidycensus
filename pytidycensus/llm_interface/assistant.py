@@ -363,7 +363,7 @@ This query will get you:
 The result will be a pandas DataFrame with {self.conversation.state.output_format} format.
 """
 
-            # Actually execute the query
+            # Actually execute the query (always use wide format)
             if self.conversation.state.dataset == "decennial":
                 data = tc.get_decennial(
                     geography=self.conversation.state.geography,
@@ -371,7 +371,7 @@ The result will be a pandas DataFrame with {self.conversation.state.output_forma
                     state=self.conversation.state.state,
                     county=self.conversation.state.county,
                     year=self.conversation.state.year or 2020,
-                    output=self.conversation.state.output_format,
+                    output="wide",  # Always use wide format
                     api_key=self.census_api_key,
                 )
             else:
@@ -381,9 +381,12 @@ The result will be a pandas DataFrame with {self.conversation.state.output_forma
                     state=self.conversation.state.state,
                     county=self.conversation.state.county,
                     year=self.conversation.state.year or 2020,
-                    output=self.conversation.state.output_format,
+                    output="wide",  # Always use wide format
                     api_key=self.census_api_key,
                 )
+
+            # Clean up variable names by removing 'E' suffix
+            data = self._clean_variable_names(data)
 
             # Update state with results
             self.conversation.state.data_shape = f"{data.shape[0]} rows × {data.shape[1]} columns"
@@ -447,8 +450,8 @@ Would you like to adjust the query parameters?
             params.append(f'county="{state.county}"')
         if state.year:
             params.append(f"year={state.year}")
-        if state.output_format != "tidy":
-            params.append(f'output="{state.output_format}"')
+        # Always use wide format
+        params.append('output="wide"')
         if state.geometry:
             params.append("geometry=True")
 
@@ -462,15 +465,44 @@ Would you like to adjust the query parameters?
 # Get one at: https://api.census.gov/data/key_signup.html
 census_api_key = "YOUR_API_KEY_HERE"
 
-# Get Census data
+# Get Census data (wide format with cleaned variable names)
 data = {func}(
     {params_str}
 )
+
+# Clean variable names by removing 'E' suffix
+column_mapping = {{col: col[:-1] for col in data.columns
+                  if col.endswith('E') and '_' in col and col.split('_')[0].startswith('B')}}
+if column_mapping:
+    data = data.rename(columns=column_mapping)
+    print(f"Cleaned {{len(column_mapping)}} variable names by removing 'E' suffix")
 
 print(f"Retrieved {{data.shape[0]}} rows and {{data.shape[1]}} columns")
 print(data.head())"""
 
         return code
+
+    def _clean_variable_names(self, data):
+        """Clean up variable names by removing 'E' suffix from Census variable codes."""
+
+        # Create a mapping of old column names to new names
+        column_mapping = {}
+        for col in data.columns:
+            # Only rename Census variable columns (pattern: B#####_###E)
+            if isinstance(col, str) and col.endswith("E") and "_" in col:
+                # Check if it looks like a Census variable code
+                parts = col.split("_")
+                if len(parts) == 2 and parts[0].startswith("B") and parts[1].endswith("E"):
+                    # Remove the 'E' suffix: B19013_001E -> B19013_001
+                    new_name = col[:-1]
+                    column_mapping[col] = new_name
+
+        # Rename the columns
+        if column_mapping:
+            data = data.rename(columns=column_mapping)
+            logger.info(f"Cleaned {len(column_mapping)} variable names by removing 'E' suffix")
+
+        return data
 
     def reset_conversation(self):
         """Reset the conversation to start fresh."""
