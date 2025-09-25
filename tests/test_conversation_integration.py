@@ -10,6 +10,50 @@ import pytest
 from pytidycensus.llm_interface import CensusAssistant
 
 
+def show_conversation_state(assistant, test_name, description=""):
+    """Display current conversation state for debugging."""
+    print(f"\n=== {test_name} ===")
+    if description:
+        print(f"Description: {description}")
+
+    state = assistant.conversation.state
+    print("Current conversation state:")
+
+    state_info = []
+    if state.geography:
+        state_info.append(f"  Geography: {state.geography}")
+    if state.variables:
+        state_info.append(
+            f"  Variables: {state.variables[:3]}{'...' if len(state.variables) > 3 else ''}"
+        )
+    if state.state:
+        state_info.append(f"  State: {state.state}")
+    if state.county:
+        state_info.append(f"  County: {state.county}")
+    if state.year:
+        state_info.append(f"  Year: {state.year}")
+    if state.dataset:
+        state_info.append(f"  Dataset: {state.dataset}")
+    if state.geometry:
+        state_info.append(f"  Geometry: {state.geometry}")
+    if state.output_format:
+        state_info.append(f"  Output format: {state.output_format}")
+
+    if state_info:
+        print("\n".join(state_info))
+    else:
+        print("  (No state set)")
+
+    print("\n--- Generated Code ---")
+    try:
+        code = assistant._generate_pytidycensus_code()
+        print(code)
+    except Exception as e:
+        print(f"Error generating code: {e}")
+
+    print("=" * 60)
+
+
 class TestConversationIntegration:
     """Integration tests for conversation system."""
 
@@ -22,6 +66,11 @@ class TestConversationIntegration:
         assistant.conversation.state.variables = ["B19013_001E"]
         assistant.conversation.state.year = 2020
         assistant.conversation.state.dataset = "acs5"
+
+        # Show the conversation state and generated code
+        show_conversation_state(
+            assistant, "Basic ACS Query Generation", "State-level median household income for 2020"
+        )
 
         code = assistant._generate_pytidycensus_code()
 
@@ -42,6 +91,13 @@ class TestConversationIntegration:
         assistant.conversation.state.year = 2020
         assistant.conversation.state.dataset = "acs5"
 
+        # Show the conversation state and generated code
+        show_conversation_state(
+            assistant,
+            "DC Inequality Analysis",
+            "Tract-level poverty data for Washington DC with normalization variables",
+        )
+
         code = assistant._generate_pytidycensus_code()
 
         assert "tc.get_acs(" in code
@@ -59,6 +115,13 @@ class TestConversationIntegration:
         assistant.conversation.state.variables = ["P1_001N"]
         assistant.conversation.state.year = 2020
         assistant.conversation.state.dataset = "decennial"
+
+        # Show the conversation state and generated code
+        show_conversation_state(
+            assistant,
+            "2020 Decennial Census Query",
+            "State-level total population from 2020 Census",
+        )
 
         code = assistant._generate_pytidycensus_code()
 
@@ -114,6 +177,13 @@ class TestConversationIntegration:
         assistant.conversation.state.geometry = True
         assistant.conversation.state.year = 2020
         assistant.conversation.state.dataset = "acs5"
+
+        # Show the conversation state and generated code
+        show_conversation_state(
+            assistant,
+            "Spatial Data with Geometry",
+            "County-level income data for California with geographic boundaries",
+        )
 
         code = assistant._generate_pytidycensus_code()
 
@@ -280,21 +350,70 @@ class TestConversationIntegration:
             pytest.fail(f"Generated code has syntax error: {e}\nCode:\n{code}")
 
 
-if __name__ == "__main__":
-    # Run basic tests
+def run_verbose_tests():
+    """Run tests with verbose output showing conversation state and generated code."""
     test = TestConversationIntegration()
 
-    print("Testing query generation...")
-    test.test_query_generation_from_state()
-    print("✅ Basic query generation works!")
+    print("🧪 Running Integration Tests with Verbose Output")
+    print("=" * 80)
 
-    test.test_dc_query_generation()
-    print("✅ DC query generation works!")
+    try:
+        print("\n" + "=" * 50)
+        print("TEST 1: Basic ACS Query Generation")
+        print("=" * 50)
+        test.test_query_generation_from_state()
+        print("✅ Basic query generation works!")
 
-    test.test_conversation_state_ready_check()
-    print("✅ Conversation state validation works!")
+        print("\n" + "=" * 50)
+        print("TEST 2: DC Inequality Analysis")
+        print("=" * 50)
+        test.test_dc_query_generation()
+        print("✅ DC query generation works!")
 
-    test.test_expected_query_patterns()
-    print("✅ Query patterns match documentation!")
+        print("\n" + "=" * 50)
+        print("TEST 3: 2020 Decennial Census")
+        print("=" * 50)
+        test.test_decennial_query_generation()
+        print("✅ Decennial query generation works!")
 
-    print("\n🎉 All integration tests passed!")
+        print("\n" + "=" * 50)
+        print("TEST 4: Spatial Data with Geometry")
+        print("=" * 50)
+        test.test_geometry_query_generation()
+        print("✅ Geometry query generation works!")
+
+        print("\n" + "=" * 80)
+        print("🎉 All integration tests passed with verbose output!")
+        print("=" * 80)
+
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "verbose":
+        # Run with verbose conversation state display
+        run_verbose_tests()
+    else:
+        # Run basic tests without verbose output
+        test = TestConversationIntegration()
+
+        print("Testing query generation...")
+        test.test_query_generation_from_state()
+        print("✅ Basic query generation works!")
+
+        test.test_dc_query_generation()
+        print("✅ DC query generation works!")
+
+        test.test_conversation_state_ready_check()
+        print("✅ Conversation state validation works!")
+
+        test.test_expected_query_patterns()
+        print("✅ Query patterns match documentation!")
+
+        print("\n🎉 All integration tests passed!")
+        print("\nTo see verbose output with conversation state and generated code:")
+        print("  python test_conversation_integration.py verbose")

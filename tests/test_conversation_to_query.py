@@ -545,6 +545,7 @@ class TestConversationToQuery:
             tc for tc in CONVERSATION_TEST_CASES if tc.name == "wisconsin_county_income_2020"
         )
 
+        # Always show verbose output since pytest.ini is configured with -s flag
         state = await self.simulate_conversation(test_case, verbose=True)
 
         # Manually set expected state for this test case
