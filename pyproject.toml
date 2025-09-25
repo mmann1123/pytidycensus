@@ -47,6 +47,7 @@ dev = [
     "pytest>=6.0",
     "pytest-cov>=2.12",
     "pytest-mock>=3.6",
+    "pytest-asyncio>=0.20.0",
     "black>=21.0",
     "isort>=5.9",
     "flake8>=3.9",
@@ -73,6 +74,8 @@ LLM = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
+    "pytest-asyncio>=0.20.0",
+
 ]
  all = [
     # Base dependencies
@@ -92,6 +95,7 @@ LLM = [
     "pytest>=6.0",
     "pytest-cov>=2.12",
     "pytest-mock>=3.6",
+    "pytest-asyncio>=0.20.0",
     "black>=21.0",
     "isort>=5.9",
     "flake8>=3.9",
@@ -148,4 +152,5 @@ disallow_untyped_defs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --cov=pytidycensus --cov-report=term-missing"
+addopts = "-v --cov=pytidycensus --cov-report=term-missing -s"
+asyncio_mode = "auto"

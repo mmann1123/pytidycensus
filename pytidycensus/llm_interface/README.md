@@ -74,3 +74,11 @@ python -m pytidycensus.llm_interface.cli
 - **Conversation**: Stateful dialog management
 - **Assistant**: Main orchestration and Census domain logic
 - **CLI**: Interactive command-line interface
+
+
+## Testing
+
+```bash
+python ./tests/test_conversation_to_query.py # run all tests and see if passing 
+python ./tests/test_conversation_to_query.py verbose # see conversation logs
+```
