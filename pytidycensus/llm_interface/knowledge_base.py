@@ -4,6 +4,7 @@ Contains detailed examples, variable mappings, and common use cases.
 """
 
 # Common research topics mapped to variable codes
+# IMPORTANT: Always include denominator/total variables for proper normalization
 VARIABLE_MAPPINGS = {
     "population": {
         "total_population": "B01003_001E",
@@ -250,6 +251,125 @@ def get_geography_guidance(geography: str) -> dict:
 def get_code_example(use_case: str) -> str:
     """Get code example for a specific use case."""
     return CODE_EXAMPLES.get(use_case, "")
+
+
+# Normalization variable mappings - critical for proper analysis
+NORMALIZATION_MAPPINGS = {
+    # Income variables need total households for rates
+    "income": {
+        "denominators": {
+            "total_households": "B19001_001E",  # For household income distributions
+            "total_families": "B19101_001E",  # For family income distributions
+            "total_population": "B01003_001E",  # For per capita calculations
+        },
+        "examples": [
+            "To calculate % of households earning <$25k: B19001_002E / B19001_001E",
+            "To calculate % of households earning >$100k: sum(B19001_014E:B19001_017E) / B19001_001E",
+        ],
+    },
+    # Education variables need total population 25+ for rates
+    "education": {
+        "denominators": {
+            "total_education_pop": "B15003_001E",  # Total population 25+ for education
+            "total_population": "B01003_001E",  # For general population rates
+        },
+        "examples": [
+            "College graduation rate: B15003_022E / B15003_001E",
+            "High school completion: (B15003_001E - sum(B15003_002E:B15003_016E)) / B15003_001E",
+        ],
+    },
+    # Housing variables need total housing units or occupied units
+    "housing": {
+        "denominators": {
+            "total_housing_units": "B25001_001E",  # All housing units
+            "occupied_housing_units": "B25002_002E",  # Only occupied units
+            "total_households": "B11001_001E",  # Households (for household-level analysis)
+        },
+        "examples": [
+            "Homeownership rate: B25003_002E / B25003_001E",
+            "Vacancy rate: B25002_003E / B25001_001E",
+            "Median rent burden: needs B25070 (rent burden) with B25070_001E (total)",
+        ],
+    },
+    # Employment variables need total population 16+ or labor force
+    "employment": {
+        "denominators": {
+            "total_labor_force": "B23025_002E",  # Labor force (employed + unemployed)
+            "total_working_age": "B23025_001E",  # Total population 16+
+            "civilian_labor_force": "B23025_002E",  # Civilian labor force
+        },
+        "examples": [
+            "Unemployment rate: B23025_005E / B23025_002E",
+            "Labor force participation: B23025_002E / B23025_001E",
+        ],
+    },
+    # Poverty variables need total population for poverty determination
+    "poverty": {
+        "denominators": {
+            "total_for_poverty": "B17001_001E",  # Total pop for poverty status
+            "total_families": "B17012_001E",  # Total families for family poverty
+            "total_children": "B17020_001E",  # Total children for child poverty
+            "total_population": "B01003_001E",  # General population
+        },
+        "examples": [
+            "Poverty rate: B17001_002E / B17001_001E",
+            "Child poverty rate: B17020_002E / B17020_001E",
+            "Family poverty rate: B17012_002E / B17012_001E",
+        ],
+    },
+    # Race/ethnicity variables need total population
+    "race_ethnicity": {
+        "denominators": {
+            "total_population": "B02001_001E",  # Total for race analysis
+            "total_hispanic_origin": "B03003_001E",  # Total for Hispanic/Latino analysis
+        },
+        "examples": [
+            "% White alone: B02001_002E / B02001_001E",
+            "% Hispanic/Latino: B03003_003E / B03003_001E",
+        ],
+    },
+    # Transportation variables need total workers
+    "transportation": {
+        "denominators": {
+            "total_workers": "B08301_001E",  # Total workers 16+ (commuting universe)
+            "total_households": "B08201_001E",  # For vehicle availability
+        },
+        "examples": [
+            "% drove alone: B08301_010E / B08301_001E",
+            "% work from home: B08301_021E / B08301_001E",
+            "% no vehicle: B08201_002E / B08201_001E",
+        ],
+    },
+    # Age/sex analysis
+    "demographics": {
+        "denominators": {
+            "total_population": "B01001_001E",  # For age/sex distributions
+            "total_male": "B01001_002E",  # For male-specific rates
+            "total_female": "B01001_026E",  # For female-specific rates
+        },
+        "examples": [
+            "% under 18: sum(B01001_003E:B01001_006E + B01001_027E:B01001_030E) / B01001_001E",
+            "% over 65: sum(B01001_020E:B01001_025E + B01001_044E:B01001_049E) / B01001_001E",
+        ],
+    },
+}
+
+
+def get_normalization_variables(topic: str) -> dict:
+    """Get normalization variables needed for proper analysis of a topic."""
+    topic_lower = topic.lower()
+
+    # Direct matches
+    if topic_lower in NORMALIZATION_MAPPINGS:
+        return NORMALIZATION_MAPPINGS[topic_lower]
+
+    # Fuzzy matching
+    matches = {}
+    for key, norm_info in NORMALIZATION_MAPPINGS.items():
+        if topic_lower in key or key in topic_lower:
+            matches[key] = norm_info
+
+    return matches
 
 
 def get_dataset_info(dataset: str) -> dict:

@@ -11,7 +11,11 @@ import pytidycensus as tc
 
 from ..variables import search_variables
 from .conversation import ConversationManager, ConversationState
-from .knowledge_base import get_geography_guidance, get_variables_for_topic
+from .knowledge_base import (
+    get_geography_guidance,
+    get_normalization_variables,
+    get_variables_for_topic,
+)
 from .providers import LLMManager, create_default_llm_manager
 
 logger = logging.getLogger(__name__)
@@ -185,6 +189,13 @@ Focus on understanding:
             # Search for relevant Census variables
             variable_suggestions = await self._search_census_variables(variables_mentioned)
 
+            # Get normalization variables for the topics
+            normalization_info = {}
+            for topic in variables_mentioned:
+                norm_vars = get_normalization_variables(topic)
+                if norm_vars:
+                    normalization_info[topic] = norm_vars
+
             messages = self.conversation.get_context_messages()
             messages.append(
                 {
@@ -193,11 +204,18 @@ Focus on understanding:
 The user is discussing Census variables. I found these relevant variables:
 {json.dumps(variable_suggestions, indent=2)}
 
+CRITICAL NORMALIZATION INFORMATION:
+{json.dumps(normalization_info, indent=2)}
+
 Please:
 1. Suggest the most appropriate variables for their research
-2. Explain what each variable represents
-3. Ask if they need additional related variables
-4. Move toward discussing geographic level if variables look good
+2. ALWAYS include the proper denominator/total variables for normalization (e.g., total households for household counts)
+3. Explain what each variable represents and how to calculate rates/percentages
+4. Show calculation examples using the normalization variables
+5. Ask if they need additional related variables
+6. Move toward discussing geographic level if variables look good
+
+REMEMBER: Never suggest count variables without their corresponding totals for proper analysis!
 """,
                 }
             )
@@ -276,6 +294,21 @@ Remember to only recommend pytidycensus functions and geographic levels.
                             }
                         )
 
+            # CRITICAL: Always add normalization variables for the topic
+            norm_info = get_normalization_variables(concept)
+            if norm_info and "denominators" in norm_info:
+                for denom_name, denom_code in norm_info["denominators"].items():
+                    suggestions.append(
+                        {
+                            "name": denom_code,
+                            "concept": concept,
+                            "code": denom_code,
+                            "label": denom_name.replace("_", " ").title() + " (DENOMINATOR)",
+                            "description": f"Normalization variable for {concept} analysis - REQUIRED for rates/percentages",
+                            "source": "normalization",
+                        }
+                    )
+
             # Also try pytidycensus variable search for additional results
             try:
                 if concept.lower() in self._variable_cache:
@@ -302,7 +335,7 @@ Remember to only recommend pytidycensus functions and geographic levels.
             except Exception as e:
                 logger.warning(f"Variable search failed for '{concept}': {e}")
 
-        return suggestions[:15]  # Increased limit to show both KB and search results
+        return suggestions[:25]  # Increased limit to accommodate multiple topics with normalization
 
     async def _execute_census_query(self) -> str:
         """Execute the Census query and return results."""
