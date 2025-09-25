@@ -164,13 +164,40 @@ def validate_state(state: Union[str, int, List[Union[str, int]]]) -> List[str]:
         if isinstance(s, int):
             s = str(s).zfill(2)
 
+        # Handle string inputs (strip whitespace and normalize case)
+        if isinstance(s, str):
+            s = s.strip()
+
+        # Special case for District of Columbia (FIPS 11)
+        # DC is not in us.states.lookup() but us.states.DC works
+        if isinstance(s, str):
+            s_lower = s.lower()
+            if s_lower in ["dc", "d.c.", "district of columbia"]:
+                fips_codes.append("11")
+                continue
+
         # Try FIPS code first
         if isinstance(s, str) and s.isdigit() and len(s) <= 2:
             fips_code = s.zfill(2)
+            # Special case for DC FIPS code
+            if fips_code == "11":
+                fips_codes.append("11")
+                continue
+            # Regular FIPS lookup
             state_obj = us.states.lookup(fips_code)
             if state_obj:
                 fips_codes.append(fips_code)
                 continue
+
+        # Try direct attribute access for common abbreviations (handles DC)
+        if isinstance(s, str) and len(s) == 2:
+            try:
+                state_obj = getattr(us.states, s.upper(), None)
+                if state_obj:
+                    fips_codes.append(state_obj.fips)
+                    continue
+            except AttributeError:
+                pass
 
         # Try state lookup by name or abbreviation
         state_obj = us.states.lookup(str(s))
