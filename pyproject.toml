@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytidycensus"
 version = "1.0.0"
-description = "Python interface to US Census Bureau APIs with pandas and GeoPandas support"
+description = "Python interface to US Census Bureau APIs with LLM, pandas and GeoPandas support"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
