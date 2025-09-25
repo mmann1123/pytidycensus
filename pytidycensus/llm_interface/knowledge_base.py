@@ -378,6 +378,90 @@ NORMALIZATION_MAPPINGS = {
 }
 
 
+# Variables that are already rates/medians/aggregates and DON'T need normalization
+VARIABLES_NO_NORMALIZATION = {
+    # Median values (already calculated rates/averages)
+    "B19013_001E",  # Median household income
+    "B19301_001E",  # Per capita income
+    "B19113_001E",  # Median family income
+    "B25077_001E",  # Median home value
+    "B25064_001E",  # Median rent
+    "B01002_001E",  # Median age
+    "B08303_001E",  # Mean travel time to work
+    "B25018_001E",  # Median number of rooms
+    # Means (already calculated averages)
+    "B19025_001E",  # Mean household income
+    # Total population/universe counts (these ARE the denominators)
+    "B01003_001E",  # Total population
+    "B19001_001E",  # Total households for income
+    "B17001_001E",  # Total population for poverty status
+    "B15003_001E",  # Total population 25+ for education
+    "B25001_001E",  # Total housing units
+    "B25002_002E",  # Occupied housing units
+    "B23025_001E",  # Total population 16+
+    "B23025_002E",  # Labor force
+    "B02001_001E",  # Total population for race
+    "B03003_001E",  # Total population for Hispanic origin
+    "B08301_001E",  # Total workers for transportation
+}
+
+
+def needs_normalization(variable_code: str) -> bool:
+    """Check if a specific variable code needs normalization for proper analysis."""
+    if variable_code in VARIABLES_NO_NORMALIZATION:
+        return False
+
+    # Variables ending in _001E are usually totals (denominators)
+    if variable_code.endswith("_001E"):
+        return False
+
+    # Otherwise, count variables typically need normalization
+    return True
+
+
+def get_normalization_variables_for_codes(variable_codes: list) -> dict:
+    """Get normalization variables needed for specific variable codes."""
+    normalization_vars = {}
+
+    for var_code in variable_codes:
+        if not needs_normalization(var_code):
+            continue
+
+        # Determine what denominators are needed based on variable code patterns
+        table = var_code.split("_")[0]  # Extract table prefix (e.g., "B17001")
+
+        if table.startswith("B19"):  # Income tables
+            if table == "B19001":  # Household income by income categories
+                normalization_vars["B19001_001E"] = "total_households_for_income"
+        elif table.startswith("B17"):  # Poverty tables
+            if table == "B17001":  # Poverty status
+                normalization_vars["B17001_001E"] = "total_population_for_poverty"
+            elif table == "B17020":  # Age by poverty status
+                normalization_vars["B17020_001E"] = "total_children_for_poverty"
+        elif table.startswith("B15"):  # Education tables
+            normalization_vars["B15003_001E"] = "total_population_25_plus"
+        elif table.startswith("B25"):  # Housing tables
+            if table in ["B25003", "B25002"]:  # Tenure, vacancy
+                normalization_vars["B25001_001E"] = "total_housing_units"
+            else:
+                normalization_vars["B25002_002E"] = "occupied_housing_units"
+        elif table.startswith("B23"):  # Employment tables
+            normalization_vars["B23025_002E"] = "total_labor_force"
+        elif table.startswith("B02"):  # Race tables
+            normalization_vars["B02001_001E"] = "total_population_for_race"
+        elif table.startswith("B03"):  # Hispanic origin tables
+            normalization_vars["B03003_001E"] = "total_population_for_hispanic_origin"
+        elif table.startswith("B08"):  # Transportation tables
+            if table == "B08301":  # Commuting
+                normalization_vars["B08301_001E"] = "total_workers"
+            elif table == "B08201":  # Vehicle availability
+                normalization_vars["B08201_001E"] = "total_households_for_vehicles"
+        elif table.startswith("B01"):  # Demographics tables
+            normalization_vars["B01001_001E"] = "total_population"
+
+    return normalization_vars
+
+
 def get_normalization_variables(topic: str) -> dict:
     """Get normalization variables needed for proper analysis of a topic."""
     topic_lower = topic.lower()

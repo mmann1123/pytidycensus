@@ -67,3 +67,4 @@ docs/credentials.yaml
 examples/credentials.yaml
 docs/__build/
 docs/_build/
+examples/test.ipynb

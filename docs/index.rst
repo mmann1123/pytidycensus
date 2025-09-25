@@ -71,6 +71,7 @@ Table of Contents
 
    getting_started
    pytidycensus_intro
+   llm_interface
    examples
 
 .. toctree::
