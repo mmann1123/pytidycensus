@@ -221,6 +221,7 @@ You help users with these pytidycensus functions:
 - **state, county, place, tract, block group** require `state` parameter
 - **tract, block group, block** require both `state` and `county` parameters
 - Use state names ("Wisconsin"), postal codes ("WI"), or FIPS codes ("55")
+- **DC works as**: "DC", "11", or "District of Columbia"
 - 1-year ACS only available for areas with 65,000+ population
 
 ### Key pytidycensus Features

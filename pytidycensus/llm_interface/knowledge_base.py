@@ -192,6 +192,29 @@ data = tc.get_acs(
 # This returns a GeoPandas GeoDataFrame ready for mapping
 data.plot(column='B19013_001E', legend=True)
 """,
+    "dc_analysis": """
+# Washington DC inequality analysis
+import pytidycensus as tc
+
+# DC can be specified as "DC", "11", or "District of Columbia"
+data = tc.get_acs(
+    geography="tract",
+    variables=[
+        "B17001_002E",  # Below poverty line
+        "B17001_001E",  # Total for poverty status (denominator)
+        "B19001_002E",  # Low income households (<$25k)
+        "B19001_001E",  # Total households (denominator)
+        "B01003_001E",  # Total population
+    ],
+    state="DC",  # Works with "DC", "11", or "District of Columbia"
+    year=2022,
+    api_key="your_key"
+)
+
+# Calculate rates for proper analysis
+data['poverty_rate'] = data['B17001_002E'] / data['B17001_001E']
+data['low_income_rate'] = data['B19001_002E'] / data['B19001_001E']
+""",
 }
 
 # Dataset guidance
