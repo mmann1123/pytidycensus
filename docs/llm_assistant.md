@@ -2,6 +2,8 @@
 
 The Census LLM Assistant provides a conversational interface to US Census data using Large Language Models. Instead of learning Census variable codes and geography hierarchies, you can describe your research needs in natural language.
 
+The assistant is specifically trained on pytidycensus functionality and will only recommend pytidycensus functions, never other Census libraries. It includes comprehensive knowledge of common variable codes, geographic levels, and best practices.
+
 ## Quick Start
 
 ```python

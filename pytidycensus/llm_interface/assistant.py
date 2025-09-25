@@ -281,7 +281,7 @@ Remember to only recommend pytidycensus functions and geographic levels.
                 if concept.lower() in self._variable_cache:
                     vars_df = self._variable_cache[concept.lower()]
                 else:
-                    vars_df = search_variables(2020, "acs5", concept)
+                    vars_df = search_variables(concept, 2020, "acs", "acs5")
                     self._variable_cache[concept.lower()] = vars_df
 
                 if not vars_df.empty:

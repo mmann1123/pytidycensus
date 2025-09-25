@@ -5,11 +5,73 @@ Handles conversation state, context, and flow management.
 
 import json
 import logging
+import os
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _load_documentation() -> str:
+    """Load pytidycensus documentation content for system prompt."""
+    try:
+        # Get path to documentation relative to this file
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Try multiple possible paths
+        possible_paths = [
+            os.path.join(current_dir, "..", "..", "docs", "pytidycensus_intro.md"),
+            os.path.join(current_dir, "..", "..", "..", "docs", "pytidycensus_intro.md"),
+            "docs/pytidycensus_intro.md",  # Relative to working directory
+        ]
+
+        docs_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                docs_path = path
+                break
+
+        if docs_path and os.path.exists(docs_path):
+            with open(docs_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Extract key sections for the system prompt
+            # Remove markdown metadata and focus on functional content
+            lines = content.split("\n")
+            filtered_lines = []
+            skip_code_cell = False
+            inside_front_matter = False
+
+            for line in lines:
+                # Handle YAML front matter
+                if line.strip() == "---":
+                    inside_front_matter = not inside_front_matter
+                    continue
+
+                if inside_front_matter:
+                    continue
+
+                # Skip code cell markers
+                if line.startswith("{code-cell}") or line.startswith(":tags:"):
+                    skip_code_cell = True
+                    continue
+                if skip_code_cell and (line.startswith("```") or line.strip() == ""):
+                    skip_code_cell = False
+                    continue
+
+                if not skip_code_cell and not line.startswith(":"):
+                    filtered_lines.append(line)
+
+            # Return a condensed version focusing on key functionality
+            doc_summary = "\n".join(filtered_lines[:150])  # First 150 lines for key info
+            return f"PYTIDYCENSUS DOCUMENTATION EXCERPT:\n\n{doc_summary}"
+
+    except Exception as e:
+        logger.warning(f"Could not load documentation: {e}")
+        return ""
+
+    return ""
 
 
 @dataclass
@@ -126,42 +188,48 @@ class ConversationManager:
 
     def _get_system_prompt(self) -> str:
         """Generate system prompt with current state context."""
-        prompt = """You are a helpful Census data assistant specialized in pytidycensus, a Python library for accessing US Census Bureau APIs.
+        # Load documentation content
+        doc_content = _load_documentation()
+
+        prompt = f"""You are a helpful Census data assistant specialized in pytidycensus, a Python library for accessing US Census Bureau APIs.
 
 IMPORTANT: You MUST only recommend pytidycensus functions. DO NOT suggest other Python Census libraries like 'census', 'cenpy', or any other packages. Always use pytidycensus.
 
-## Your Expertise
+{doc_content}
+
+## Your Core Expertise
 
 ### Core Functions
 You help users with these pytidycensus functions:
 - `get_acs()`: American Community Survey data (5-year, 1-year)
 - `get_decennial()`: Decennial Census data (2000, 2010, 2020)
 - `get_estimates()`: Population Estimates Program
-- `search_variables()`: Find variable codes and descriptions
+- `search_variables(pattern, year, dataset, survey)`: Find variable codes by search pattern
 - `load_variables()`: Load all variables for a dataset
-- `get_geography()`: Geographic boundary files
+- `set_census_api_key()`: Set API key for data access
 
 ### Common Variables (suggest these when relevant)
 **Population**: B01003_001E (total population), B01001_001E (total population by age/sex)
 **Income**: B19013_001E (median household income), B19301_001E (per capita income)
 **Poverty**: B17001_002E (below poverty line), B17001_001E (total for poverty status)
-**Housing**: B25001_001E (housing units), B25003_002E (owner occupied), B25003_003E (renter occupied)
+**Housing**: B25001_001E (housing units), B25003_002E (owner occupied), B25003_003E (renter occupied), B25077_001E (median home value), B25064_001E (median rent)
 **Education**: B15003_022E (bachelor's degree), B15003_025E (graduate degree)
 **Race/Ethnicity**: B02001_002E (White alone), B02001_003E (Black alone), B03003_003E (Hispanic)
 **Employment**: B23025_002E (labor force), B23025_005E (unemployed)
 
-### Geographic Levels (explain tradeoffs)
-- **state**: Entire states (good for state comparisons)
-- **county**: Counties within states (local government level)
-- **place**: Cities, towns, CDPs (incorporated areas)
-- **tract**: Census tracts (~4,000 people, neighborhood-like)
-- **block group**: Smaller areas (~600-3,000 people, very local)
-- **zcta**: ZIP Code Tabulation Areas (approximate ZIP codes)
+### Geographic Requirements
+- **state, county, place, tract, block group** require `state` parameter
+- **tract, block group, block** require both `state` and `county` parameters
+- Use state names ("Wisconsin"), postal codes ("WI"), or FIPS codes ("55")
+- 1-year ACS only available for areas with 65,000+ population
 
-### Datasets
-- **ACS 5-year** (acs5): More geographic detail, 5-year averages (use for small areas)
-- **ACS 1-year** (acs1): Latest year only, limited geographies (use for states/large counties)
-- **Decennial** (decennial): 100% count every 10 years, basic demographics only
+### Key pytidycensus Features
+- Returns pandas DataFrames by default
+- Use `geometry=True` to get GeoPandas GeoDataFrames with boundaries
+- Use `output="wide"` to spread variables across columns
+- Use dictionary for `variables` parameter to rename: {{"income": "B19013_001E"}}
+- Use `show_call=True` for debugging API calls
+- Use `cache=True` for faster variable loading
 
 Current conversation state:
 """
