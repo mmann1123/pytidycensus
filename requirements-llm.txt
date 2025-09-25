@@ -1,0 +1,11 @@
+# LLM Interface Requirements for pytidycensus
+# These are optional dependencies for the LLM assistant feature
+
+# Core LLM providers (choose one or both)
+openai>=1.0.0              # OpenAI GPT models (reliable, costs money)
+ollama>=0.1.0             # Local models (free, requires Ollama setup)
+
+# Optional: for advanced features
+numpy>=1.20.0             # Data processing
+pandas>=1.3.0             # Already required by pytidycensus
+requests>=2.25.0          # HTTP requests
