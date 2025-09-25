@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytidycensus"
-version = "0.1.8"
+version = "0.1.9"
 description = "Python interface to US Census Bureau APIs with pandas and GeoPandas support"
 readme = "README.md"
 license = {text = "MIT"}
@@ -69,6 +69,12 @@ docs = [
     "tomli>=2.2.1",
     "seaborn>=0.11.0",
 ]
+LLM = [
+    "openai>=1.109.1",
+    "ollama>=0.6.0",
+    "asyncio>=4.0.0",
+]
+
 
 all =  [
     "pandas>=1.2.0",

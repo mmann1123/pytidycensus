@@ -27,7 +27,7 @@ async def example_conversation():
         "I'm researching housing affordability in California cities",
         "I want to compare median rent and median income",
         "Use city-level data for 2022",
-        "Yes, generate the code and run it",
+        "Yes, generate the pytidycensus code and run it",
     ]
 
     for i, user_message in enumerate(conversations, 1):

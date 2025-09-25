@@ -11,6 +11,7 @@ import pytidycensus as tc
 
 from ..variables import search_variables
 from .conversation import ConversationManager, ConversationState
+from .knowledge_base import get_geography_guidance, get_variables_for_topic
 from .providers import LLMManager, create_default_llm_manager
 
 logger = logging.getLogger(__name__)
@@ -210,6 +211,10 @@ Please:
 
     async def _handle_geography_discussion(self, intent_analysis: Dict[str, Any]) -> str:
         """Handle discussion about geographic levels."""
+        # Get geography guidance from knowledge base
+        current_geo = self.conversation.state.geography
+        geo_info = get_geography_guidance(current_geo) if current_geo else {}
+
         messages = self.conversation.get_context_messages()
         messages.append(
             {
@@ -220,11 +225,17 @@ The user is discussing geography. Current state shows:
 - State: {self.conversation.state.state}
 - Research topic: {self.conversation.state.research_question}
 
+Knowledge base info for current geography ({current_geo}):
+{json.dumps(geo_info, indent=2) if geo_info else "No specific info available"}
+
 Please help them choose the right geographic level by:
-1. Explaining the tradeoffs of different levels (detail vs coverage)
-2. Suggesting what makes sense for their research
-3. If they need state/county specification, ask for it
-4. Move toward execution if everything looks ready
+1. Using the knowledge base info to explain tradeoffs (detail vs sample size)
+2. Suggesting what makes sense for their research needs
+3. If they need state/county specification, ask for it specifically
+4. Explain any limitations or requirements for their chosen geography
+5. Move toward execution if everything looks ready
+
+Remember to only recommend pytidycensus functions and geographic levels.
 """,
             }
         )
@@ -241,8 +252,32 @@ Please help them choose the right geographic level by:
         suggestions = []
 
         for concept in concepts:
+            # First, try knowledge base for common topics
+            kb_variables = get_variables_for_topic(concept)
+            if kb_variables:
+                for var_name, var_codes in kb_variables.items():
+                    if isinstance(var_codes, str):
+                        var_codes = [var_codes]
+                    elif isinstance(var_codes, list):
+                        # Handle multiple codes for same concept
+                        pass
+                    else:
+                        var_codes = [str(var_codes)]
+
+                    for code in var_codes:
+                        suggestions.append(
+                            {
+                                "name": code,
+                                "concept": concept,
+                                "code": code,
+                                "label": var_name.replace("_", " ").title(),
+                                "description": f"From pytidycensus knowledge base for {concept}",
+                                "source": "knowledge_base",
+                            }
+                        )
+
+            # Also try pytidycensus variable search for additional results
             try:
-                # Use pytidycensus variable search
                 if concept.lower() in self._variable_cache:
                     vars_df = self._variable_cache[concept.lower()]
                 else:
@@ -250,7 +285,7 @@ Please help them choose the right geographic level by:
                     self._variable_cache[concept.lower()] = vars_df
 
                 if not vars_df.empty:
-                    # Get top 3 most relevant variables
+                    # Get top 3 most relevant variables from search
                     top_vars = vars_df.head(3)
                     for _, var in top_vars.iterrows():
                         suggestions.append(
@@ -260,13 +295,14 @@ Please help them choose the right geographic level by:
                                 "code": var.get("name", ""),
                                 "label": var.get("label", ""),
                                 "description": var.get("concept", ""),
+                                "source": "search",
                             }
                         )
 
             except Exception as e:
                 logger.warning(f"Variable search failed for '{concept}': {e}")
 
-        return suggestions[:10]  # Limit to top 10
+        return suggestions[:15]  # Increased limit to show both KB and search results
 
     async def _execute_census_query(self) -> str:
         """Execute the Census query and return results."""
