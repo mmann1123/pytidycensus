@@ -13,7 +13,7 @@ from ..variables import search_variables
 from .conversation import ConversationManager, ConversationState
 from .knowledge_base import (
     get_geography_guidance,
-    get_normalization_variables,
+    get_normalization_variables_for_codes,
     get_variables_for_topic,
 )
 from .providers import LLMManager, create_default_llm_manager
@@ -186,15 +186,8 @@ Focus on understanding:
         )
 
         if variables_mentioned:
-            # Search for relevant Census variables
+            # Search for relevant Census variables (includes selective normalization)
             variable_suggestions = await self._search_census_variables(variables_mentioned)
-
-            # Get normalization variables for the topics
-            normalization_info = {}
-            for topic in variables_mentioned:
-                norm_vars = get_normalization_variables(topic)
-                if norm_vars:
-                    normalization_info[topic] = norm_vars
 
             messages = self.conversation.get_context_messages()
             messages.append(
@@ -204,18 +197,15 @@ Focus on understanding:
 The user is discussing Census variables. I found these relevant variables:
 {json.dumps(variable_suggestions, indent=2)}
 
-CRITICAL NORMALIZATION INFORMATION:
-{json.dumps(normalization_info, indent=2)}
-
 Please:
 1. Suggest the most appropriate variables for their research
-2. ALWAYS include the proper denominator/total variables for normalization (e.g., total households for household counts)
-3. Explain what each variable represents and how to calculate rates/percentages
-4. Show calculation examples using the normalization variables
+2. For variables marked as (DENOMINATOR), explain these are needed for calculating rates/percentages
+3. Explain what each variable represents
+4. Show calculation examples for any rate variables (e.g., percentage = count/total * 100)
 5. Ask if they need additional related variables
 6. Move toward discussing geographic level if variables look good
 
-REMEMBER: Never suggest count variables without their corresponding totals for proper analysis!
+NOTE: The system now automatically includes normalization variables only when needed - variables containing 'median', 'mean', 'rate', etc. don't need denominators.
 """,
                 }
             )
@@ -294,21 +284,6 @@ Remember to only recommend pytidycensus functions and geographic levels.
                             }
                         )
 
-            # CRITICAL: Always add normalization variables for the topic
-            norm_info = get_normalization_variables(concept)
-            if norm_info and "denominators" in norm_info:
-                for denom_name, denom_code in norm_info["denominators"].items():
-                    suggestions.append(
-                        {
-                            "name": denom_code,
-                            "concept": concept,
-                            "code": denom_code,
-                            "label": denom_name.replace("_", " ").title() + " (DENOMINATOR)",
-                            "description": f"Normalization variable for {concept} analysis - REQUIRED for rates/percentages",
-                            "source": "normalization",
-                        }
-                    )
-
             # Also try pytidycensus variable search for additional results
             try:
                 if concept.lower() in self._variable_cache:
@@ -335,7 +310,29 @@ Remember to only recommend pytidycensus functions and geographic levels.
             except Exception as e:
                 logger.warning(f"Variable search failed for '{concept}': {e}")
 
-        return suggestions[:25]  # Increased limit to accommodate multiple topics with normalization
+        # NEW APPROACH: Use selective normalization based on specific variable codes and labels
+        # Extract all variable codes and labels from suggestions
+        var_codes = [s["code"] for s in suggestions]
+        var_labels = [s.get("label", "") for s in suggestions]
+
+        # Get normalization variables for the specific codes (only if they need normalization)
+        normalization_vars = get_normalization_variables_for_codes(var_codes, var_labels)
+
+        # Add normalization variables to suggestions
+        # normalization_vars is a dict of {denominator_code: description}
+        for denom_code, denom_name in normalization_vars.items():
+            suggestions.append(
+                {
+                    "name": denom_code,
+                    "concept": "normalization",
+                    "code": denom_code,
+                    "label": denom_name.replace("_", " ").title() + " (DENOMINATOR)",
+                    "description": f"Normalization variable - REQUIRED for rates/percentages",
+                    "source": "selective_normalization",
+                }
+            )
+
+        return suggestions[:25]  # Limit to prevent overwhelming the LLM
 
     async def _execute_census_query(self) -> str:
         """Execute the Census query and return results."""

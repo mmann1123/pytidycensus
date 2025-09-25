@@ -378,37 +378,30 @@ NORMALIZATION_MAPPINGS = {
 }
 
 
-# Variables that are already rates/medians/aggregates and DON'T need normalization
-VARIABLES_NO_NORMALIZATION = {
-    # Median values (already calculated rates/averages)
-    "B19013_001E",  # Median household income
-    "B19301_001E",  # Per capita income
-    "B19113_001E",  # Median family income
-    "B25077_001E",  # Median home value
-    "B25064_001E",  # Median rent
-    "B01002_001E",  # Median age
-    "B08303_001E",  # Mean travel time to work
-    "B25018_001E",  # Median number of rooms
-    # Means (already calculated averages)
-    "B19025_001E",  # Mean household income
-    # Total population/universe counts (these ARE the denominators)
-    "B01003_001E",  # Total population
-    "B19001_001E",  # Total households for income
-    "B17001_001E",  # Total population for poverty status
-    "B15003_001E",  # Total population 25+ for education
-    "B25001_001E",  # Total housing units
-    "B25002_002E",  # Occupied housing units
-    "B23025_001E",  # Total population 16+
-    "B23025_002E",  # Labor force
-    "B02001_001E",  # Total population for race
-    "B03003_001E",  # Total population for Hispanic origin
-    "B08301_001E",  # Total workers for transportation
-}
+def needs_normalization(variable_code: str, variable_label: str = "") -> bool:
+    """Check if a specific variable needs normalization for proper analysis.
 
+    Simple rule: If variable name/label contains median, mean, average, rate,
+    or ends in _001E (totals), it doesn't need normalization.
+    """
+    # Combine code and label for checking
+    full_text = f"{variable_code} {variable_label}".lower()
 
-def needs_normalization(variable_code: str) -> bool:
-    """Check if a specific variable code needs normalization for proper analysis."""
-    if variable_code in VARIABLES_NO_NORMALIZATION:
+    # Keywords that indicate the variable is already a rate/median/total
+    no_norm_keywords = [
+        "median",
+        "mean",
+        "average",
+        "rate",
+        "percent",
+        "percentage",
+        "per capita",
+        "ratio",
+        "index",
+    ]
+
+    # Check if any keyword is present
+    if any(keyword in full_text for keyword in no_norm_keywords):
         return False
 
     # Variables ending in _001E are usually totals (denominators)
@@ -419,15 +412,24 @@ def needs_normalization(variable_code: str) -> bool:
     return True
 
 
-def get_normalization_variables_for_codes(variable_codes: list) -> dict:
-    """Get normalization variables needed for specific variable codes."""
+def get_normalization_variables_for_codes(
+    variable_codes: list, variable_labels: list = None
+) -> dict:
+    """Get normalization variables needed for specific variable codes.
+
+    Simple approach: Only add normalization for count variables that don't contain
+    'median', 'mean', 'rate', etc. in their name/label.
+    """
     normalization_vars = {}
 
-    for var_code in variable_codes:
-        if not needs_normalization(var_code):
+    if variable_labels is None:
+        variable_labels = [""] * len(variable_codes)
+
+    for var_code, var_label in zip(variable_codes, variable_labels):
+        if not needs_normalization(var_code, var_label):
             continue
 
-        # Determine what denominators are needed based on variable code patterns
+        # Simple table-based mapping for common denominators
         table = var_code.split("_")[0]  # Extract table prefix (e.g., "B17001")
 
         if table.startswith("B19"):  # Income tables
