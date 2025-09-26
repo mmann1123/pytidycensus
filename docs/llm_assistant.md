@@ -361,12 +361,6 @@ data = tc.get_acs(
     api_key=census_api_key
 )
 
-# Clean variable names by removing 'E' suffix
-column_mapping = {col: col[:-1] for col in data.columns
-                  if col.endswith('E') and '_' in col and col.split('_')[0].startswith('B')}
-if column_mapping:
-    data = data.rename(columns=column_mapping)
-
 print(f"Retrieved {data.shape[0]} rows and {data.shape[1]} columns")
 print(data.head())
 

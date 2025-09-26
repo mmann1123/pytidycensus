@@ -831,6 +831,8 @@ def process_census_data(
     for var in variables:
         if var in df.columns:
             df[var] = pd.to_numeric(df[var], errors="coerce")
+            if df[var].dtype == "Int8" or df[var].dtype == "Int32" or df[var].dtype == "Int16":
+                df[var] = df[var].astype("Int64")
 
     # Create GEOID from geography columns
     geo_cols = [

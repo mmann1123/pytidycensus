@@ -135,8 +135,12 @@ data = tc.get_acs(
     ],
     state="CA",
     year=2022,
+    output='wide',
     api_key="your_key"
 )
+# Calculate percentage with Bachelor's degree
+data['bachelor_rate'] = (data['B15003_022E'] / data['B01003_001E']) * 100
+
 """,
     "housing_analysis": """
 # Housing affordability analysis
@@ -152,9 +156,16 @@ data = tc.get_acs(
         "B25003_003E",  # Renter occupied
     ],
     state="CA",
-    year=2022,
+    year=2022,        
+    output='wide',
     api_key="your_key"
 )
+
+# Calculate rent as % of income
+data['rent_as_pct_income'] = (data['B25064_001E'] / data['B19013_001E']) * 100
+
+# Calculate home value as % of income
+data['home_value_as_pct_income'] = (data['B25077_001E'] / data['B19013_001E']) * 100
 """,
     "poverty_analysis": """
 # Poverty rate analysis
@@ -163,12 +174,13 @@ import pytidycensus as tc
 data = tc.get_acs(
     geography="county",
     variables=[
-        "B17001_002E",  # Below poverty line
+        "B17001_002E",  # Count below poverty line
         "B17001_001E",  # Total for poverty status
         "B01003_001E",  # Total population
     ],
     state="TX",
     year=2022,
+    output='wide',
     api_key="your_key"
 )
 
@@ -186,11 +198,12 @@ data = tc.get_acs(
     county="Los Angeles",
     geometry=True,  # Include geographic boundaries
     year=2022,
+    output='wide',
     api_key="your_key"
 )
 
 # This returns a GeoPandas GeoDataFrame ready for mapping
-data.plot(column='B19013_001E', legend=True)
+data.explore(column='B19013_001E', legend=True)
 """,
     "dc_analysis": """
 # Washington DC inequality analysis
@@ -208,12 +221,16 @@ data = tc.get_acs(
     ],
     state="DC",  # Works with "DC", "11", or "District of Columbia"
     year=2022,
+    geometry=True,  # Include geographic boundaries
     api_key="your_key"
 )
 
 # Calculate rates for proper analysis
 data['poverty_rate'] = data['B17001_002E'] / data['B17001_001E']
 data['low_income_rate'] = data['B19001_002E'] / data['B19001_001E']
+
+data.explore(column="poverty_rate", legend=True, cmap="OrRd")
+
 """,
 }
 
