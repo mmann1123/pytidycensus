@@ -83,6 +83,7 @@ Extract any of the following information:
 - Location (state names, city names, etc.)
 - Time period (year, date range)
 - Data preferences (format, visualization needs)
+- SPATIAL/MAPPING needs (if user mentions: map, mapping, spatial, boundaries, visualization, plot, choropleth, GIS, explore, visualize, geographic patterns)
 
 Also classify the intent:
 - "initial": User starting new research
@@ -108,7 +109,8 @@ Respond with JSON matching this structure:
         "topic": "topic category",
         "geography": "census geography level",
         "state": "state code or name",
-        "year": 2020
+        "year": 2020,
+        "geometry": true_if_spatial_keywords_detected
     }},
     "suggested_next_steps": ["list", "of", "next", "steps"]
 }}
@@ -479,6 +481,21 @@ if column_mapping:
 
 print(f"Retrieved {{data.shape[0]}} rows and {{data.shape[1]}} columns")
 print(data.head())"""
+
+        # Add mapping code if geometry is enabled
+        if state.geometry:
+            code += f"""
+
+# Create interactive map (geometry=True gives you a GeoPandas GeoDataFrame)
+# No external shapefiles needed - pytidycensus handles it automatically!
+data.explore(
+    column='{state.variables[0][:-1] if state.variables and state.variables[0].endswith('E') else (state.variables[0] if state.variables else 'value')}',  # Use cleaned variable name
+    legend=True,
+    cmap='OrRd',  # Color scheme
+    tooltip=True
+)
+# Alternative: Static plot with matplotlib
+# data.plot(column='{state.variables[0][:-1] if state.variables and state.variables[0].endswith('E') else (state.variables[0] if state.variables else 'value')}', legend=True)"""
 
         return code
 

@@ -263,13 +263,16 @@ Current conversation state:
    - For education: include total population 25+ (B15003_001E)
    - For employment: include total labor force (B23025_002E) or working age population (B23025_001E)
    - For housing: include total housing units (B25001_001E) or occupied units (B25002_002E)
-3. Ask clarifying questions to understand research needs
-4. Suggest specific variable codes with their normalization variables
-5. Show calculation examples for rates/percentages (e.g., poverty_rate = below_poverty / total_for_poverty)
-6. Explain geographic level tradeoffs (detail vs. sample size)
-7. Recommend ACS 5-year for small geographies, 1-year for timeliness
-8. Generate complete pytidycensus code with proper imports and calculations
-9. In most cases, recommend `geometry=True` for spatial analysis and plot using `data.explore()`
+3. **CRITICAL: ALWAYS set geometry=True for spatial/mapping requests** - this automatically includes shapefiles
+   - Keywords that REQUIRE geometry=True: map, mapping, spatial, geographic boundaries, visualization, plot, choropleth, GIS, spatial analysis, geographic patterns, explore, visualize
+   - pytidycensus automatically handles shapefile merging - no external spatial data needed
+   - Always use `data.explore()` or `data.plot()` for mapping GeoPandas DataFrames
+4. Ask clarifying questions to understand research needs
+5. Suggest specific variable codes with their normalization variables
+6. Show calculation examples for rates/percentages (e.g., poverty_rate = below_poverty / total_for_poverty)
+7. Explain geographic level tradeoffs (detail vs. sample size)
+8. Recommend ACS 5-year for small geographies, 1-year for timeliness
+9. Generate complete pytidycensus code with proper imports and calculations
 10. Explain what the data represents and any limitations
 
 ## Code Examples With Proper Normalization
@@ -317,7 +320,29 @@ data = tc.get_acs(
     api_key="your_key"
 )
 # Calculate rate: data['poverty_rate'] = data['B17001_002E'] / data['B17001_001E']
+
+# SPATIAL ANALYSIS - ALWAYS use geometry=True for mapping
+data = tc.get_acs(
+    geography="county",
+    variables=[
+        "B19013_001E",  # Median income
+        "B17001_002E",  # Below poverty
+        "B17001_001E",  # Total for poverty (denominator)
+    ],
+    state="TX",
+    year=2022,
+    output="wide",
+    geometry=True,  # CRITICAL: This includes shapefiles automatically
+    api_key="your_key"
+)
+# Calculate poverty rate
+data['poverty_rate'] = data['B17001_002E'] / data['B17001_001E']
+# Create map - no external shapefiles needed!
+data.explore(column='poverty_rate', legend=True, cmap='OrRd')
 ```
+
+**SPATIAL KEYWORDS**: If user mentions ANY of these words, ALWAYS set geometry=True:
+- map, mapping, spatial, boundaries, visualization, plot, choropleth, GIS, explore, visualize, geographic patterns, spatial analysis
 
 Remember: Census data has margins of error for ACS estimates. Help users understand their data quality."""
 
