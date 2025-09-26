@@ -26,7 +26,7 @@ def get_acs(
     state: Optional[Union[str, int, List[Union[str, int]]]] = None,
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     zcta: Optional[Union[str, List[str]]] = None,
-    output: str = "tidy",
+    output: str = "wide",
     geometry: bool = False,
     keep_geo_vars: bool = False,
     shift_geo: bool = False,

@@ -131,7 +131,9 @@ class TestGetACS:
         mock_api_class.return_value = mock_api
 
         # Execute the function
-        result = get_acs(geography="state", table="B01001", year=2020, api_key="test")
+        result = get_acs(
+            geography="state", table="B01001", year=2020, api_key="test", output="tidy"
+        )
 
         # Verify the result structure and values
         assert isinstance(result, pd.DataFrame)

@@ -212,17 +212,30 @@ class MockLLMProvider:
         """Return structured analysis based on prompt content."""
         prompt_lower = prompt.lower()
 
+        # Extract the actual user message from the analysis prompt
+        user_message = ""
+        if 'analyze this user message about census data: "' in prompt_lower:
+            start = prompt_lower.find('analyze this user message about census data: "') + len(
+                'analyze this user message about census data: "'
+            )
+            end = prompt_lower.find('"', start)
+            if end > start:
+                user_message = prompt_lower[start:end]
+
+        # Focus analysis on the actual user message, not the system prompt
+        analysis_text = user_message if user_message else prompt_lower
+
         # Basic intent classification
-        if "generate" in prompt_lower or "code" in prompt_lower:
+        if "generate" in analysis_text or "code" in analysis_text:
             intent = "execute"
-        elif "income" in prompt_lower:
+        elif "income" in analysis_text:
             intent = "variables"
-        elif "tract" in prompt_lower or "county" in prompt_lower:
+        elif "tract" in analysis_text or "county" in analysis_text:
             intent = "geography"
         else:
             intent = "clarifying"
 
-        # Extract information from prompt
+        # Extract information from the user message only
         extracted_info = {
             "variables_mentioned": [],
             "geography_mentioned": None,
@@ -230,30 +243,35 @@ class MockLLMProvider:
             "year_mentioned": None,
         }
 
-        if "income" in prompt_lower:
+        if "income" in analysis_text:
             extracted_info["variables_mentioned"].append("income")
-        if "poverty" in prompt_lower:
+        if "poverty" in analysis_text:
             extracted_info["variables_mentioned"].append("poverty")
-        if "population" in prompt_lower:
+        if "population" in analysis_text:
             extracted_info["variables_mentioned"].append("population")
 
-        if "tract" in prompt_lower:
+        # Only extract geography from user message, not system instructions
+        if "tract" in analysis_text:
             extracted_info["geography_mentioned"] = "tract"
-        elif "county" in prompt_lower:
+        elif "county" in analysis_text:
             extracted_info["geography_mentioned"] = "county"
-        elif "state" in prompt_lower:
+        elif "state" in analysis_text:
             extracted_info["geography_mentioned"] = "state"
 
-        if "wisconsin" in prompt_lower or "wi" in prompt_lower:
+        # Only extract location from user message, not system prompt
+        if "wisconsin" in analysis_text or "wi" in analysis_text:
             extracted_info["location_mentioned"] = "WI"
-        elif "georgia" in prompt_lower:
+        elif "texas" in analysis_text or "tx" in analysis_text:
+            extracted_info["location_mentioned"] = "TX"
+        elif "georgia" in analysis_text:
             extracted_info["location_mentioned"] = "Georgia"
-        elif "washington dc" in prompt_lower or "dc" in prompt_lower:
+        elif "washington dc" in analysis_text or "dc" in analysis_text:
             extracted_info["location_mentioned"] = "DC"
 
-        if "2020" in prompt_lower:
+        # Only extract year from user message, not system prompt
+        if "2020" in analysis_text:
             extracted_info["year_mentioned"] = 2020
-        elif "2010" in prompt_lower:
+        elif "2010" in analysis_text:
             extracted_info["year_mentioned"] = 2010
 
         return {
