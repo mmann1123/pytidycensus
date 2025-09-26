@@ -568,9 +568,12 @@ class TestGetACS:
         assert result["estimate"].dtype in [
             "int64",
             "float64",
-            "object",
+            # "object",
         ]  # Can be string from API
-        assert result["moe"].dtype in ["int64", "float64", "object"]
+        assert result["moe"].dtype in [
+            "int64",
+            "float64",
+        ]  # "object"]
 
         # Verify GEOID format (state + county + tract)
         geoids = result["GEOID"].unique()
