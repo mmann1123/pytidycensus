@@ -73,6 +73,7 @@ class TestACSIntegration:
             variables="B19013_001",  # Median household income
             state="VT",  # Vermont (small state, fast)
             year=2022,
+            output="tidy",
         )
 
         # Verify structure
@@ -189,6 +190,7 @@ class TestACSIntegration:
             table="B01003",  # Total population table
             state="VT",
             year=2022,
+            output="tidy",
         )
 
         # Should get all variables from the table
@@ -230,6 +232,7 @@ class TestACSIntegration:
             table="B01001",
             state="VT",  # Vermont (small state for faster testing)
             year=2020,  # Use 2020 to match the R example
+            output="tidy",
         )
 
         # Verify the result structure
@@ -289,6 +292,7 @@ class TestDecennialIntegration:
             variables="P1_001N",  # Total population
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         # Verify structure
@@ -313,6 +317,7 @@ class TestDecennialIntegration:
             variables={"total_pop": "P1_001N", "white_pop": "P1_003N"},
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         # Verify named variables work
@@ -331,6 +336,7 @@ class TestDecennialIntegration:
             summary_var="P1_001N",  # Total population
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         # Verify summary variable
@@ -361,7 +367,11 @@ class TestDecennialIntegration:
     def test_decennial_table_parameter(self, setup_api_key):
         """Test decennial table parameter."""
         result = tc.get_decennial(
-            geography="state", table="P1", state="VT", year=2020  # Race table
+            geography="state",
+            table="P1",
+            state="VT",
+            year=2020,
+            output="tidy",  # Race table
         )
 
         # Should get all variables from P1 table
@@ -378,6 +388,7 @@ class TestDecennialIntegration:
             variables="P001001",  # 2010 variable format
             state="VT",
             year=2010,
+            output="tidy",
         )
 
         assert isinstance(result, pd.DataFrame)
@@ -820,6 +831,7 @@ class TestDecennialTableChunkingIntegration:
             table="P1",  # Race table with 71 variables
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         # Verify the request succeeded
@@ -851,6 +863,7 @@ class TestDecennialTableChunkingIntegration:
             table="P2",  # Hispanic/Latino origin table
             state="CA",  # Use California for variety
             year=2020,
+            output="tidy",
         )
 
         assert isinstance(result, pd.DataFrame)
@@ -873,6 +886,7 @@ class TestDecennialTableChunkingIntegration:
             table="P5",  # Group quarters population table (10 variables)
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         assert isinstance(result, pd.DataFrame)
@@ -914,6 +928,7 @@ class TestDecennialTableChunkingIntegration:
             summary_var="P1_001N",  # Total population as summary
             state="VT",
             year=2020,
+            output="tidy",
         )
 
         assert isinstance(result, pd.DataFrame)
@@ -964,7 +979,13 @@ class TestDecennialTableChunkingIntegration:
     @pytest.mark.integration
     def test_p1_table_integration(self, setup_api_key):
         """Pytest version: Test P1 table chunking with real API calls."""
-        result = tc.get_decennial(geography="state", table="P1", state="VT", year=2020)
+        result = tc.get_decennial(
+            geography="state",
+            table="P1",
+            state="VT",
+            year=2020,
+            output="tidy",
+        )
 
         # Verify comprehensive table retrieval
         assert isinstance(result, pd.DataFrame)

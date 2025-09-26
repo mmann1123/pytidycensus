@@ -31,6 +31,7 @@ class TestDCIntegration:
                     variables=["B01003_001E"],
                     state=dc_var,
                     year=2020,
+                    output="tidy",
                     api_key="test_key",
                 )
 
@@ -99,6 +100,7 @@ class TestDCIntegration:
                 state=["CA", "DC", "New York"],  # Mixed formats with DC
                 year=2020,
                 api_key="test_key",
+                output="tidy",
             )
 
             assert isinstance(result, pd.DataFrame)
