@@ -118,7 +118,7 @@ autosummary_generate = True
 
 
 # Google Analytics configuration
-google_analytics_account = "G-5NFKHXMNYT"
+googleanalytics_id = "G-5NFKHXMNYT"
 
 # Sitemap configuration
 html_baseurl = "https://mmann1123.github.io/pytidycensus/"
