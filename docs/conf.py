@@ -35,7 +35,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "nbsphinx",
     "myst_nb",
-    "sphinx_google_analytics",
+    "sphinxcontrib-googleanalytics",
     "sphinx_sitemap",
 ]
 
