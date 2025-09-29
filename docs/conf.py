@@ -35,6 +35,8 @@ extensions = [
     "sphinx_autodoc_typehints",
     "nbsphinx",
     "myst_nb",
+    "sphinx_google_analytics",
+    "sphinx_sitemap",
 ]
 
 # -- MyST-NB configuration --
@@ -113,3 +115,21 @@ myst_enable_extensions = [
 
 # Autosummary settings
 autosummary_generate = True
+
+
+# Google Analytics configuration
+google_analytics_account = "G-5NFKHXMNYT"
+
+# Sitemap configuration
+html_baseurl = "https://mmann1123.github.io/pytidycensus/"
+sitemap_url_scheme = "{link}"
+sitemap_filename = "sitemap.xml"
+sitemap_locales = ["en"]
+
+# Optional: Exclude certain pages from sitemap
+sitemap_excludes = [
+    "search.html",
+    "genindex.html",
+    "py-modindex.html",
+    "_sources/*",  # Exclude source files
+]
