@@ -958,6 +958,7 @@ class TestDecennialTableChunkingIntegration:
             state="VT",
             year=2020,
             geometry=True,  # Request geometry
+            output="tidy",
         )
 
         # Should return GeoDataFrame when geometry=True
@@ -1001,7 +1002,9 @@ class TestDecennialTableChunkingIntegration:
     @pytest.mark.integration
     def test_p5_table_small_no_chunking_integration(self, setup_api_key):
         """Pytest version: Test small table that doesn't require chunking."""
-        result = tc.get_decennial(geography="state", table="P5", state="VT", year=2020)
+        result = tc.get_decennial(
+            geography="state", table="P5", state="VT", year=2020, output="tidy"
+        )
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) > 0
@@ -1444,7 +1447,7 @@ class TestGeographyLevelsIntegration:
         """Test that output format exactly matches R tidycensus format."""
 
         # Test CBSA format matching the user's example
-        cbsa_result = tc.get_acs(geography="cbsa", variables="B01003_001", year=2020)
+        cbsa_result = tc.get_acs(geography="cbsa", variables="B01003_001", year=2020, output="tidy")
 
         # Verify required columns exist
         required_cols = ["GEOID", "NAME", "variable", "estimate", "moe"]
@@ -1464,7 +1467,9 @@ class TestGeographyLevelsIntegration:
         print("✓ CBSA output format matches R tidycensus")
 
         # Test ZCTA format
-        zcta_result = tc.get_acs(geography="zcta", variables="B01003_001", zcta="05401", year=2020)
+        zcta_result = tc.get_acs(
+            geography="zcta", variables="B01003_001", zcta="05401", year=2020, output="tidy"
+        )
 
         # Verify required columns exist
         for col in required_cols:
