@@ -15,6 +15,7 @@ from pytidycensus.variables import load_variables, search_variables
 class TestAPIEndpointFixes:
     """Test fixes for API endpoint construction and dataset normalization."""
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_dataset_normalization(self):
         """Test that dataset names are normalized correctly."""
         api = CensusAPI()
@@ -31,6 +32,7 @@ class TestAPIEndpointFixes:
         # Test unknown dataset (should pass through)
         assert api._normalize_dataset("unknown") == "unknown"
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_build_url_with_dataset_normalization(self):
         """Test URL building with dataset normalization."""
         api = CensusAPI()
@@ -50,6 +52,7 @@ class TestAPIEndpointFixes:
         url_friendly = api._build_url(2020, "american_community_survey", "acs5")
         assert url_friendly == "https://api.census.gov/data/2020/acs/acs5"
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_variables_url_construction(self):
         """Test that variables URLs are constructed correctly."""
         api = CensusAPI()
@@ -136,6 +139,7 @@ class TestAPIEndpointFixes:
             load_variables(2020, "decennial", cache=False)
             mock_api.get_variables.assert_called_with(2020, "decennial", "pl")
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_census_api_error_handling(self):
         """Test that proper error messages are shown for API failures."""
         import requests
@@ -186,6 +190,7 @@ class TestAPIEndpointFixes:
 class TestDatasetCompatibility:
     """Test backward compatibility with existing dataset names."""
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_existing_tests_still_work(self):
         """Test that existing code using 'dec' still works."""
         api = CensusAPI()
@@ -194,6 +199,7 @@ class TestDatasetCompatibility:
         url = api._build_url(2020, "dec", "pl")
         assert url == "https://api.census.gov/data/2020/dec/pl"
 
+    @patch.dict("os.environ", {"CENSUS_API_KEY": "test_key"})
     def test_mixed_case_handling(self):
         """Test that mixed case dataset names are handled."""
         api = CensusAPI()
