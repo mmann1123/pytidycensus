@@ -10,6 +10,32 @@ import pandas as pd
 from .api import CensusAPI
 
 
+def _get_default_survey(year: int, dataset: str) -> Optional[str]:
+    """Get default survey for a given year and dataset.
+
+    Parameters
+    ----------
+    year : int
+        Census year
+    dataset : str
+        Dataset name
+
+    Returns
+    -------
+    str or None
+        Default survey name, or None if no default
+    """
+    # Normalize dataset name for comparison
+    if dataset.lower() in ["decennial", "dec"]:
+        if year >= 2020:
+            return "pl"  # PL 94-171 Redistricting Data
+        else:
+            return "sf1"  # Summary File 1
+
+    # For ACS, no automatic default since acs1/acs3/acs5 are all valid
+    return None
+
+
 def load_variables(
     year: int,
     dataset: str,
@@ -72,6 +98,10 @@ def load_variables(
         except (pickle.PickleError, EOFError):
             # Cache file corrupted, will re-download
             pass
+
+    # Use default survey if none provided
+    if survey is None:
+        survey = _get_default_survey(year, dataset)
 
     # Download variables from API
     print(f"Downloading variables for {year} {dataset}" + (f" {survey}" if survey else ""))

@@ -64,6 +64,26 @@ class CensusAPI:
             time.sleep(self.min_request_interval - time_since_last)
         self.last_request_time = time.time()
 
+    def _normalize_dataset(self, dataset: str) -> str:
+        """Normalize dataset name to Census API format.
+
+        Parameters
+        ----------
+        dataset : str
+            Dataset name (user-friendly or API format)
+
+        Returns
+        -------
+        str
+            Normalized dataset name for API
+        """
+        dataset_mapping = {
+            "decennial": "dec",
+            "american_community_survey": "acs",
+            "population_estimates": "pep",
+        }
+        return dataset_mapping.get(dataset.lower(), dataset.lower())
+
     def _build_url(self, year: int, dataset: str, survey: Optional[str] = None) -> str:
         """Build Census API URL for given parameters.
 
@@ -72,19 +92,22 @@ class CensusAPI:
         year : int
             Census year
         dataset : str
-            Dataset name (e.g., 'acs', 'dec')
+            Dataset name (e.g., 'acs', 'dec', 'decennial')
         survey : str, optional
-            Survey type (e.g., 'acs5', 'acs1')
+            Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl')
 
         Returns
         -------
         str
             Complete API URL
         """
+        # Normalize dataset name
+        normalized_dataset = self._normalize_dataset(dataset)
+
         if survey:
-            return f"{self.BASE_URL}/{year}/{dataset}/{survey}"
+            return f"{self.BASE_URL}/{year}/{normalized_dataset}/{survey}"
         else:
-            return f"{self.BASE_URL}/{year}/{dataset}"
+            return f"{self.BASE_URL}/{year}/{normalized_dataset}"
 
     def get(
         self,
