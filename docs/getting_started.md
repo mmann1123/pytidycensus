@@ -306,6 +306,115 @@ characteristics = tc.get_estimates(
 )
 ```
 
+## Advanced Time Series Analysis
+
+pytidycensus provides powerful time series functionality for analyzing demographic changes over time with automatic handling of changing geographic boundaries.
+
+### Installation for Time Series
+
+```bash
+# Install with time series support (includes tobler for area interpolation)
+pip install pytidycensus[time]
+```
+
+### Basic Time Series Analysis
+
+The `get_time_series()` function automatically handles boundary changes and variable differences across years:
+
+```python
+# ACS time series with automatic boundary handling
+data = tc.get_time_series(
+    geography="tract",
+    variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+    years=[2015, 2020],
+    dataset="acs5",
+    state="DC",
+    base_year=2020,  # Use 2020 boundaries as reference
+    extensive_variables=["total_pop"],      # Counts/totals
+    intensive_variables=["median_income"],  # Rates/medians
+    geometry=True,
+    output="wide"
+)
+```
+
+### Decennial Census Time Series
+
+Handle different variable codes across decennial years:
+
+```python
+# Different variable codes for different years
+variables = {
+    2010: {"total_pop": "P001001"},    # 2010 uses P001001
+    2020: {"total_pop": "P1_001N"}     # 2020 uses P1_001N
+}
+
+data = tc.get_time_series(
+    geography="tract",
+    variables=variables,
+    years=[2010, 2020],
+    dataset="decennial",
+    state="DC",
+    base_year=2020,
+    extensive_variables=["total_pop"]
+)
+```
+
+### Time Period Comparisons
+
+Use `compare_time_periods()` for detailed change analysis:
+
+```python
+# Systematic comparison between time periods
+comparison = tc.compare_time_periods(
+    data=data,
+    base_period=2015,
+    comparison_period=2020,
+    variables=["total_pop", "median_income"],
+    calculate_change=True,
+    calculate_percent_change=True
+)
+
+# Results include columns like:
+# total_pop_2015, total_pop_2020, total_pop_change, total_pop_pct_change
+```
+
+### Key Features
+
+- **Automatic Area Interpolation**: Handles changing tract boundaries using tobler
+- **Variable Classification**: Distinguishes between extensive (counts) and intensive (rates) variables
+- **Built-in Validation**: Checks interpolation accuracy and data conservation
+- **Flexible Output**: Wide format (multi-index columns) or tidy format (long form)
+- **Multiple Datasets**: Support for both ACS and Decennial Census
+
+### Geographic Boundary Handling
+
+- **Stable Geographies** (state, county): No interpolation needed
+- **Changing Geographies** (tract, block group): Automatic area interpolation
+- **Base Year Selection**: Choose which year's boundaries to use as reference
+
+### Example: County-Level Analysis (Stable Boundaries)
+
+```python
+# For stable geographies, interpolation is automatically skipped
+county_data = tc.get_time_series(
+    geography="county",
+    variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+    years=[2018, 2022],
+    dataset="acs5",
+    state="CA",
+    geometry=False  # Faster for summary statistics
+)
+
+comparison = tc.compare_time_periods(
+    data=county_data,
+    base_period=2018,
+    comparison_period=2022,
+    variables=["total_pop", "median_income"]
+)
+```
+
+For detailed examples and advanced techniques, see the [Time Series Analysis Tutorial](time_series_analysis.md).
+
 ## Next Steps
 
 - Explore comprehensive [Jupyter notebook examples](examples.rst)
