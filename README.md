@@ -36,6 +36,7 @@ pytidycensus supports all major Census geographic levels:
 - **Simple API**: Clean, consistent interface for all Census datasets
 - **Pandas Integration**: Returns familiar pandas DataFrames
 - **Spatial Support**: Optional GeoPandas integration for mapping with TIGER/Line shapefiles
+- **Time Series Analysis**: Collect multi-year data with automatic area interpolation for changing boundaries
 - **Multiple Datasets**: Support for ACS, Decennial Census, and Population Estimates
 - **Geographic Flexibility**: From national to block group level data
 - **Caching**: Built-in caching for variables and geography data
@@ -57,6 +58,9 @@ To install with optional dependencies:
 ```bash
 # For LLM assistant
 pip install pytidycensus[LLM]
+
+# For time series analysis with area interpolation
+pip install pytidycensus[time]
 
 # For development tools
 pip install pytidycensus[dev]
@@ -194,11 +198,95 @@ demographics = tc.get_estimates(
 # Time series data
 time_series = tc.get_estimates(
     geography="state",
-    variables="POP", 
+    variables="POP",
     time_series=True,
     vintage=2023
 )
 ```
+
+## Time Series Analysis
+
+pytidycensus provides powerful time series functionality that automatically handles changing geographic boundaries through area interpolation. This is particularly useful for tract-level analysis where boundaries change between Census years.
+
+### Installation for Time Series
+
+```bash
+# Install with time series support
+pip install pytidycensus[time]
+```
+
+### Basic Time Series
+
+```python
+# Get ACS data across multiple years with area interpolation
+data = tc.get_time_series(
+    geography="tract",
+    variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+    years=[2015, 2020],
+    dataset="acs5",
+    state="DC",
+    base_year=2020,  # Use 2020 boundaries as base
+    extensive_variables=["total_pop"],      # Counts/totals
+    intensive_variables=["median_income"],  # Rates/medians
+    geometry=True,
+    output="wide"
+)
+```
+
+### Decennial Census Time Series
+
+```python
+# Handle different variable codes across years
+variables = {
+    2010: {"total_pop": "P001001"},    # 2010 uses P001001
+    2020: {"total_pop": "P1_001N"}     # 2020 uses P1_001N
+}
+
+data = tc.get_time_series(
+    geography="tract",
+    variables=variables,
+    years=[2010, 2020],
+    dataset="decennial",
+    state="DC",
+    base_year=2020,
+    extensive_variables=["total_pop"],
+    geometry=True
+)
+```
+
+### Time Period Comparison
+
+```python
+# Compare specific time periods
+comparison = tc.compare_time_periods(
+    data=data,
+    base_period=2015,
+    comparison_period=2020,
+    variables=["total_pop", "median_income"],
+    calculate_change=True,
+    calculate_percent_change=True
+)
+
+# Results include columns like:
+# total_pop_2015, total_pop_2020, total_pop_change, total_pop_pct_change
+```
+
+### Key Features
+
+- **Automatic Area Interpolation**: Handles changing tract boundaries using the `tobler` library
+- **Variable Classification**: Distinguishes between extensive (counts) and intensive (rates) variables
+- **Flexible Output**: Wide format (multi-index columns) or tidy format (long form)
+- **Built-in Validation**: Checks interpolation accuracy and data conservation
+- **Multiple Datasets**: Support for both ACS and Decennial Census time series
+
+### Geographic Boundary Handling
+
+- **Stable Geographies** (state, county): No interpolation needed
+- **Changing Geographies** (tract, block group): Automatic area interpolation
+- **Base Year Selection**: Choose which year's boundaries to use as the reference
+
+For detailed examples, see [examples/time_series_analysis_comprehensive.py](examples/time_series_analysis_comprehensive.py).
+
 ## LLM Assistant
 For users interested in leveraging Large Language Models (LLMs) to interact with Census data, pytidycensus offers a conversational interface. This feature helps users discover relevant variables, choose appropriate geographic levels, and generate code snippets for data retrieval.
 

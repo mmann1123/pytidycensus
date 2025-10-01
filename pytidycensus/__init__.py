@@ -15,6 +15,7 @@ from .api import CensusAPI, set_census_api_key
 from .decennial import get_decennial
 from .estimates import get_estimates
 from .geography import get_geography
+from .time_series import compare_time_periods, get_time_series
 from .utils import get_credentials
 from .variables import get_table_variables, load_variables, search_variables
 
@@ -25,6 +26,8 @@ __all__ = [
     "get_decennial",
     "get_estimates",
     "get_geography",
+    "get_time_series",
+    "compare_time_periods",
     "load_variables",
     "search_variables",
     "get_table_variables",

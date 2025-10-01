@@ -77,7 +77,9 @@ LLM = [
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
     "pytest-asyncio>=0.20.0",
-
+]
+time = [
+    "tobler>=0.12.0",
 ]
  all = [
     # Base dependencies
@@ -124,6 +126,8 @@ LLM = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
+    # Time series dependencies
+    "tobler>=0.12.0",
 ]
 
 [project.urls]
