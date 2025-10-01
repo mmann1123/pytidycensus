@@ -47,6 +47,21 @@ Explore mapping and spatial analysis capabilities:
 * Working with coordinate reference systems
 * Spatial data visualization best practices
 
+Time Series Analysis and Area Interpolation
+-------------------------------------------
+.. toctree::
+   :maxdepth: 1
+
+   examples/06_simple_time_series_tutorial
+   examples/07_advanced_time_series_tutorial
+
+Analyze demographic changes over time despite changing geographies:
+* Accessing multi-year Census data
+* Handling changing boundaries with area interpolation
+* Using the `tobler` library for spatial interpolation
+* Visualizing trends with line plots and maps
+
+
 Margins of Error
 ----------------
 

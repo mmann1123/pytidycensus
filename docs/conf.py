@@ -1,4 +1,5 @@
 # Configuration file for the Sphinx documentation builder.
+# build with:  sphinx-build -b html . _build/html
 
 import os
 import sys
@@ -45,7 +46,7 @@ nb_execution_mode = "force"  # 'off', 'auto', 'force', 'cache', 'inline'  # Exec
 nb_execution_allow_errors = True  # Continue execution even if cells raise errors
 nb_execution_timeout = 300
 nb_execution_excludepatterns = ["*.ipynb", "*no-execute.md"]  # Skip all .ipynb files
-jupyter_cache = "_build/.jupyter_cache"  # Cache location
+nb_execution_cache_path = "_build/.jupyter_cache"  # Cache location
 
 
 # -- Templates and exclusions ------------------------------------------------

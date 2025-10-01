@@ -71,6 +71,7 @@ Table of Contents
 
    getting_started
    pytidycensus_intro
+   time_series_analysis
    llm_interface
    examples
 
