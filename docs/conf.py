@@ -1,5 +1,5 @@
 # Configuration file for the Sphinx documentation builder.
-# build with:  sphinx-build -b html . _build/html
+# build with: python -m sphinx -b html . _build/html
 
 import os
 import sys

@@ -348,6 +348,10 @@ def _validate_interpolation(
 
 def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) -> pd.DataFrame:
     """Concatenate data from multiple years into desired output format."""
+    # Debug: Print information about the input data
+    print(f"DEBUG: Processing {len(yearly_data)} years of data")
+    for year, df in yearly_data.items():
+        print(f"  Year {year}: shape={df.shape}, columns={list(df.columns)}")
     if output == "tidy":
         # Long format with year column
         tidy_dfs = []
@@ -360,12 +364,28 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
                 df_no_geom = df
                 geom_df = None
 
-            # Melt to long format
-            id_vars = ["GEOID", "NAME"] if "NAME" in df_no_geom.columns else ["GEOID"]
-            if "state" in df_no_geom.columns:
-                id_vars.append("state")
-            if "county" in df_no_geom.columns:
-                id_vars.append("county")
+            # Build id_vars list based on what's actually available
+            id_vars = []
+
+            # Check for primary ID column
+            if "GEOID" in df_no_geom.columns:
+                id_vars.append("GEOID")
+                primary_id = "GEOID"
+            else:
+                # Look for other ID columns
+                id_candidates = [col for col in df_no_geom.columns if col.upper().endswith("ID")]
+                if id_candidates:
+                    id_vars.append(id_candidates[0])
+                    primary_id = id_candidates[0]
+                else:
+                    raise ValueError(
+                        f"No suitable ID column found in data. Available columns: {list(df_no_geom.columns)}"
+                    )
+
+            # Add other identifier columns if present
+            for col in ["NAME", "state", "county"]:
+                if col in df_no_geom.columns:
+                    id_vars.append(col)
 
             melted = pd.melt(
                 df_no_geom, id_vars=id_vars, var_name="variable", value_name="estimate"
@@ -374,7 +394,12 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
 
             # Add geometry back if available
             if geom_df is not None:
-                melted = melted.merge(geom_df, on="GEOID", how="left")
+                if primary_id in geom_df.columns:
+                    melted = melted.merge(geom_df, on=primary_id, how="left")
+                else:
+                    print(
+                        f"Warning: Cannot merge geometry - {primary_id} not found in geometry DataFrame"
+                    )
 
             tidy_dfs.append(melted)
 
@@ -399,18 +424,35 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
         # Merge all years on geographic identifiers
         result = wide_dfs[0]
         for df in wide_dfs[1:]:
-            # Get geographic columns for merging
-            geo_cols = ["GEOID"]
-            if "NAME" in df.columns:
-                geo_cols.append("NAME")
-            if "state" in df.columns:
-                geo_cols.append("state")
-            if "county" in df.columns:
-                geo_cols.append("county")
-            if "geometry" in df.columns:
-                geo_cols.append("geometry")
+            # Get geographic columns for merging - check what's actually available
+            geo_cols = []
 
-            result = result.merge(df, on=geo_cols, how="outer")
+            # Check for GEOID first
+            if "GEOID" in df.columns and "GEOID" in result.columns:
+                geo_cols.append("GEOID")
+            else:
+                # Fallback: try to find an ID column
+                id_candidates = [col for col in df.columns if col.upper().endswith("ID")]
+                if id_candidates and id_candidates[0] in result.columns:
+                    geo_cols.append(id_candidates[0])
+                else:
+                    # Last resort: use index if available
+                    print(
+                        f"Warning: No suitable ID column found for merging. Available columns: {list(df.columns)}"
+                    )
+                    continue
+
+            # Add other geographic columns if they exist in both DataFrames
+            for col in ["NAME", "state", "county", "geometry"]:
+                if col in df.columns and col in result.columns:
+                    geo_cols.append(col)
+
+            if geo_cols:
+                result = result.merge(df, on=geo_cols, how="outer")
+            else:
+                print(
+                    f"Warning: Could not merge year {list(yearly_data.keys())[wide_dfs.index(df)]} - no common geographic columns"
+                )
 
         # Create proper multi-index for data columns
         data_columns = [col for col in result.columns if isinstance(col, tuple)]
