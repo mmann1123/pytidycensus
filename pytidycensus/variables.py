@@ -36,9 +36,23 @@ def _get_default_survey(year: int, dataset: str) -> Optional[str]:
     return None
 
 
+def _dataset_from_survey(survey: str) -> Optional[str]:
+    """Infer dataset name from a survey string (e.g., 'acs5' -> 'acs', 'pl' -> 'dec')."""
+    s = survey.lower()
+    if s.startswith("acs"):
+        return "acs"
+    if (
+        s.startswith("sf") or s == "pl" or s.startswith("p")
+    ):  # decennial survey codes like sf1, pl, P1
+        return "dec"
+    if s in {"population", "components", "charagegroups"} or s.startswith("pep"):
+        return "pep"
+    return None
+
+
 def load_variables(
     year: int,
-    dataset: str,
+    dataset: Optional[str] = None,
     survey: Optional[str] = None,
     cache: bool = True,
     cache_dir: Optional[str] = None,
@@ -49,10 +63,11 @@ def load_variables(
     ----------
     year : int
         Census year
-    dataset : str
-        Dataset name ('acs', 'dec', 'pep', etc.)
+    dataset : str, optional
+        Dataset name ('acs', 'dec', 'pep', etc.). Provide either `dataset` or `survey`.
     survey : str, optional
-        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl')
+        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl'). If provided, the dataset will be
+        inferred from the survey. Provide either `dataset` or `survey`, not both.
     cache : bool, default True
         Whether to cache variables for faster future access
     cache_dir : str, optional
@@ -74,6 +89,19 @@ def load_variables(
     >>> # Load decennial census variables for 2020
     >>> dec_vars = load_variables(2020, "dec", "pl")
     """
+    # Require exactly one of dataset or survey
+    if (dataset is None and survey is None) or (dataset is not None and survey is not None):
+        raise ValueError("Please provide exactly one of 'dataset' or 'survey' (not both).")
+
+    # If survey provided, infer dataset
+    if dataset is None and survey is not None:
+        inferred = _dataset_from_survey(survey)
+        if inferred is None:
+            raise ValueError(
+                f"Could not infer dataset from survey '{survey}'. Provide dataset explicitly."
+            )
+        dataset = inferred
+
     if cache_dir is None:
         cache_dir = appdirs.user_cache_dir("pytidycensus", "variables")
 
@@ -201,10 +229,11 @@ def search_variables(
         Search pattern (case-insensitive)
     year : int
         Census year
-    dataset : str
-        Dataset name
+    dataset : str, optional
+        Dataset name ('acs', 'dec', 'pep', etc.). Provide either `dataset` or `survey`.
     survey : str, optional
-        Survey type
+        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl'). If provided, the dataset will be
+        inferred from the survey. Provide either `dataset` or `survey`, not both.
     field : str, default "label"
         Field to search in ('label', 'concept', 'name', or 'all')
 
