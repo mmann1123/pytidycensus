@@ -89,9 +89,9 @@ def load_variables(
     >>> # Load decennial census variables for 2020
     >>> dec_vars = load_variables(2020, "dec", "pl")
     """
-    # Require exactly one of dataset or survey
-    if (dataset is None and survey is None) or (dataset is not None and survey is not None):
-        raise ValueError("Please provide exactly one of 'dataset' or 'survey' (not both).")
+    # # Require exactly one of dataset or survey
+    # if (dataset is None and survey is None) or (dataset is not None and survey is not None):
+    #     raise ValueError("Please provide exactly one of 'dataset' or 'survey' (not both).")
 
     # If survey provided, infer dataset
     if dataset is None and survey is not None:
