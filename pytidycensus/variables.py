@@ -36,20 +36,6 @@ def _get_default_survey(year: int, dataset: str) -> Optional[str]:
     return None
 
 
-def _dataset_from_survey(survey: str) -> Optional[str]:
-    """Infer dataset name from a survey string (e.g., 'acs5' -> 'acs', 'pl' -> 'dec')."""
-    s = survey.lower()
-    if s.startswith("acs"):
-        return "acs"
-    if (
-        s.startswith("sf") or s == "pl" or s.startswith("p")
-    ):  # decennial survey codes like sf1, pl, P1
-        return "dec"
-    if s in {"population", "components", "charagegroups"} or s.startswith("pep"):
-        return "pep"
-    return None
-
-
 def load_variables(
     year: int,
     dataset: Optional[str] = None,
@@ -89,18 +75,6 @@ def load_variables(
     >>> # Load decennial census variables for 2020
     >>> dec_vars = load_variables(2020, "dec", "pl")
     """
-    # # Require exactly one of dataset or survey
-    # if (dataset is None and survey is None) or (dataset is not None and survey is not None):
-    #     raise ValueError("Please provide exactly one of 'dataset' or 'survey' (not both).")
-
-    # If survey provided, infer dataset
-    if dataset is None and survey is not None:
-        inferred = _dataset_from_survey(survey)
-        if inferred is None:
-            raise ValueError(
-                f"Could not infer dataset from survey '{survey}'. Provide dataset explicitly."
-            )
-        dataset = inferred
 
     if cache_dir is None:
         cache_dir = appdirs.user_cache_dir("pytidycensus", "variables")
@@ -219,7 +193,7 @@ def search_variables(
     year: int,
     dataset: str,
     survey: Optional[str] = None,
-    field: str = "label",
+    field: str = "concept",
 ) -> pd.DataFrame:
     """Search for variables by pattern in labels, concepts, or names.
 
