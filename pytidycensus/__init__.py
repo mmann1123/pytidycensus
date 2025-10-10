@@ -14,6 +14,7 @@ from .acs import get_acs
 from .api import CensusAPI, set_census_api_key
 from .decennial import get_decennial
 from .estimates import get_estimates
+from .flows import get_flows
 from .geography import get_geography
 from .utils import get_credentials
 from .variables import get_table_variables, load_variables, search_variables
@@ -24,6 +25,7 @@ __all__ = [
     "get_acs",
     "get_decennial",
     "get_estimates",
+    "get_flows",
     "get_geography",
     "load_variables",
     "search_variables",
