@@ -61,7 +61,8 @@ def get_flows(
     msa : str or list of str, optional
         Metropolitan Statistical Area(s) to filter by.
     geometry : bool, default False
-        If True, include geographic centroids for mapping flows.
+        If True, include geographic centroids for mapping flows. 
+        Raises RuntimeError if geometry data cannot be downloaded.
     api_key : str, optional
         Census API key. If None, uses CENSUS_API_KEY environment variable.
     moe_level : int, default 90
@@ -499,8 +500,7 @@ def _add_flows_geometry(data, geography):
         all_geoids.update(data['GEOID2'].dropna().unique())
     
     if not all_geoids:
-        warnings.warn("No GEOID columns found for geometry processing.")
-        return data
+        raise ValueError("No GEOID columns found for geometry processing.")
     
     # Get geographic boundaries and calculate centroids
     try:
@@ -524,44 +524,33 @@ def _add_flows_geometry(data, geography):
                     if row['GEOID'] in all_geoids:
                         centroids_dict[row['GEOID']] = row['centroid']
                 
-                # Create placeholder centroids for any missing GEOIDs
+                # Check for any missing GEOIDs
                 missing_geoids = all_geoids - set(centroids_dict.keys())
                 if missing_geoids:
-                    warnings.warn(
-                        f"Could not find centroids for {len(missing_geoids)} GEOIDs. "
-                        f"Using placeholder centroids."
+                    raise ValueError(
+                        f"Could not find centroids for {len(missing_geoids)} GEOIDs: "
+                        f"{list(missing_geoids)[:5]}{'...' if len(missing_geoids) > 5 else ''}. "
+                        f"Geography data may be incomplete or unavailable."
                     )
-                    for geoid in missing_geoids:
-                        centroids_dict[geoid] = Point(-95.0, 39.0)  # Center of US
                         
             except Exception as e:
-                warnings.warn(
+                raise RuntimeError(
                     f"Could not download county geography: {e}. "
-                    f"Using placeholder centroids for all {len(all_geoids)} GEOIDs."
-                )
-                # Fallback: create placeholder centroids for all
-                for geoid in all_geoids:
-                    centroids_dict[geoid] = Point(-95.0, 39.0)  # Center of US
+                    f"Unable to provide geometry for flows data. "
+                    f"Try setting geometry=False or check your internet connection."
+                ) from e
                     
         elif geography == "county subdivision":
-            # Similar approach for county subdivisions
-            warnings.warn(
-                "County subdivision geometry not yet implemented. "
-                "Using placeholder centroids."
+            raise NotImplementedError(
+                "Geometry for county subdivision is not yet implemented. "
+                "Use geometry=False or try a different geography level."
             )
-            # Create placeholder centroids
-            for geoid in all_geoids:
-                centroids_dict[geoid] = Point(0, 0)
                 
         elif geography == "metropolitan statistical area":
-            # MSA geometry handling
-            warnings.warn(
-                "MSA geometry not yet implemented. "
-                "Using placeholder centroids."
+            raise NotImplementedError(
+                "Geometry for metropolitan statistical area is not yet implemented. "
+                "Use geometry=False or try a different geography level."
             )
-            # Create placeholder centroids
-            for geoid in all_geoids:
-                centroids_dict[geoid] = Point(0, 0)
         
         # Add centroid columns to the data
         data = data.copy()
@@ -579,9 +568,11 @@ def _add_flows_geometry(data, geography):
             gdf = gpd.GeoDataFrame(data, geometry='centroid1', crs="EPSG:4269")
             return gdf
         else:
-            warnings.warn("No valid centroids found for geometry creation.")
-            return data
+            raise ValueError("No valid centroids found for geometry creation.")
             
     except Exception as e:
-        warnings.warn(f"Error adding geometry: {e}. Returning data without geometry.")
-        return data
+        # Let specific geometry errors propagate, but catch other unexpected errors
+        if isinstance(e, (RuntimeError, ValueError, NotImplementedError)):
+            raise
+        else:
+            raise RuntimeError(f"Unexpected error adding geometry: {e}") from e

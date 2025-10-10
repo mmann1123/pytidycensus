@@ -267,15 +267,9 @@ class TestGeometryIntegration:
             "MOVEDIN": [100, 200]
         })
         
-        # Test with mock geometry 
-        result = _add_flows_geometry(data, "county")
-        
-        # Should return some form of result (either DataFrame or GeoDataFrame)
-        assert isinstance(result, pd.DataFrame)
-        
-        # If geometry succeeded, should have centroid columns
-        if "centroid1" in result.columns:
-            assert "centroid2" in result.columns
+        # Should raise an error when geometry download fails
+        with pytest.raises((RuntimeError, ValueError)):
+            _add_flows_geometry(data, "county")
 
     def test_add_flows_geometry_no_geoids(self):
         """Test geometry addition with no GEOID columns."""
@@ -284,11 +278,25 @@ class TestGeometryIntegration:
             "MOVEDOUT": [80, 150]
         })
         
-        with pytest.warns(UserWarning, match="No GEOID columns found"):
-            result = _add_flows_geometry(data, "county")
+        # Should raise an error when no GEOID columns found
+        with pytest.raises(ValueError, match="No GEOID columns found"):
+            _add_flows_geometry(data, "county")
+
+    def test_add_flows_geometry_unimplemented(self):
+        """Test geometry addition for unimplemented geography types."""
+        data = pd.DataFrame({
+            "GEOID1": ["12001"],
+            "GEOID2": ["12003"],
+            "MOVEDIN": [100]
+        })
+        
+        # Should raise NotImplementedError for county subdivision
+        with pytest.raises(NotImplementedError, match="county subdivision"):
+            _add_flows_geometry(data, "county subdivision")
             
-        assert isinstance(result, pd.DataFrame)
-        assert result.equals(data)  # Should return unchanged data
+        # Should raise NotImplementedError for MSA
+        with pytest.raises(NotImplementedError, match="metropolitan statistical area"):
+            _add_flows_geometry(data, "metropolitan statistical area")
 
 
 @pytest.mark.integration
