@@ -40,6 +40,7 @@ dependencies = [
     "numpy<2",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
+    "pygris>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +94,7 @@ all = [
     "numpy<2",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
+    "pygris>=0.2.0",
     # Dev dependencies
     "pytest>=6.0",
     "pytest-cov>=2.12",

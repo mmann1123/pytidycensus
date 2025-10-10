@@ -1,172 +1,11 @@
-"""Geographic boundary data retrieval and processing using TIGER shapefiles."""
+"""Geographic boundary data retrieval and processing using pygris."""
 
-import os
-import tempfile
-import zipfile
 from typing import List, Optional, Union
 
-import certifi
 import geopandas as gpd
-import requests
+import pygris
 
 from .utils import validate_county, validate_state
-
-
-class TigerDownloader:
-    """Downloads and processes TIGER/Line shapefiles from the US Census Bureau."""
-
-    BASE_URL = "https://www2.census.gov/geo/tiger"
-
-    def __init__(self, cache_dir: Optional[str] = None):
-        """Initialize TIGER downloader.
-
-        Parameters
-        ----------
-        cache_dir : str, optional
-            Directory for caching downloaded files
-        """
-        self.cache_dir = cache_dir or tempfile.gettempdir()
-        os.makedirs(self.cache_dir, exist_ok=True)
-
-    def _build_url(self, year: int, geography: str, **kwargs) -> str:
-        """Build URL for TIGER shapefile download.
-
-        Parameters
-        ----------
-        year : int
-            Census year
-        geography : str
-            Geography type
-        **kwargs
-            Additional parameters (state, county, etc.)
-
-        Returns
-        -------
-        str
-            Download URL
-        """
-        if geography == "state":
-            return f"{self.BASE_URL}/TIGER{year}/STATE/tl_{year}_us_state.zip"
-        elif geography == "county":
-            return f"{self.BASE_URL}/TIGER{year}/COUNTY/tl_{year}_us_county.zip"
-        elif geography == "tract":
-            state_fips = kwargs.get("state_fips")
-            if not state_fips:
-                raise ValueError("State FIPS code required for tract geography")
-            return f"{self.BASE_URL}/TIGER{year}/TRACT/tl_{year}_{state_fips}_tract.zip"
-        elif geography == "block group":
-            state_fips = kwargs.get("state_fips")
-            if not state_fips:
-                raise ValueError("State FIPS code required for block group geography")
-            return f"{self.BASE_URL}/TIGER{year}/BG/tl_{year}_{state_fips}_bg.zip"
-        elif geography in ["zcta", "zip code tabulation area"]:
-            # Use 2020 ZCTA boundaries (zcta520) for year 2020 and later
-            # Use 2010 ZCTA boundaries (zcta510) for earlier years
-            if year >= 2020:
-                return f"{self.BASE_URL}/TIGER{year}/ZCTA520/tl_{year}_us_zcta520.zip"
-            else:
-                return f"{self.BASE_URL}/TIGER{year}/ZCTA5/tl_{year}_us_zcta510.zip"
-        elif geography == "place":
-            state_fips = kwargs.get("state_fips")
-            if not state_fips:
-                raise ValueError("State FIPS code required for place geography")
-            return f"{self.BASE_URL}/TIGER{year}/PLACE/tl_{year}_{state_fips}_place.zip"
-        elif geography == "metropolitan statistical area/micropolitan statistical area":
-            return f"{self.BASE_URL}/TIGER{year}/CBSA/tl_{year}_us_cbsa.zip"
-        else:
-            raise ValueError(f"Geography '{geography}' not yet supported")
-
-    @staticmethod
-    def download_with_wget_or_curl(url, zip_path):
-        import shutil
-        import subprocess
-
-        # Try wget
-        if shutil.which("wget"):
-            print("Using wget to download...")
-            subprocess.run(
-                [
-                    "wget",
-                    "--quiet",
-                    "--show-progress",
-                    "--progress=bar:force:noscroll",
-                    "-O",
-                    zip_path,
-                    url,
-                ],
-                check=True,
-            )
-        # Fallback to curl
-        elif shutil.which("curl"):
-            print("Using curl to download...")
-            subprocess.run(["curl", "-L", "-o", zip_path, url], check=True)
-        else:
-            raise RuntimeError("Neither wget nor curl is available on this system.")
-
-    def download_and_extract(self, url: str, filename: str) -> str:
-        """Download and extract TIGER shapefile.
-
-        Parameters
-        ----------
-        url : str
-            Download URL
-        filename : str
-            Local filename for caching
-
-        Returns
-        -------
-        str
-            Path to extracted shapefile directory
-        """
-        # import urllib.request
-
-        zip_path = os.path.join(self.cache_dir, filename)
-        extract_dir = os.path.join(self.cache_dir, filename.replace(".zip", ""))
-
-        # Check if already downloaded and extracted
-        if os.path.exists(extract_dir):
-            return extract_dir
-
-        # Download file
-        print(f"Downloading {filename}...")
-        try:
-            response = requests.get(url, stream=True, verify=certifi.where())
-            response.raise_for_status()
-
-            with open(zip_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-        except Exception as e:
-            print(f"Error downloading {filename} with requests: {e}")
-            self.download_with_wget_or_curl(url, zip_path)
-
-        # Extract shapefile
-        print(f"Extracting {filename}...")
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(extract_dir)
-
-        # Clean up zip file
-        os.remove(zip_path)
-
-        return extract_dir
-
-    def get_shapefile_path(self, extract_dir: str) -> str:
-        """Find the shapefile (.shp) in the extracted directory.
-
-        Parameters
-        ----------
-        extract_dir : str
-            Directory containing extracted files
-
-        Returns
-        -------
-        str
-            Path to .shp file
-        """
-        for file in os.listdir(extract_dir):
-            if file.endswith(".shp"):
-                return os.path.join(extract_dir, file)
-        raise FileNotFoundError("No shapefile found in extracted directory")
 
 
 def get_geography(
@@ -176,26 +15,30 @@ def get_geography(
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     keep_geo_vars: bool = False,
     cache_dir: Optional[str] = None,
+    cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Download and load geographic boundary data from TIGER/Line shapefiles.
+    """Download and load geographic boundary data using pygris.
 
     Parameters
     ----------
     geography : str
-        Geography type (e.g., 'county', 'tract', 'block group')
+        Geography type (e.g., 'county', 'tract', 'block group', 'state', 'zcta', 'place')
     year : int, default 2022
         Census year for boundaries
     state : str, int, or list, optional
-        State(s) to filter data for
+        State(s) to filter data for. Can be state name, abbreviation, or FIPS code.
     county : str, int, or list, optional
-        County(ies) to filter data for (requires state)
+        County(ies) to filter data for (requires state). Can be county name or FIPS code.
     keep_geo_vars : bool, default False
         Whether to keep all geographic variables
     cache_dir : str, optional
-        Directory for caching downloaded files
+        Directory for caching downloaded files (currently not used with pygris)
+    cb : bool, default True
+        If True, download generalized cartographic boundary files (1:500k).
+        If False, download detailed TIGER/Line files.
     **kwargs
-        Additional filtering parameters
+        Additional parameters passed to underlying pygris functions
 
     Returns
     -------
@@ -215,138 +58,339 @@ def get_geography(
     ...     year=2022
     ... )
     """
-    downloader = TigerDownloader(cache_dir)
+    # Normalize geography names to match pygris conventions
+    geography_lower = geography.lower()
 
-    # Validate and convert state/county codes
-    state_fips = None
-    county_fips = None
+    # Map pytidycensus geography names to pygris functions
+    if geography_lower == "state":
+        gdf = _get_states(year=year, cb=cb, **kwargs)
+        if state:
+            state_fips_list = validate_state(state)
+            gdf = gdf[gdf["STATEFP"].isin(state_fips_list)]
 
-    if state:
-        state_fips_list = validate_state(state)
-        # For now, handle single state for shapefile downloads
-        state_fips = state_fips_list[0] if len(state_fips_list) == 1 else None
-        if len(state_fips_list) > 1:
-            print("Warning: Multiple states specified, will filter after download")
+    elif geography_lower == "county":
+        # Handle state filtering
+        state_arg = None
+        if state:
+            state_codes = validate_state(state)
+            if len(state_codes) == 1:
+                # pygris can handle single state efficiently
+                state_arg = state_codes[0]
+            # If multiple states, we'll download all and filter below
 
-    if county and state_fips:
-        county_fips_list = validate_county(county, state_fips)
-        county_fips = county_fips_list[0] if len(county_fips_list) == 1 else None
+        gdf = _get_counties(state=state_arg, year=year, cb=cb, **kwargs)
 
-    # Build download URL
-    url = downloader._build_url(
-        year=year, geography=geography, state_fips=state_fips, county_fips=county_fips
-    )
+        # Filter by multiple states if needed
+        if state and len(validate_state(state)) > 1:
+            state_fips_list = validate_state(state)
+            gdf = gdf[gdf["STATEFP"].isin(state_fips_list)]
 
-    # Generate filename for caching
-    filename = os.path.basename(url)
+        # Filter by county if specified
+        if county and state:
+            state_for_county = validate_state(state)[0] if isinstance(state, (str, int)) else validate_state(state[0])[0]
+            county_fips_list = validate_county(county, state_for_county)
+            gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
 
-    # Download and extract
-    extract_dir = downloader.download_and_extract(url, filename)
-    shapefile_path = downloader.get_shapefile_path(extract_dir)
+    elif geography_lower == "tract":
+        if not state:
+            raise ValueError("State must be specified for tract geography")
 
-    # Load shapefile
-    print(f"Loading {geography} boundaries...")
-    gdf = gpd.read_file(shapefile_path)
+        state_codes = validate_state(state)
+        if len(state_codes) > 1:
+            raise ValueError("Only one state can be specified for tract geography")
 
-    # Filter by state if multiple states or state filtering needed
-    if state and "STATEFP" in gdf.columns:
-        state_fips_list = validate_state(state)
-        gdf = gdf[gdf["STATEFP"].isin(state_fips_list)]
+        state_fips = state_codes[0]
+        county_arg = None
 
-    # Filter by county if specified
-    if county and "COUNTYFP" in gdf.columns and state_fips:
-        county_fips_list = validate_county(county, state_fips)
-        gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
+        # Handle county filtering
+        if county:
+            county_codes = validate_county(county, state_fips)
+            if len(county_codes) == 1:
+                county_arg = county_codes[0]
 
-    # Standardize GEOID column
+        gdf = _get_tracts(state=state_fips, county=county_arg, year=year, cb=cb, **kwargs)
+
+        # Filter by multiple counties if needed
+        if county and county_arg is None:
+            county_fips_list = validate_county(county, state_fips)
+            gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
+
+    elif geography_lower == "block group":
+        if not state:
+            raise ValueError("State must be specified for block group geography")
+
+        state_codes = validate_state(state)
+        if len(state_codes) > 1:
+            raise ValueError("Only one state can be specified for block group geography")
+
+        state_fips = state_codes[0]
+        county_arg = None
+
+        # Handle county filtering
+        if county:
+            county_codes = validate_county(county, state_fips)
+            if len(county_codes) == 1:
+                county_arg = county_codes[0]
+
+        gdf = _get_block_groups(state=state_fips, county=county_arg, year=year, cb=cb, **kwargs)
+
+        # Filter by multiple counties if needed
+        if county and county_arg is None:
+            county_fips_list = validate_county(county, state_fips)
+            gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
+
+    elif geography_lower in ["zcta", "zip code tabulation area"]:
+        gdf = _get_zctas(year=year, cb=cb, **kwargs)
+
+    elif geography_lower == "place":
+        if not state:
+            raise ValueError("State must be specified for place geography")
+
+        state_codes = validate_state(state)
+        if len(state_codes) > 1:
+            raise ValueError("Only one state can be specified for place geography")
+
+        state_fips = state_codes[0]
+        gdf = _get_places(state=state_fips, year=year, cb=cb, **kwargs)
+
+    elif geography_lower in [
+        "metropolitan statistical area/micropolitan statistical area",
+        "cbsa",
+        "metro",
+    ]:
+        gdf = _get_cbsas(year=year, cb=cb, **kwargs)
+
+    else:
+        raise ValueError(
+            f"Geography '{geography}' not supported. "
+            f"Supported geographies: state, county, tract, block group, zcta, place, "
+            f"metropolitan statistical area/micropolitan statistical area"
+        )
+
+    # Standardize GEOID column if needed
     if "GEOID" not in gdf.columns:
-        if geography == "state" and "STATEFP" in gdf.columns:
+        if geography_lower == "state" and "STATEFP" in gdf.columns:
             gdf["GEOID"] = gdf["STATEFP"]
-        elif geography == "county" and "STATEFP" in gdf.columns and "COUNTYFP" in gdf.columns:
+        elif geography_lower == "county" and "STATEFP" in gdf.columns and "COUNTYFP" in gdf.columns:
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"]
         elif (
-            geography == "tract"
+            geography_lower == "tract"
             and "STATEFP" in gdf.columns
             and "COUNTYFP" in gdf.columns
             and "TRACTCE" in gdf.columns
         ):
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"]
         elif (
-            geography == "block group"
+            geography_lower == "block group"
             and "STATEFP" in gdf.columns
             and "COUNTYFP" in gdf.columns
             and "TRACTCE" in gdf.columns
             and "BLKGRPCE" in gdf.columns
         ):
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
-        elif (
-            geography == "metropolitan statistical area/micropolitan statistical area"
-            and "CBSAFP" in gdf.columns
-        ):
+        elif geography_lower in [
+            "metropolitan statistical area/micropolitan statistical area",
+            "cbsa",
+            "metro",
+        ] and "CBSAFP" in gdf.columns:
             gdf["GEOID"] = gdf["CBSAFP"]
-        elif geography in ["zcta", "zip code tabulation area"] and "ZCTA5CE20" in gdf.columns:
-            gdf["GEOID"] = gdf["ZCTA5CE20"]
-        elif geography in ["zcta", "zip code tabulation area"] and "ZCTA5CE10" in gdf.columns:
-            gdf["GEOID"] = gdf["ZCTA5CE10"]
+        elif geography_lower in ["zcta", "zip code tabulation area"]:
+            # pygris ZCTA files may use different column names depending on year
+            if "ZCTA5CE20" in gdf.columns:
+                gdf["GEOID"] = gdf["ZCTA5CE20"]
+            elif "ZCTA5CE10" in gdf.columns:
+                gdf["GEOID"] = gdf["ZCTA5CE10"]
+            elif "GEOID20" in gdf.columns:
+                gdf["GEOID"] = gdf["GEOID20"]
+            elif "GEOID10" in gdf.columns:
+                gdf["GEOID"] = gdf["GEOID10"]
 
     # Clean up columns if not keeping all geo vars
     if not keep_geo_vars:
         # Keep essential columns
         essential_cols = ["GEOID", "NAME", "geometry"]
-        if geography == "state":
+        if geography_lower == "state":
             essential_cols.extend(["STATEFP", "STUSPS"])
-        elif geography == "county":
+        elif geography_lower == "county":
             essential_cols.extend(["STATEFP", "COUNTYFP", "NAMELSAD"])
-        elif geography in ["tract", "block group"]:
+        elif geography_lower in ["tract", "block group"]:
             essential_cols.extend(["STATEFP", "COUNTYFP", "TRACTCE"])
-            if geography == "block group":
+            if geography_lower == "block group":
                 essential_cols.append("BLKGRPCE")
-        elif geography == "metropolitan statistical area/micropolitan statistical area":
+        elif geography_lower in [
+            "metropolitan statistical area/micropolitan statistical area",
+            "cbsa",
+            "metro",
+        ]:
             essential_cols.extend(["CBSAFP", "NAMELSAD"])
-        elif geography in ["zcta", "zip code tabulation area"]:
+        elif geography_lower in ["zcta", "zip code tabulation area"]:
             # Keep both 2010 and 2020 ZCTA codes since they may vary by year
-            essential_cols.extend(["ZCTA5CE20", "ZCTA5CE10"])
+            essential_cols.extend(["ZCTA5CE20", "ZCTA5CE10", "GEOID20", "GEOID10"])
 
         # Keep only columns that exist
         cols_to_keep = [col for col in essential_cols if col in gdf.columns]
         gdf = gdf[cols_to_keep]
 
-    # Ensure CRS is set (should be EPSG:4269 - NAD83)
+    # Ensure CRS is set
     if gdf.crs is None:
         gdf = gdf.set_crs("EPSG:4269")
 
     return gdf
 
 
-def get_state_boundaries(year: int = 2022, **kwargs) -> gpd.GeoDataFrame:
-    """Get US state boundaries."""
-    return get_geography("state", year=year, **kwargs)
+def _get_states(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
+    """Get state boundaries using pygris."""
+    return pygris.states(cb=cb, year=year, **kwargs)
+
+
+def _get_counties(
+    state: Optional[str] = None, year: Optional[int] = None, cb: bool = True, **kwargs
+) -> gpd.GeoDataFrame:
+    """Get county boundaries using pygris."""
+    return pygris.counties(state=state, cb=cb, year=year, **kwargs)
+
+
+def _get_tracts(
+    state: str,
+    county: Optional[str] = None,
+    year: Optional[int] = None,
+    cb: bool = True,
+    **kwargs,
+) -> gpd.GeoDataFrame:
+    """Get tract boundaries using pygris."""
+    return pygris.tracts(state=state, county=county, cb=cb, year=year, **kwargs)
+
+
+def _get_block_groups(
+    state: str,
+    county: Optional[str] = None,
+    year: Optional[int] = None,
+    cb: bool = True,
+    **kwargs,
+) -> gpd.GeoDataFrame:
+    """Get block group boundaries using pygris."""
+    return pygris.block_groups(state=state, county=county, cb=cb, year=year, **kwargs)
+
+
+def _get_zctas(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
+    """Get ZCTA boundaries using pygris."""
+    return pygris.zctas(cb=cb, year=year, **kwargs)
+
+
+def _get_places(
+    state: str, year: Optional[int] = None, cb: bool = True, **kwargs
+) -> gpd.GeoDataFrame:
+    """Get place boundaries using pygris."""
+    return pygris.places(state=state, cb=cb, year=year, **kwargs)
+
+
+def _get_cbsas(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
+    """Get CBSA boundaries using pygris."""
+    return pygris.core_based_statistical_areas(cb=cb, year=year, **kwargs)
+
+
+def get_state_boundaries(year: int = 2022, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
+    """Get US state boundaries.
+
+    Parameters
+    ----------
+    year : int, default 2022
+        Census year for boundaries
+    cb : bool, default True
+        If True, download generalized cartographic boundary files
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        State boundaries
+    """
+    return get_geography("state", year=year, cb=cb, **kwargs)
 
 
 def get_county_boundaries(
     state: Optional[Union[str, int, List[Union[str, int]]]] = None,
     year: int = 2022,
+    cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Get US county boundaries, optionally filtered by state."""
-    return get_geography("county", year=year, state=state, **kwargs)
+    """Get US county boundaries, optionally filtered by state.
+
+    Parameters
+    ----------
+    state : str, int, or list, optional
+        State(s) to filter by
+    year : int, default 2022
+        Census year for boundaries
+    cb : bool, default True
+        If True, download generalized cartographic boundary files
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        County boundaries
+    """
+    return get_geography("county", year=year, state=state, cb=cb, **kwargs)
 
 
 def get_tract_boundaries(
     state: Union[str, int],
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     year: int = 2022,
+    cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Get census tract boundaries for a state, optionally filtered by county."""
-    return get_geography("tract", year=year, state=state, county=county, **kwargs)
+    """Get census tract boundaries for a state, optionally filtered by county.
+
+    Parameters
+    ----------
+    state : str or int
+        State to get tracts for
+    county : str, int, or list, optional
+        County(ies) to filter by
+    year : int, default 2022
+        Census year for boundaries
+    cb : bool, default True
+        If True, download generalized cartographic boundary files
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        Tract boundaries
+    """
+    return get_geography("tract", year=year, state=state, county=county, cb=cb, **kwargs)
 
 
 def get_block_group_boundaries(
     state: Union[str, int],
     county: Optional[Union[str, int, List[Union[str, int]]]] = None,
     year: int = 2022,
+    cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Get block group boundaries for a state, optionally filtered by county."""
-    return get_geography("block group", year=year, state=state, county=county, **kwargs)
+    """Get block group boundaries for a state, optionally filtered by county.
+
+    Parameters
+    ----------
+    state : str or int
+        State to get block groups for
+    county : str, int, or list, optional
+        County(ies) to filter by
+    year : int, default 2022
+        Census year for boundaries
+    cb : bool, default True
+        If True, download generalized cartographic boundary files
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        Block group boundaries
+    """
+    return get_geography("block group", year=year, state=state, county=county, cb=cb, **kwargs)
