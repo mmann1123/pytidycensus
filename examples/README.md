@@ -51,6 +51,17 @@ Advanced analysis with Public Use Microdata Sample (PUMS):
 - Using survey weights for proper statistical inference
 - Creating custom estimates from individual-level data
 
+### [09_migration_flows_example.ipynb](09_migration_flows_example.ipynb)
+**Migration flows with pytidycensus**
+
+Analyze population movement between geographic areas:
+- Retrieving county-to-county migration flows with `get_flows()`
+- Working with demographic breakdowns (age, sex, race, income)
+- Understanding tidy vs wide output formats for flows data
+- Mapping migration patterns with geometry integration
+- Error handling and best practices for flows data
+
+
 ## Requirements
 
 To run these notebooks, you'll need:

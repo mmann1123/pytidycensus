@@ -19,6 +19,7 @@ In version 1.0, pytidycensus introduces a conversational interface powered by La
 - **American Community Survey (ACS)**:  1-year and 5-year estimates (2005-2022) using `get_acs()` 
 - **Decennial Census**:  1990, 2000, 2010, and 2020 using `get_decennial()`
 - **Population Estimates Program**:  Annual population estimates and components of change using `get_estimates()`
+- **Migration Flows**:  County-to-county migration data (2010-2018) using `get_flows()`
 
 ## Geographic Levels
 
@@ -36,8 +37,9 @@ pytidycensus supports all major Census geographic levels:
 - **Simple API**: Clean, consistent interface for all Census datasets
 - **Pandas Integration**: Returns familiar pandas DataFrames
 - **Spatial Support**: Optional GeoPandas integration for mapping with TIGER/Line shapefiles
-- **Multiple Datasets**: Support for ACS, Decennial Census, and Population Estimates
+- **Multiple Datasets**: Support for ACS, Decennial Census, Population Estimates, and Migration Flows
 - **Geographic Flexibility**: From national to block group level data
+- **Migration Analysis**: County-to-county population movement patterns with demographic breakdowns
 - **Caching**: Built-in caching for variables and geography data
 - **Comprehensive Testing**: Full test suite with high coverage
 - **LLM Assistant**: Conversational interface for variable discovery and code generation
@@ -199,6 +201,56 @@ time_series = tc.get_estimates(
     vintage=2023
 )
 ```
+
+### Migration Flows
+
+The Migration Flows API provides data on population movement between geographic areas based on American Community Survey (ACS) 5-year estimates.
+
+```python
+# Get county-to-county migration flows for Texas
+tx_flows = tc.get_flows(
+    geography="county",
+    state="TX",
+    year=2018,
+    output="wide"
+)
+
+# Get flows with demographic breakdowns (2006-2015 only)
+ca_flows = tc.get_flows(
+    geography="county",
+    breakdown=["AGE", "SEX"],
+    breakdown_labels=True,
+    state="CA",
+    year=2015,
+    output="tidy"
+)
+
+# MSA-level migration flows
+msa_flows = tc.get_flows(
+    geography="metropolitan statistical area",
+    year=2018
+)
+
+# Flows with geometry for mapping (when TIGER server is available)
+try:
+    flows_geo = tc.get_flows(
+        geography="county",
+        state="FL",
+        year=2018,
+        geometry=True
+    )
+except RuntimeError:
+    # Fallback without geometry if server issues
+    flows_geo = tc.get_flows(
+        geography="county",
+        state="FL",
+        year=2018,
+        geometry=False
+    )
+
+# See examples/09_migration_flows_example.ipynb for comprehensive tutorial
+```
+
 ## LLM Assistant
 For users interested in leveraging Large Language Models (LLMs) to interact with Census data, pytidycensus offers a conversational interface. This feature helps users discover relevant variables, choose appropriate geographic levels, and generate code snippets for data retrieval.
 
