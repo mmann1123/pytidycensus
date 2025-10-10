@@ -7,8 +7,15 @@ and ACS data as pandas DataFrames, and optionally returns GeoPandas GeoDataFrame
 with feature geometry for mapping and spatial analysis.
 """
 
-__version__ = "0.1.0"
-__author__ = "pytidycensus contributors"
+import importlib.metadata
+
+try:
+    __version__ = importlib.metadata.version("pytidycensus")
+except importlib.metadata.PackageNotFoundError:
+    # Package is not installed, fallback to a default version
+    __version__ = "0.0.0.dev"
+
+__author__ = "Michael Mann"
 
 from .acs import get_acs
 from .api import CensusAPI, set_census_api_key

@@ -79,7 +79,7 @@ LLM = [
     "pytest-asyncio>=0.20.0",
 
 ]
- all = [
+all = [
     # Base dependencies
     "pandas>=1.2.0",
     "requests>=2.25.0",
