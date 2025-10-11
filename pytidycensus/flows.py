@@ -14,6 +14,46 @@ from .api import CensusAPI
 from .utils import validate_county, validate_state
 
 
+def identify_geoid_type(geoid: Union[str, int, None]) -> str:
+    """Identify the geographic level of a GEOID based on its length.
+
+    Parameters
+    ----------
+    geoid : str, int, or None
+        A Census GEOID code
+
+    Returns
+    -------
+    str
+        Geographic type: 'county', 'county subdivision', 'state', 'tract', or 'unknown'
+
+    Examples
+    --------
+    >>> identify_geoid_type('12133')
+    'county'
+    >>> identify_geoid_type('3400557510')
+    'county subdivision'
+    >>> identify_geoid_type(None)
+    'unknown'
+    """
+    if geoid is None:
+        return "unknown"
+
+    geoid_str = str(geoid)
+    geoid_len = len(geoid_str)
+
+    if geoid_len == 2:
+        return "state"
+    elif geoid_len == 5:
+        return "county"
+    elif geoid_len == 10:
+        return "county subdivision"
+    elif geoid_len == 11:
+        return "tract"
+    else:
+        return "unknown"
+
+
 def get_flows(
     geography: str,
     variables: Optional[List[str]] = None,
@@ -64,6 +104,16 @@ def get_flows(
     geometry : bool, default False
         If True, include geographic centroids for mapping flows.
         Raises RuntimeError if geometry data cannot be downloaded.
+
+        Centroids are calculated in EPSG:2163 (US National Atlas Equal Area)
+        projection for accuracy and to properly position Alaska and Hawaii,
+        then transformed back to EPSG:4269 (NAD83) for compatibility.
+
+        Note: The Census API may return mixed geographic levels in GEOID2
+        (destination). For example, when requesting county-level flows,
+        GEOID2 may contain both 5-digit county codes and 10-digit county
+        subdivision codes. When geometry=True, centroids for both counties
+        and subdivisions will be automatically retrieved.
     api_key : str, optional
         Census API key. If None, uses CENSUS_API_KEY environment variable.
     moe_level : int, default 90
@@ -76,6 +126,15 @@ def get_flows(
     pandas.DataFrame or geopandas.GeoDataFrame
         Migration flow data. If geometry=True, returns GeoDataFrame with
         origin and destination centroids.
+
+        GEOID columns contain Census geographic identifiers:
+        - GEOID1, GEOID2: Origin and destination GEOIDs
+        - 5-digit codes: County level (e.g., '12133' = Washington County, FL)
+        - 10-digit codes: County subdivision level (e.g., '3400557510' =
+          Pemberton township, Burlington County, NJ)
+        - First 5 digits of subdivision codes represent the parent county
+
+        Use identify_geoid_type() to determine the geographic level of any GEOID.
 
     Examples
     --------
@@ -506,33 +565,101 @@ def _add_flows_geometry(data, geography):
         centroids_dict = {}
 
         if geography == "county":
-            # More efficient approach: download all US counties once and filter
+            # Separate GEOIDs by geography type based on length
+            county_geoids = set()
+            subdivision_geoids = set()
+
+            for geoid in all_geoids:
+                geoid_str = str(geoid)
+                if len(geoid_str) == 5:
+                    county_geoids.add(geoid)
+                elif len(geoid_str) == 10:
+                    subdivision_geoids.add(geoid)
+                # Ignore other formats (e.g., None, international locations)
+
             try:
                 # Get all US counties in one download
-                all_counties = get_geography(
-                    geography="county", year=2022  # Use recent year for boundaries
-                )
+                if county_geoids:
+                    all_counties = get_geography(
+                        geography="county", year=2022  # Use recent year for boundaries
+                    )
 
-                # Calculate centroids for all counties
-                all_counties["centroid"] = all_counties.geometry.centroid
+                    # Reproject to US National Atlas Equal Area (EPSG:2163) for accurate centroids
+                    # This projection is designed for the entire US with AK/HI repositioned
+                    all_counties_proj = all_counties.to_crs(epsg=2163)
 
-                # Create lookup dictionary for all counties we need
-                for _, row in all_counties.iterrows():
-                    if row["GEOID"] in all_geoids:
-                        centroids_dict[row["GEOID"]] = row["centroid"]
+                    # Calculate centroids in projected coordinates
+                    all_counties_proj["centroid"] = all_counties_proj.geometry.centroid
+
+                    # Transform centroids back to original CRS (EPSG:4269)
+                    centroids_gdf = gpd.GeoDataFrame(
+                        all_counties_proj[["GEOID", "centroid"]],
+                        geometry="centroid",
+                        crs="EPSG:2163"
+                    ).to_crs("EPSG:4269")
+
+                    # Create lookup dictionary for all counties we need
+                    for _, row in centroids_gdf.iterrows():
+                        if row["GEOID"] in county_geoids:
+                            centroids_dict[row["GEOID"]] = row["centroid"]
+
+                # Get county subdivisions if present in the data
+                if subdivision_geoids:
+                    # Group subdivisions by state to download efficiently
+                    subdivisions_by_state = {}
+                    for geoid in subdivision_geoids:
+                        state_fips = str(geoid)[:2]
+                        if state_fips not in subdivisions_by_state:
+                            subdivisions_by_state[state_fips] = set()
+                        subdivisions_by_state[state_fips].add(geoid)
+
+                    # Download subdivisions state by state
+                    import pygris
+                    for state_fips, state_geoids in subdivisions_by_state.items():
+                        try:
+                            state_subdivisions = pygris.county_subdivisions(
+                                state=state_fips,
+                                cb=True,  # Use generalized boundaries for speed
+                                year=2022
+                            )
+
+                            # Reproject to US National Atlas Equal Area (EPSG:2163)
+                            state_subdivisions_proj = state_subdivisions.to_crs(epsg=2163)
+
+                            # Calculate centroids in projected coordinates
+                            state_subdivisions_proj["centroid"] = state_subdivisions_proj.geometry.centroid
+
+                            # Transform centroids back to original CRS (EPSG:4269)
+                            subdiv_centroids_gdf = gpd.GeoDataFrame(
+                                state_subdivisions_proj[["GEOID", "centroid"]],
+                                geometry="centroid",
+                                crs="EPSG:2163"
+                            ).to_crs("EPSG:4269")
+
+                            # Add to lookup dictionary
+                            for _, row in subdiv_centroids_gdf.iterrows():
+                                if row["GEOID"] in state_geoids:
+                                    centroids_dict[row["GEOID"]] = row["centroid"]
+                        except Exception as subdiv_error:
+                            warnings.warn(
+                                f"Could not download county subdivisions for state {state_fips}: "
+                                f"{subdiv_error}. Subdivision centroids may be missing."
+                            )
+                            continue
 
                 # Check for any missing GEOIDs
-                missing_geoids = all_geoids - set(centroids_dict.keys())
+                expected_geoids = county_geoids | subdivision_geoids
+                missing_geoids = expected_geoids - set(centroids_dict.keys())
                 if missing_geoids:
-                    raise ValueError(
+                    warnings.warn(
                         f"Could not find centroids for {len(missing_geoids)} GEOIDs: "
                         f"{list(missing_geoids)[:5]}{'...' if len(missing_geoids) > 5 else ''}. "
-                        f"Geography data may be incomplete or unavailable."
+                        f"These flows will not have geometry data."
                     )
 
             except Exception as e:
                 raise RuntimeError(
-                    f"Could not download county geography: {e}. "
+                    f"Could not download geography: {e}. "
                     f"Unable to provide geometry for flows data. "
                     f"Try setting geometry=False or check your internet connection."
                 ) from e

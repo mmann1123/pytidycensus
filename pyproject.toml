@@ -40,6 +40,7 @@ dependencies = [
     "numpy<2",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
+    "pygris>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -79,6 +80,16 @@ LLM = [
     "pytest-asyncio>=0.20.0",
 
 ]
+map = [
+    "folium>=0.20.0",
+    "contextily>=1.6.2",
+    "branca>=0.8.2",
+    "pyarrow>=19.0.0",
+    "lonboard>=0.12.1"
+]
+time = [
+    "tobler>=0.12.1",
+]
 all = [
     # Base dependencies
     "pandas>=1.2.0",
@@ -93,6 +104,7 @@ all = [
     "numpy<2",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
+    "pygris>=0.2.0",
     # Dev dependencies
     "pytest>=6.0",
     "pytest-cov>=2.12",
@@ -124,6 +136,14 @@ all = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
+    # time series dependencies
+    "tobler>=0.12.1",
+    # map dependencies
+    "folium>=0.20.0",
+    "contextily>=1.6.2",
+    "branca>=0.8.2",
+    "pyarrow>=19.0.0",
+    "lonboard>=0.12.1"
 ]
 
 [project.urls]

@@ -51,7 +51,7 @@ Advanced analysis with Public Use Microdata Sample (PUMS):
 - Using survey weights for proper statistical inference
 - Creating custom estimates from individual-level data
 
-### [09_migration_flows_example.ipynb](09_migration_flows_example.ipynb)
+### [08_migration_flows_example.ipynb](08_migration_flows_example.ipynb)
 **Migration flows with pytidycensus**
 
 Analyze population movement between geographic areas:
@@ -60,6 +60,18 @@ Analyze population movement between geographic areas:
 - Understanding tidy vs wide output formats for flows data
 - Mapping migration patterns with geometry integration
 - Error handling and best practices for flows data
+
+### [09_flow_brushmap_api.ipynb](09_flow_brushmap_api.ipynb) ⭐ **NEW**
+**Interactive migration flow visualization**
+
+Create stunning interactive migration flow maps with the new mapping API:
+- Simple one-line API: `quick_flow_map(state="TX", year=2018)`
+- Interactive BrushingExtension for exploring local migration patterns
+- Customizable colors, sizes, and interaction settings
+- GPU-accelerated rendering with lonboard and GeoArrow
+- Perfect for presentations and interactive analysis
+
+**Installation**: `pip install pytidycensus[map]`
 
 
 ## Requirements
