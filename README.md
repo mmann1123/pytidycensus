@@ -135,14 +135,14 @@ plt.show()
 ```python
 # Get multiple demographic variables
 demo_vars = {
-    "B01003_001": "Total Population",
-    "B19013_001": "Median Household Income", 
-    "B25077_001": "Median Home Value"
+    "Total_Population": "B01003_001",
+    "Median_Household_Income": "B19013_001", 
+    "Median_Home_Value": "B25077_001"
 }
 
 ca_demo = tc.get_acs(
     geography="county",
-    variables=list(demo_vars.keys()),
+    variables=demo_vars,
     state="CA",
     year=2022,
     output="wide"
