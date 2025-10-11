@@ -80,6 +80,11 @@ LLM = [
     "pytest-asyncio>=0.20.0",
 
 ]
+map = [
+    "folium>=0.20.0",
+    "contextily>=1.6.2",
+    "branca>=0.8.2",
+]
 all = [
     # Base dependencies
     "pandas>=1.2.0",
@@ -126,6 +131,10 @@ all = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
+    # map dependencies
+    "folium>=0.20.0",
+    "contextily>=1.6.2",
+    "branca>=0.8.2",
 ]
 
 [project.urls]
