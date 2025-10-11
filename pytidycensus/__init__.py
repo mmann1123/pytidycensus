@@ -26,6 +26,16 @@ from .geography import get_geography
 from .utils import get_credentials
 from .variables import get_table_variables, load_variables, search_variables
 
+# Import mapping module (optional dependency)
+try:
+    from .mapping import flow_brushmap, quick_flow_map
+
+    _MAPPING_AVAILABLE = True
+except ImportError:
+    _MAPPING_AVAILABLE = False
+    flow_brushmap = None
+    quick_flow_map = None
+
 __all__ = [
     "CensusAPI",
     "set_census_api_key",
@@ -39,4 +49,6 @@ __all__ = [
     "search_variables",
     "get_table_variables",
     "get_credentials",
+    "flow_brushmap",
+    "quick_flow_map",
 ]

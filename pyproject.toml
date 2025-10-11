@@ -84,6 +84,8 @@ map = [
     "folium>=0.20.0",
     "contextily>=1.6.2",
     "branca>=0.8.2",
+    "pyarrow>=19.0.0",
+    "lonboard>=0.12.1"
 ]
 all = [
     # Base dependencies
@@ -135,6 +137,8 @@ all = [
     "folium>=0.20.0",
     "contextily>=1.6.2",
     "branca>=0.8.2",
+    "pyarrow>=19.0.0",
+    "lonboard>=0.12.1"
 ]
 
 [project.urls]
