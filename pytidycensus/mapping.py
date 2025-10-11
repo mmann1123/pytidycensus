@@ -3,6 +3,12 @@ Interactive mapping functions for pytidycensus data.
 
 This module provides functions to create interactive maps from Census data,
 particularly for visualizing migration flows with lonboard's BrushingExtension.
+
+See the complete tutorial at:
+https://mmann1123.github.io/pytidycensus/examples/09_flow_brushmap_api.html
+
+For the Jupyter notebook example:
+https://github.com/mmann1123/pytidycensus/blob/main/examples/09_flow_brushmap_api.ipynb
 """
 
 from typing import Optional, Union, Literal, Tuple

@@ -87,6 +87,9 @@ map = [
     "pyarrow>=19.0.0",
     "lonboard>=0.12.1"
 ]
+time = [
+    "tobler>=0.12.1",
+]
 all = [
     # Base dependencies
     "pandas>=1.2.0",
@@ -133,6 +136,8 @@ all = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
     "asyncio>=4.0.0",
+    # time series dependencies
+    "tobler>=0.12.1",
     # map dependencies
     "folium>=0.20.0",
     "contextily>=1.6.2",
