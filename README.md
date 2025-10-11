@@ -57,6 +57,9 @@ pip install pytidycensus
 To install with optional dependencies:
 
 ```bash
+# For mapping functionality 
+pip install purify census[map]
+
 # For LLM assistant
 pip install pytidycensus[LLM]
 
