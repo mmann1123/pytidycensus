@@ -1,11 +1,76 @@
 """Geographic boundary data retrieval and processing using pygris."""
 
+import warnings
 from typing import List, Optional, Union
 
 import geopandas as gpd
 import pygris
 
 from .utils import validate_county, validate_state
+
+
+def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = None, **kwargs):
+    """
+    Call a pygris function with automatic fallback from cb=True to cb=False.
+
+    This handles the issue where Census Bureau's GENZ2020 cartographic boundary files
+    are protected by Cloudflare and return HTML instead of shapefiles. If a download
+    fails with cb=True, we automatically retry with cb=False (detailed TIGER/Line files).
+
+    Parameters
+    ----------
+    pygris_func : callable
+        The pygris function to call (e.g., pygris.states)
+    cb : bool, default True
+        Whether to use cartographic boundary files
+    year : int, optional
+        Year for the data
+    **kwargs
+        Additional arguments to pass to the pygris function
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        Geographic boundary data
+
+    Raises
+    ------
+    Exception
+        If both cb=True and cb=False attempts fail
+    """
+    try:
+        # Try with the requested cb setting
+        return pygris_func(cb=cb, year=year, **kwargs)
+    except Exception as e:
+        # Check if this looks like the GENZ2020 HTML download issue
+        error_msg = str(e).lower()
+        is_html_error = (
+            'does not exist in the file system' in error_msg or
+            'not recognized as a supported dataset name' in error_msg or
+            'vsizip' in error_msg
+        )
+
+        # If cb=True failed with a file system error, try cb=False as fallback
+        if cb and is_html_error:
+            warnings.warn(
+                f"Failed to download cartographic boundary files (cb=True) for year {year}. "
+                f"This is a known issue with Census Bureau's 2020 GENZ files. "
+                f"Automatically retrying with detailed TIGER/Line files (cb=False). "
+                f"Original error: {str(e)[:100]}",
+                UserWarning
+            )
+            try:
+                return pygris_func(cb=False, year=year, **kwargs)
+            except Exception as fallback_error:
+                # Both attempts failed - raise an informative error
+                raise Exception(
+                    f"Failed to download geography data with both cb=True and cb=False. "
+                    f"cb=True error: {str(e)[:100]}... "
+                    f"cb=False error: {str(fallback_error)[:100]}..."
+                )
+        else:
+            # Not the HTML error, or cb was already False - just re-raise
+            raise
 
 
 def get_geography(
@@ -37,6 +102,9 @@ def get_geography(
     cb : bool, default True
         If True, download generalized cartographic boundary files (1:500k).
         If False, download detailed TIGER/Line files.
+        Note: For 2020 state-level data, cartographic boundaries may fail due to
+        Census Bureau access restrictions. The function will automatically fall back
+        to detailed TIGER/Line files (cb=False) if this occurs.
     **kwargs
         Additional parameters passed to underlying pygris functions
 
@@ -44,6 +112,13 @@ def get_geography(
     -------
     geopandas.GeoDataFrame
         Geographic boundary data
+
+    Notes
+    -----
+    Automatic Fallback: If downloading cartographic boundary files (cb=True) fails
+    with file system errors (common for 2020 state-level GENZ files), the function
+    will automatically retry with detailed TIGER/Line files (cb=False) and issue
+    a warning. This ensures robust data retrieval without requiring manual intervention.
 
     Examples
     --------
@@ -57,6 +132,9 @@ def get_geography(
     ...     county="201",
     ...     year=2022
     ... )
+    >>>
+    >>> # Get 2020 state boundaries (will auto-fallback if needed)
+    >>> states_2020 = get_geography("state", year=2020)
     """
     # Normalize geography names to match pygris conventions
     geography_lower = geography.lower()
@@ -239,15 +317,20 @@ def get_geography(
 
 
 def _get_states(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
-    """Get state boundaries using pygris."""
-    return pygris.states(cb=cb, year=year, **kwargs)
+    """Get state boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(pygris.states, cb=cb, year=year, **kwargs)
 
 
 def _get_counties(
     state: Optional[str] = None, year: Optional[int] = None, cb: bool = True, **kwargs
 ) -> gpd.GeoDataFrame:
-    """Get county boundaries using pygris."""
-    return pygris.counties(state=state, cb=cb, year=year, **kwargs)
+    """Get county boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(
+        lambda cb, year, **kw: pygris.counties(state=state, cb=cb, year=year, **kw),
+        cb=cb,
+        year=year,
+        **kwargs
+    )
 
 
 def _get_tracts(
@@ -257,8 +340,13 @@ def _get_tracts(
     cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Get tract boundaries using pygris."""
-    return pygris.tracts(state=state, county=county, cb=cb, year=year, **kwargs)
+    """Get tract boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(
+        lambda cb, year, **kw: pygris.tracts(state=state, county=county, cb=cb, year=year, **kw),
+        cb=cb,
+        year=year,
+        **kwargs
+    )
 
 
 def _get_block_groups(
@@ -268,25 +356,35 @@ def _get_block_groups(
     cb: bool = True,
     **kwargs,
 ) -> gpd.GeoDataFrame:
-    """Get block group boundaries using pygris."""
-    return pygris.block_groups(state=state, county=county, cb=cb, year=year, **kwargs)
+    """Get block group boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(
+        lambda cb, year, **kw: pygris.block_groups(state=state, county=county, cb=cb, year=year, **kw),
+        cb=cb,
+        year=year,
+        **kwargs
+    )
 
 
 def _get_zctas(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
-    """Get ZCTA boundaries using pygris."""
-    return pygris.zctas(cb=cb, year=year, **kwargs)
+    """Get ZCTA boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(pygris.zctas, cb=cb, year=year, **kwargs)
 
 
 def _get_places(
     state: str, year: Optional[int] = None, cb: bool = True, **kwargs
 ) -> gpd.GeoDataFrame:
-    """Get place boundaries using pygris."""
-    return pygris.places(state=state, cb=cb, year=year, **kwargs)
+    """Get place boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(
+        lambda cb, year, **kw: pygris.places(state=state, cb=cb, year=year, **kw),
+        cb=cb,
+        year=year,
+        **kwargs
+    )
 
 
 def _get_cbsas(year: Optional[int] = None, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
-    """Get CBSA boundaries using pygris."""
-    return pygris.core_based_statistical_areas(cb=cb, year=year, **kwargs)
+    """Get CBSA boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(pygris.core_based_statistical_areas, cb=cb, year=year, **kwargs)
 
 
 def get_state_boundaries(year: int = 2022, cb: bool = True, **kwargs) -> gpd.GeoDataFrame:
