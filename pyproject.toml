@@ -156,8 +156,11 @@ Repository = "https://github.com/mmann1123/pytidycensus"
 where = ["."]
 include = ["pytidycensus*"]
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.package-data]
-pytidycensus = ["data/*.txt"]
+pytidycensus = ["data/*.txt", "data/*.csv"]
 
 [tool.black]
 line-length = 100
