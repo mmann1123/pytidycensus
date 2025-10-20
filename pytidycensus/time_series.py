@@ -180,6 +180,8 @@ def get_time_series(
 
         # Determine variable classification
         data_columns = _get_data_columns(source_data)
+        dropped_vars = set(source_data.columns) - set(data_columns)
+
         ext_vars, int_vars = _classify_variables(
             data_columns, extensive_variables, intensive_variables
         )
@@ -197,6 +199,11 @@ def get_time_series(
 
             # Validate interpolation
             _validate_interpolation(source_data, interpolated, ext_vars)
+
+            # add back any dropped non-data columns
+            for col in dropped_vars:
+                if col in source_data.columns:
+                    interpolated_data[year][col] = source_data[col]
 
         except Exception as e:
             warnings.warn(
@@ -431,21 +438,17 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
             if "GEOID" in df.columns and "GEOID" in result.columns:
                 geo_cols.append("GEOID")
             else:
-                # Fallback: try to find an ID column
-                id_candidates = [col for col in df.columns if col.upper().endswith("ID")]
-                if id_candidates and id_candidates[0] in result.columns:
-                    geo_cols.append(id_candidates[0])
-                else:
-                    # Last resort: use index if available
-                    print(
-                        f"Warning: No suitable ID column found for merging. Available columns: {list(df.columns)}"
-                    )
-                    continue
 
-            # Add other geographic columns if they exist in both DataFrames
-            for col in ["NAME", "state", "county", "geometry"]:
-                if col in df.columns and col in result.columns:
-                    geo_cols.append(col)
+                # Add other geographic columns if they exist in both DataFrames
+                for col in ["NAME", "state", "county"]:
+                    if col in df.columns and col in result.columns:
+                        geo_cols.append(col)
+
+                else:
+                    # Fallback: try to find an ID column
+                    id_candidates = [col for col in df.columns if col.upper().endswith("ID")]
+                    if id_candidates and id_candidates[0] in result.columns:
+                        geo_cols.append(id_candidates[0])
 
             if geo_cols:
                 result = result.merge(df, on=geo_cols, how="outer")
