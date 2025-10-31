@@ -1,7 +1,7 @@
 """Utility functions for data processing and validation."""
 
-import importlib.resources
 import os
+import sys
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Union
 
@@ -9,6 +9,12 @@ import pandas as pd
 import us
 import yaml
 from geopandas import GeoDataFrame
+
+# Handle importlib.resources compatibility
+if sys.version_info >= (3, 9):
+    from importlib.resources import files
+else:
+    from importlib_resources import files
 
 
 def get_credentials():
@@ -265,7 +271,9 @@ def validate_county(county: Union[str, int, List[Union[str, int]]], state_fips: 
 def _load_national_county_txt():
     lookup = {}
     try:
-        with importlib.resources.open_text("pytidycensus.data", "national_county.txt") as f:
+        data_files = files("pytidycensus.data")
+        county_file = data_files / "national_county.txt"
+        with county_file.open("r", encoding="utf-8") as f:
             for line in f:
                 parts = line.strip().split(",")
                 if len(parts) < 4:

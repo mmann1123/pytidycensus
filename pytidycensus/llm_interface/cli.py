@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import os
 import sys
+import time
 
 from .assistant import CensusAssistant
 
@@ -116,7 +117,7 @@ async def main():
                     continue
                 elif user_input.lower() == "export":
                     exported = assistant.export_conversation()
-                    filename = f"census_conversation_{int(asyncio.get_event_loop().time())}.json"
+                    filename = f"census_conversation_{int(time.time())}.json"
                     with open(filename, "w") as f:
                         f.write(exported)
                     print(f"💾 Conversation exported to {filename}")

@@ -45,6 +45,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
     "pygris>=0.2.0",
+    "importlib_resources>=5.0.0; python_version < '3.9'",
 ]
 
 [project.optional-dependencies]
@@ -80,7 +81,6 @@ docs = [
 LLM = [
     "openai>=1.0.0",
     "ollama>=0.6.0",
-    "asyncio>=4.0.0",
     "pytest-asyncio>=0.20.0",
 
 ]
@@ -141,7 +141,6 @@ all = [
     # LLM dependencies
     "openai>=1.0.0",
     "ollama>=0.6.0",
-    "asyncio>=4.0.0",
     # time series dependencies
     "tobler>=0.12.1",
     # map dependencies
