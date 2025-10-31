@@ -68,3 +68,6 @@ examples/credentials.yaml
 docs/__build/
 docs/_build/
 examples/test.ipynb
+test_fix.py
+debug_merge.py
+remove_emojis.py

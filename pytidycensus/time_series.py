@@ -12,6 +12,7 @@ import pandas as pd
 
 from .acs import get_acs
 from .decennial import get_decennial
+from .utils import check_overlapping_acs_periods
 
 # Optional dependency for area interpolation
 try:
@@ -136,6 +137,10 @@ def get_time_series(
     if base_year not in years:
         raise ValueError(f"Base year {base_year} must be included in years list")
 
+    # Check for overlapping ACS periods
+    if dataset in ["acs1", "acs3", "acs5"]:
+        check_overlapping_acs_periods(years, dataset)
+
     # Check if area interpolation is available and needed
     needs_interpolation = _needs_area_interpolation(geography, years)
     if needs_interpolation and not TOBLER_AVAILABLE:
@@ -195,15 +200,23 @@ def get_time_series(
             )
 
             # Convert back to geographic CRS
-            interpolated_data[year] = interpolated.to_crs(crs)
+            interpolated = interpolated.to_crs(crs)
+
+            # Ensure GEOID and geometry come from target (base year), not source
+            # area_interpolate returns data with target's geometry but may not have GEOID
+            if "GEOID" in base_data_proj.columns:
+                interpolated["GEOID"] = base_data_proj["GEOID"].values
+
+            interpolated_data[year] = interpolated
 
             # Validate interpolation
             _validate_interpolation(source_data, interpolated, ext_vars)
 
-            # add back any dropped non-data columns
+            # add back any dropped non-data columns from base_data (not source_data)
+            # These should come from the target year boundaries, not the source
             for col in dropped_vars:
-                if col in source_data.columns:
-                    interpolated_data[year][col] = source_data[col]
+                if col in base_data_proj.columns and col not in interpolated.columns:
+                    interpolated_data[year][col] = base_data_proj[col].values
 
         except Exception as e:
             warnings.warn(
@@ -294,7 +307,12 @@ def _get_data_columns(df: pd.DataFrame) -> List[str]:
         "summary_moe",
     }
 
-    return [col for col in df.columns if col not in exclude_cols]
+    # Also exclude MOE columns (ending with _moe or _m)
+    return [
+        col
+        for col in df.columns
+        if col not in exclude_cols and not str(col).endswith("_moe") and not str(col).endswith("_m")
+    ]
 
 
 def _classify_variables(
@@ -421,41 +439,90 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
     else:
         # Wide format with multi-index columns (year, variable)
         wide_dfs = []
+        base_geo_cols = None
+        geometry_col = None
+
         for year, df in yearly_data.items():
-            # Add year to column names
+            # Identify geographic/metadata columns to preserve
+            geo_metadata_cols = [
+                "GEOID",
+                "NAME",
+                "state",
+                "county",
+                "tract",
+                "block group",
+                "geometry",
+            ]
+
+            # Keep track of base geography columns from first year
+            if base_geo_cols is None:
+                base_geo_cols = [col for col in geo_metadata_cols if col in df.columns]
+                if "geometry" in df.columns:
+                    geometry_col = df["geometry"].copy()
+
+            # Get data columns (exclude geographic/metadata columns)
             data_cols = _get_data_columns(df)
+
+            # Create renamed dataframe with only data columns + GEOID for merging
             rename_dict = {col: (year, col) for col in data_cols}
-            df_renamed = df.rename(columns=rename_dict)
+
+            # Start with GEOID for merging
+            if "GEOID" in df.columns:
+                df_renamed = df[["GEOID"]].copy()
+            else:
+                # Fallback to other ID columns
+                id_candidates = [col for col in df.columns if col.upper().endswith("ID")]
+                if id_candidates:
+                    df_renamed = df[[id_candidates[0]]].copy()
+                else:
+                    raise ValueError("No suitable ID column found for merging")
+
+            # Add renamed data columns
+            for old_col, new_col in rename_dict.items():
+                df_renamed[new_col] = df[old_col]
+
             wide_dfs.append(df_renamed)
 
-        # Merge all years on geographic identifiers
+        # Merge all years on GEOID (or other ID column)
         result = wide_dfs[0]
+        merge_key = "GEOID" if "GEOID" in result.columns else result.columns[0]
+
         for df in wide_dfs[1:]:
-            # Get geographic columns for merging - check what's actually available
-            geo_cols = []
+            result = result.merge(df, on=merge_key, how="outer", suffixes=("", "_dup"))
 
-            # Check for GEOID first
-            if "GEOID" in df.columns and "GEOID" in result.columns:
-                geo_cols.append("GEOID")
-            else:
+            # Remove any duplicate columns that were created
+            dup_cols = [col for col in result.columns if str(col).endswith("_dup")]
+            if dup_cols:
+                result = result.drop(columns=dup_cols)
 
-                # Add other geographic columns if they exist in both DataFrames
-                for col in ["NAME", "state", "county"]:
-                    if col in df.columns and col in result.columns:
-                        geo_cols.append(col)
+        # Add back the base geographic/metadata columns from first year
+        if base_geo_cols:
+            first_year_data = yearly_data[min(yearly_data.keys())]
 
-                else:
-                    # Fallback: try to find an ID column
-                    id_candidates = [col for col in df.columns if col.upper().endswith("ID")]
-                    if id_candidates and id_candidates[0] in result.columns:
-                        geo_cols.append(id_candidates[0])
+            # Get columns to add back (excluding those already present)
+            cols_to_add = [
+                col
+                for col in base_geo_cols
+                if col not in result.columns and col in first_year_data.columns and col != merge_key
+            ]
 
-            if geo_cols:
-                result = result.merge(df, on=geo_cols, how="outer")
-            else:
-                print(
-                    f"Warning: Could not merge year {list(yearly_data.keys())[wide_dfs.index(df)]} - no common geographic columns"
-                )
+            if cols_to_add:
+                # Create a temporary dataframe with just the merge key and columns to add
+                temp_df = first_year_data[[merge_key] + cols_to_add].copy()
+
+                # Only merge if we have valid merge keys in both dataframes
+                if merge_key in result.columns and merge_key in temp_df.columns:
+                    # Verify merge key is not duplicated
+                    if (
+                        not result[merge_key].duplicated().any()
+                        and not temp_df[merge_key].duplicated().any()
+                    ):
+                        result = result.merge(temp_df, on=merge_key, how="left")
+                    else:
+                        warnings.warn(
+                            f"Skipping merge to add geographic columns due to duplicate {merge_key} values",
+                            UserWarning,
+                        )
 
         # Create proper multi-index for data columns
         data_columns = [col for col in result.columns if isinstance(col, tuple)]
@@ -465,6 +532,12 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
                 [col if isinstance(col, tuple) else ("", col) for col in result.columns],
                 names=["year", "variable"],
             )
+
+        # Convert to GeoDataFrame if geometry is available
+        if geometry_col is not None and gpd is not None:
+            # Make sure geometry aligns with result
+            result[("", "geometry")] = geometry_col
+            result = gpd.GeoDataFrame(result, geometry=("", "geometry"))
 
         return result
 
