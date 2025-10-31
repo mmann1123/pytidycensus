@@ -7,17 +7,35 @@ and ACS data as pandas DataFrames, and optionally returns GeoPandas GeoDataFrame
 with feature geometry for mapping and spatial analysis.
 """
 
-__version__ = "0.1.0"
-__author__ = "pytidycensus contributors"
+import importlib.metadata
+
+try:
+    __version__ = importlib.metadata.version("pytidycensus")
+except importlib.metadata.PackageNotFoundError:
+    # Package is not installed, fallback to a default version
+    __version__ = "0.0.0.dev"
+
+__author__ = "Michael Mann"
 
 from .acs import get_acs
 from .api import CensusAPI, set_census_api_key
 from .decennial import get_decennial
 from .estimates import get_estimates
+from .flows import get_flows, identify_geoid_type
 from .geography import get_geography
 from .time_series import compare_time_periods, get_time_series
 from .utils import get_credentials
 from .variables import get_table_variables, load_variables, search_variables
+
+# Import mapping module (optional dependency)
+try:
+    from .mapping import flow_brushmap, quick_flow_map
+
+    _MAPPING_AVAILABLE = True
+except ImportError:
+    _MAPPING_AVAILABLE = False
+    flow_brushmap = None
+    quick_flow_map = None
 
 __all__ = [
     "CensusAPI",
@@ -25,6 +43,8 @@ __all__ = [
     "get_acs",
     "get_decennial",
     "get_estimates",
+    "get_flows",
+    "identify_geoid_type",
     "get_geography",
     "get_time_series",
     "compare_time_periods",
@@ -32,4 +52,6 @@ __all__ = [
     "search_variables",
     "get_table_variables",
     "get_credentials",
+    "flow_brushmap",
+    "quick_flow_map",
 ]

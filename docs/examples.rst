@@ -31,6 +31,22 @@ Learn the fundamentals of accessing Census data with pytidycensus:
 * Working with different geographic levels
 * Searching for variables
 
+Time Series Data
+----------------
+.. toctree::
+   :maxdepth: 1
+
+   examples/06_simple_time_series_tutorial
+   examples/07_advanced_time_series_tutorial
+
+Analyze trends over time with ACS data:
+* Fetching multi-year ACS data
+* Visualizing changes in demographics
+* Handling variable availability across years
+* Creating time series plots with matplotlib and seaborn
+
+
+
 Spatial Data and Mapping
 -------------------------
 
@@ -38,6 +54,8 @@ Spatial Data and Mapping
    :maxdepth: 1
 
    examples/02_spatial_data
+   examples/08_migration_flows_example
+   examples/09_flow_brushmap_api
 
 Explore mapping and spatial analysis capabilities:
 
@@ -46,6 +64,7 @@ Explore mapping and spatial analysis capabilities:
 * Faceted mapping for multiple variables
 * Working with coordinate reference systems
 * Spatial data visualization best practices
+* **Interactive migration flow visualization with BrushingExtension** (09_flow_brushmap_api)
 
 Time Series Analysis and Area Interpolation
 -------------------------------------------
@@ -88,9 +107,11 @@ Other Census Datasets
 Accessing additional Census datasets:
 
 * Population Estimates Program data with ``get_estimates()``
-* Migration flows analysis
+* Migration flows data with ``get_flows()``
 * Components of population change
 * Housing estimates and characteristics
+
+For interactive migration flow visualization, see the **Flow Brushmap API** example in the Spatial Data and Mapping section above.
 
 Census Microdata
 -----------------

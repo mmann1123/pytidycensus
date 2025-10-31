@@ -89,7 +89,7 @@ class TestAPIEndpointFixes:
             mock_load.return_value = mock_df
 
             result = search_variables(
-                pattern="total", year=2010, dataset="decennial"  # User-friendly name
+                pattern="total", year=2010, dataset="decennial", field="label"  # User-friendly name
             )
 
             # Verify load_variables was called with normalized parameters
@@ -170,10 +170,10 @@ class TestAPIEndpointFixes:
         # Test that the real endpoints work
         try:
             # Test user-friendly search
-            result_2010 = search_variables("total", 2010, "decennial")
+            result_2010 = search_variables("total", 2010, "decennial", field="label")
             assert len(result_2010) > 0, "Should find 2010 variables"
 
-            result_2020 = search_variables("total", 2020, "decennial")
+            result_2020 = search_variables("total", 2020, "decennial", field="label")
             assert len(result_2020) > 0, "Should find 2020 variables"
 
             # Verify key variables exist

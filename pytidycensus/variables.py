@@ -38,7 +38,7 @@ def _get_default_survey(year: int, dataset: str) -> Optional[str]:
 
 def load_variables(
     year: int,
-    dataset: str,
+    dataset: Optional[str] = None,
     survey: Optional[str] = None,
     cache: bool = True,
     cache_dir: Optional[str] = None,
@@ -49,10 +49,11 @@ def load_variables(
     ----------
     year : int
         Census year
-    dataset : str
-        Dataset name ('acs', 'dec', 'pep', etc.)
+    dataset : str, optional
+        Dataset name ('acs', 'dec', 'pep', etc.). Provide either `dataset` or `survey`.
     survey : str, optional
-        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl')
+        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl'). If provided, the dataset will be
+        inferred from the survey. Provide either `dataset` or `survey`, not both.
     cache : bool, default True
         Whether to cache variables for faster future access
     cache_dir : str, optional
@@ -74,6 +75,7 @@ def load_variables(
     >>> # Load decennial census variables for 2020
     >>> dec_vars = load_variables(2020, "dec", "pl")
     """
+
     if cache_dir is None:
         cache_dir = appdirs.user_cache_dir("pytidycensus", "variables")
 
@@ -191,7 +193,7 @@ def search_variables(
     year: int,
     dataset: str,
     survey: Optional[str] = None,
-    field: str = "label",
+    field: str = "concept",
 ) -> pd.DataFrame:
     """Search for variables by pattern in labels, concepts, or names.
 
@@ -201,10 +203,11 @@ def search_variables(
         Search pattern (case-insensitive)
     year : int
         Census year
-    dataset : str
-        Dataset name
+    dataset : str, optional
+        Dataset name ('acs', 'dec', 'pep', etc.). Provide either `dataset` or `survey`.
     survey : str, optional
-        Survey type
+        Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl'). If provided, the dataset will be
+        inferred from the survey. Provide either `dataset` or `survey`, not both.
     field : str, default "label"
         Field to search in ('label', 'concept', 'name', or 'all')
 
