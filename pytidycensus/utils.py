@@ -35,7 +35,7 @@ def load_county_lookup() -> pd.DataFrame:
     pd.DataFrame
         DataFrame with columns: state_abbrev, state_fips, county_fips, county_name
     """
-    # Use the compatibility shim defined at the top of the file
+    # Use the files() API with Python version compatibility for importlib.resources
     try:
         data_path = files("pytidycensus.data") / "national_county.txt"
         with data_path.open() as f:
