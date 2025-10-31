@@ -450,6 +450,81 @@ def validate_year(year: int, dataset: str) -> int:
     return year
 
 
+def check_overlapping_acs_periods(years: List[int], survey: str) -> None:
+    """Check for and warn about overlapping ACS periods.
+
+    Overlapping ACS periods (e.g., 2018 and 2019 for ACS5) share common years
+    and should not be used for statistical comparisons or trend analysis.
+
+    Parameters
+    ----------
+    years : list of int
+        Years being requested
+    survey : str
+        Survey type ('acs1', 'acs3', or 'acs5')
+
+    Warnings
+    --------
+    UserWarning
+        If overlapping periods are detected
+    """
+    import warnings
+
+    if len(years) < 2:
+        return
+
+    # Determine the survey window
+    if survey == "acs5":
+        window = 5
+    elif survey == "acs3":
+        window = 3
+    elif survey == "acs1":
+        return  # 1-year estimates don't overlap
+    else:
+        return
+
+    # Check for overlapping periods
+    sorted_years = sorted(years)
+    overlapping_pairs = []
+
+    for i in range(len(sorted_years) - 1):
+        year1 = sorted_years[i]
+        year2 = sorted_years[i + 1]
+
+        # Years overlap if they're within the survey window
+        if year2 - year1 < window:
+            overlapping_pairs.append((year1, year2))
+
+    if overlapping_pairs:
+        overlap_str = ", ".join([f"{y1}-{y2}" for y1, y2 in overlapping_pairs])
+
+        warnings.warn(
+            f"\n{'='*70}\n"
+            f"WARNING: Overlapping ACS {window}-year periods detected\n"
+            f"{'='*70}\n\n"
+            f"Overlapping year pairs: {overlap_str}\n\n"
+            f"For ACS {window}-year estimates:\n"
+            f"  - Each year represents {window} years of data\n"
+            f"  - Example: {sorted_years[0]} ACS{window} = {sorted_years[0]-window+1}-{sorted_years[0]} data\n\n"
+            f"IMPORTANT: Overlapping periods share common years of data and should\n"
+            f"NOT be used for:\n"
+            f"  - Statistical hypothesis testing\n"
+            f"  - Formal trend analysis\n"
+            f"  - Comparing changes over time with statistical inference\n\n"
+            f"WHY: The shared years create statistical dependence between periods,\n"
+            f"violating independence assumptions required for valid comparisons.\n\n"
+            f"RECOMMENDATIONS:\n"
+            f"  1. Use non-overlapping years (e.g., {sorted_years[0]}, {sorted_years[0]+window}, {sorted_years[0]+window*2})\n"
+            f"  2. Use ACS 1-year estimates if available for your geography\n"
+            f"  3. Only use overlapping periods for descriptive purposes\n\n"
+            f"For more information, see:\n"
+            f"https://www.census.gov/programs-surveys/acs/guidance/comparing-acs-data.html\n"
+            f"{'='*70}\n",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def validate_geography(geography: str, dataset: str = None) -> str:
     """Validate geography parameter.
 

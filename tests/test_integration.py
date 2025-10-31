@@ -1174,6 +1174,7 @@ class TestGeographyLevelsIntegration:
                     geography=geography,
                     variables="B01003_001",  # Total population
                     year=2022,
+                    output="tidy",
                     **params,
                 )
 
@@ -1237,6 +1238,7 @@ class TestGeographyLevelsIntegration:
                     geography=geography,
                     variables="P1_001N",  # Total population
                     year=year,
+                    output="tidy",
                     **params,
                 )
 
