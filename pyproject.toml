@@ -30,7 +30,8 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "pandas>=1.2.0",
+    "pandas>=1.2.0; python_version < '3.13'",
+    "pandas>=2.0.0; python_version >= '3.13'",
     "requests>=2.25.0",
     "geopandas>=0.10.0",
     "shapely>=1.8.0",
@@ -39,7 +40,8 @@ dependencies = [
     "tqdm>=4.60.0",
     "appdirs>=1.4.0",
     "certifi>=2025.8.3",
-    "numpy<2",
+    "numpy>=1.21.0; python_version < '3.13'",
+    "numpy>=2.0.0; python_version >= '3.13'",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
     "pygris>=0.2.0",
@@ -94,7 +96,8 @@ time = [
 ]
 all = [
     # Base dependencies
-    "pandas>=1.2.0",
+    "pandas>=1.2.0; python_version < '3.13'",
+    "pandas>=2.0.0; python_version >= '3.13'",
     "requests>=2.25.0",
     "geopandas>=0.10.0",
     "shapely>=1.8.0",
@@ -103,7 +106,8 @@ all = [
     "tqdm>=4.60.0",
     "appdirs>=1.4.0",
     "certifi>=2025.8.3",
-    "numpy<2",
+    "numpy>=1.21.0; python_version < '3.13'",
+    "numpy>=2.0.0; python_version >= '3.13'",
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
     "pygris>=0.2.0",
