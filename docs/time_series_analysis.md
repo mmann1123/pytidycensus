@@ -18,6 +18,7 @@ This guide provides a quick introduction to analyzing demographic changes over t
 
 - **Example 06**: Simple time series with stable geographies (states, counties)
 - **Example 07**: Advanced time series with changing boundaries (tracts, block groups)
+- **Example 10**: Interactive 3D visualization of time series data
 
 ## The Golden Rule
 
@@ -144,6 +145,7 @@ For step-by-step tutorials with visualizations and detailed explanations:
 
 - **examples/06_simple_time_series_tutorial.ipynb**: Basic time series with stable geographies
 - **examples/07_advanced_time_series_tutorial.ipynb**: Advanced analysis with changing boundaries
+- **examples/10_interactive_3d_time_series.ipynb**: Interactive 3D visualization of time series data
 
 These tutorials cover:
 

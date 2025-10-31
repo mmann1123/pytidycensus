@@ -89,7 +89,8 @@ map = [
     "contextily>=1.6.2",
     "branca>=0.8.2",
     "pyarrow>=19.0.0",
-    "lonboard>=0.12.1"
+    "lonboard>=0.11.0",
+    "palettable>=3.3.1"
 ]
 time = [
     "tobler>=0.12.1",
@@ -149,7 +150,8 @@ all = [
     "contextily>=1.6.2",
     "branca>=0.8.2",
     "pyarrow>=19.0.0",
-    "lonboard>=0.12.1"
+    "lonboard>=0.11.0",
+    "palettable>=3.3.1"
 ]
 
 [project.urls]
