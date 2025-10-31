@@ -49,10 +49,12 @@ jobs:
     
     - name: Set GDAL paths (Windows)
       if: runner.os == 'Windows'
-      shell: bash
+      shell: msys2 {0}
       run: |
-        echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
-        echo "GDAL_VERSION=3.8.3" >> $GITHUB_ENV
+        echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
+        GDAL_VER=$(gdal-config --version)
+        echo "GDAL_VERSION=$GDAL_VER" >> $GITHUB_ENV
+        echo "GDAL installation complete. Version: $GDAL_VER"
     
     - name: Install dependencies
       run: |
