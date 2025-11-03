@@ -1,7 +1,8 @@
 """Migration flows data from the American Community Survey (ACS).
 
-This module provides functionality to retrieve migration flow data from the Census
-Migration Flows API, which tracks population movement between geographic areas.
+This module provides functionality to retrieve migration flow data from
+the Census Migration Flows API, which tracks population movement between
+geographic areas.
 """
 
 import os
@@ -424,7 +425,7 @@ def _build_geography_clauses(geography, year, state, county, msa):
 def _process_breakdown_variables(data, breakdown, mig_recodes, breakdown_labels):
     """Process breakdown variables with codes and labels."""
     # Zero-pad breakdown variable codes
-    all_breakdown_vars = mig_recodes["characteristic"].unique().tolist()
+    mig_recodes["characteristic"].unique().tolist()
 
     for var in breakdown:
         if var in data.columns:
@@ -542,7 +543,6 @@ def _add_flows_geometry(data, geography):
     """Add geometric centroids for flow mapping."""
     try:
         import geopandas as gpd
-        from shapely.geometry import Point
 
         from .geography import get_geography
     except ImportError:
@@ -595,7 +595,7 @@ def _add_flows_geometry(data, geography):
                     centroids_gdf = gpd.GeoDataFrame(
                         all_counties_proj[["GEOID", "centroid"]],
                         geometry="centroid",
-                        crs="EPSG:2163"
+                        crs="EPSG:2163",
                     ).to_crs("EPSG:4269")
 
                     # Create lookup dictionary for all counties we need
@@ -615,25 +615,28 @@ def _add_flows_geometry(data, geography):
 
                     # Download subdivisions state by state
                     import pygris
+
                     for state_fips, state_geoids in subdivisions_by_state.items():
                         try:
                             state_subdivisions = pygris.county_subdivisions(
                                 state=state_fips,
                                 cb=True,  # Use generalized boundaries for speed
-                                year=2022
+                                year=2022,
                             )
 
                             # Reproject to US National Atlas Equal Area (EPSG:2163)
                             state_subdivisions_proj = state_subdivisions.to_crs(epsg=2163)
 
                             # Calculate centroids in projected coordinates
-                            state_subdivisions_proj["centroid"] = state_subdivisions_proj.geometry.centroid
+                            state_subdivisions_proj["centroid"] = (
+                                state_subdivisions_proj.geometry.centroid
+                            )
 
                             # Transform centroids back to original CRS (EPSG:4269)
                             subdiv_centroids_gdf = gpd.GeoDataFrame(
                                 state_subdivisions_proj[["GEOID", "centroid"]],
                                 geometry="centroid",
-                                crs="EPSG:2163"
+                                crs="EPSG:2163",
                             ).to_crs("EPSG:4269")
 
                             # Add to lookup dictionary

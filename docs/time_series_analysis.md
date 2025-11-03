@@ -106,6 +106,27 @@ The `get_time_series()` function automatically:
 
 See **Example 07** in the examples folder for a complete tutorial on advanced time series analysis with changing boundaries.
 
+### Quick Example 3: Changing Variable Codes
+
+When variable codes change over time, pytidycensus can map old codes to new ones:
+
+```python
+from pytidycensus.time_series import get_time_series
+variables = {
+    2010: {"total_pop": "P001001"},
+    2020: {"total_pop": "P1_001N"}
+}
+
+data = get_time_series(
+    geography="tract",
+    variables=variables,
+    years=[2010, 2020],
+    dataset="decennial",
+    state="DC"
+)
+```
+
+
 ## Key Concepts
 
 ### Survey Types Matter

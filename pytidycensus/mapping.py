@@ -1,5 +1,4 @@
-"""
-Interactive mapping functions for pytidycensus data.
+"""Interactive mapping functions for pytidycensus data.
 
 This module provides functions to create interactive maps from Census data,
 particularly for visualizing migration flows with lonboard's BrushingExtension.
@@ -11,21 +10,21 @@ For the Jupyter notebook example:
 https://github.com/mmann1123/pytidycensus/blob/main/examples/09_flow_brushmap_api.ipynb
 """
 
-from typing import Optional, Union, Literal, Tuple
 import warnings
+from typing import Optional, Tuple, Union
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import shapely
 import pyarrow as pa
+import shapely
 
 # Try to import lonboard components
 try:
     from lonboard import Map, ScatterplotLayer
+    from lonboard._geoarrow.geopandas_interop import geopandas_to_geoarrow
     from lonboard.experimental import ArcLayer
     from lonboard.layer_extension import BrushingExtension
-    from lonboard._geoarrow.geopandas_interop import geopandas_to_geoarrow
 
     LONBOARD_AVAILABLE = True
 except ImportError:
@@ -53,8 +52,7 @@ def flow_brushmap(
     picking_radius: int = 10,
     return_layers: bool = False,
 ) -> Union[Map, Tuple[Map, dict]]:
-    """
-    Create an interactive brush map from migration flows data.
+    """Create an interactive brush map from migration flows data.
 
     This function takes data from `get_flows(geometry=True)` and creates an
     interactive lonboard map with arcs showing migration flows between locations.
@@ -132,14 +130,10 @@ def flow_brushmap(
     county_lookup = _build_county_lookup(valid_flows)
 
     # Build arcs, sources, and targets
-    arcs, sources, targets = _build_flow_geometry(
-        valid_flows, county_lookup, flow_threshold
-    )
+    arcs, sources, targets = _build_flow_geometry(valid_flows, county_lookup, flow_threshold)
 
     if len(arcs) == 0:
-        warnings.warn(
-            f"No arcs found with threshold={flow_threshold}. Try lowering the threshold."
-        )
+        warnings.warn(f"No arcs found with threshold={flow_threshold}. Try lowering the threshold.")
         return Map([])
 
     print(f"Created {len(arcs)} arcs, {len(sources)} sources, and {len(targets)} targets")
@@ -155,12 +149,24 @@ def flow_brushmap(
 
     # Create source layer
     source_layer = _create_source_layer(
-        sources, colors, source_lookup, target_lookup, point_radius_scale, brushing_ext, brushing_radius
+        sources,
+        colors,
+        source_lookup,
+        target_lookup,
+        point_radius_scale,
+        brushing_ext,
+        brushing_radius,
     )
 
     # Create target layer
     target_layer = _create_target_layer(
-        targets, colors, source_lookup, target_lookup, point_radius_scale, brushing_ext, brushing_radius
+        targets,
+        colors,
+        source_lookup,
+        target_lookup,
+        point_radius_scale,
+        brushing_ext,
+        brushing_radius,
     )
 
     # Create arc layer
@@ -370,9 +376,7 @@ def _create_target_layer(
         crs="EPSG:4326",
     )
 
-    target_line_colors_lookup = np.where(
-        target_gdf["net"] > 0, target_lookup, source_lookup
-    )
+    target_line_colors_lookup = np.where(target_gdf["net"] > 0, target_lookup, source_lookup)
     target_line_colors = colors[target_line_colors_lookup]
 
     return ScatterplotLayer.from_geopandas(
@@ -447,8 +451,7 @@ def quick_flow_map(
     year: int = 2018,
     **kwargs,
 ) -> Map:
-    """
-    Quick wrapper to fetch flows and create brush map in one call.
+    """Quick wrapper to fetch flows and create brush map in one call.
 
     Parameters
     ----------
@@ -475,8 +478,6 @@ def quick_flow_map(
     from .flows import get_flows
 
     print(f"Fetching {year} {geography}-level migration flows for {state}...")
-    flows = get_flows(
-        geography=geography, state=state, year=year, geometry=True, output="wide"
-    )
+    flows = get_flows(geography=geography, state=state, year=year, geometry=True, output="wide")
 
     return flow_brushmap(flows, **kwargs)
