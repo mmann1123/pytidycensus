@@ -160,33 +160,50 @@ def get_time_series(
             geography, variables, year, dataset, geometry, output="wide", **kwargs
         )
         yearly_data[year] = data
+        # DEBUG: Log data type
+        import geopandas as gpd
+
+        print(
+            f"DEBUG: Year {year} data type: {type(data).__name__}, "
+            f"is GeoDataFrame: {isinstance(data, gpd.GeoDataFrame)}, shape: {data.shape}"
+        )
 
     # Get base year data for reference
     base_data = yearly_data[base_year]
 
     # If no interpolation needed or available, just concatenate
     if not needs_interpolation or not TOBLER_AVAILABLE or not geometry:
+        print(
+            f"DEBUG: Skipping interpolation - needs_interpolation: {needs_interpolation}, "
+            f"TOBLER_AVAILABLE: {TOBLER_AVAILABLE}, geometry: {geometry}"
+        )
         return _concatenate_yearly_data(yearly_data, output)
 
     # Verify all data are GeoDataFrames before attempting area interpolation
     import geopandas as gpd
 
+    print(f"DEBUG: Checking if data are GeoDataFrames before interpolation...")
     for year, data in yearly_data.items():
         if not isinstance(data, gpd.GeoDataFrame):
             warnings.warn(
                 f"Cannot perform area interpolation - data for year {year} "
                 f"is a {type(data).__name__}, not a GeoDataFrame. "
-                f"This usually means the geometry merge failed. "
+                f"This usually means geometry=False or the geometry merge failed. "
+                f"For changing boundaries like tracts, interpolation is required to avoid NaN values. "
+                f"Check that geometry=True and that the geography data is available for your area. "
                 f"Returning data without interpolation.",
                 UserWarning,
             )
             return _concatenate_yearly_data(yearly_data, output)
+
+    print(f"DEBUG: All data are GeoDataFrames. Proceeding with interpolation.")
 
     # Perform area interpolation
     interpolated_data = {}
     interpolated_data[base_year] = base_data  # Base year doesn't need interpolation
 
     # Project to consistent CRS for area calculations
+    print(f"DEBUG: Projecting base year ({base_year}) data to CRS: {crs}")
     base_data_proj = base_data.to_crs(crs)
 
     for year in years:

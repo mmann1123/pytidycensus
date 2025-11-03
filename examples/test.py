@@ -71,11 +71,13 @@ from pytidycensus.time_series import get_time_series
 
 variables = {2010: {"total_pop": "P001001"}, 2020: {"total_pop": "P1_001N"}}
 
+
 data = get_time_series(
     geography="tract",
     variables=variables,
     years=[2010, 2020],
     dataset="decennial",
+    extensive_variables=["total_pop"],
     state="DC",
     base_year=2020,
     geometry=True,
@@ -88,6 +90,49 @@ data
 
 # %%
 
+
+# %%
+dc_2023 = tc.get_acs(
+    geography="tract",
+    variables={
+        "total_pop": "B01003_001E",  # Total population
+        "poverty_count": "B17001_002E",  # Population below poverty line
+        "poverty_total": "B17001_001E",  # Total population for poverty calculation
+    },
+    state="DC",
+    year=2023,
+    survey="acs5",
+    geometry=True,
+    output="wide",
+)
+
+dc_2023
+# %%
+from pytidycensus.time_series import get_time_series
+
+# Define years for time series (ACS 5-year data)
+# Using 2015-2022 for reliable geometry downloads
+years = [2019, 2020, 2021]
+
+print(f"Downloading median household income data for DC tracts...")
+print(f"Years: {years}")
+print(f"This will take a few minutes...\n")
+
+# Download time series data with automatic boundary alignment
+dc_income = tc.get_time_series(
+    geography="tract",
+    variables={"median_income": "B19013_001E"},
+    years=years,
+    dataset="acs5",
+    state="DC",
+    base_year=2021,  # Align all data to 2021 boundaries
+    intensive_variables=["median_income"],  # Median is an intensive variable
+    geometry=True,
+    output="wide",
+)
+dc_income
+# %%
+dc_income
 # %%
 data
 # %%

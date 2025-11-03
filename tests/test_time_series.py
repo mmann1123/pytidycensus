@@ -352,3 +352,130 @@ class TestTimeSeriesIntegration:
 
         except Exception as e:
             pytest.fail(f"Integration test failed: {e}")
+
+    @pytest.mark.integration
+    def test_time_series_decennial_tract_interpolation(self):
+        """Test time series with decennial tract data requiring interpolation."""
+        import os
+
+        import geopandas as gpd
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+        if not api_key:
+            pytest.skip("Census API key not available")
+
+        try:
+            # Test with DC tracts - boundaries changed between 2010 and 2020
+            variables = {2010: {"total_pop": "P001001"}, 2020: {"total_pop": "P1_001N"}}
+
+            result = get_time_series(
+                geography="tract",
+                variables=variables,
+                years=[2010, 2020],
+                dataset="decennial",
+                state="DC",
+                base_year=2020,
+                geometry=True,
+            )
+
+            # Assertions
+            assert isinstance(
+                result, gpd.GeoDataFrame
+            ), f"Result should be GeoDataFrame, got {type(result)}"
+            assert result.shape[0] > 0, "Should have data rows"
+
+            # Check for NaN values - with proper interpolation, there should be none or very few
+            nan_2010 = result[(2010, "total_pop")].isna().sum()
+            nan_2020 = result[(2020, "total_pop")].isna().sum()
+
+            # 2020 is the base year, should have no NaN
+            assert nan_2020 == 0, f"2020 base year data should have no NaN, found {nan_2020}"
+
+            # 2010 interpolated data should have minimal NaN (only if source tract had no data)
+            # Allow up to 5% NaN for edge cases
+            max_allowed_nan = int(result.shape[0] * 0.05)
+            assert nan_2010 <= max_allowed_nan, (
+                f"2010 interpolated data should have minimal NaN, "
+                f"found {nan_2010}/{result.shape[0]} ({100*nan_2010/result.shape[0]:.1f}%)"
+            )
+
+            # All rows should have 2020 boundaries (base year)
+            assert "geometry" in result.columns, "Should have geometry column"
+            assert result.geometry.notna().all(), "All geometries should be valid"
+
+            print(
+                f"SUCCESS: Interpolation test passed with {nan_2010} NaN values in {result.shape[0]} tracts"
+            )
+
+        except Exception as e:
+            pytest.fail(f"Integration test failed: {e}")
+
+    @pytest.mark.integration
+    def test_time_series_acs_with_variable_types(self):
+        """Test ACS time series with extensive and intensive variables."""
+        import os
+
+        import geopandas as gpd
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+        if not api_key:
+            pytest.skip("Census API key not available")
+
+        try:
+            result = get_time_series(
+                geography="tract",
+                variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+                years=[2015, 2020],
+                dataset="acs5",
+                state="DC",
+                base_year=2020,
+                extensive_variables=["total_pop"],  # Counts redistributed by area
+                intensive_variables=["median_income"],  # Medians area-weighted
+                geometry=True,
+                output="wide",
+            )
+
+            # Assertions
+            assert isinstance(
+                result, gpd.GeoDataFrame
+            ), f"Result should be GeoDataFrame, got {type(result)}"
+            assert result.shape[0] > 0, "Should have data rows"
+
+            # Check for NaN values
+            nan_2015_pop = result[(2015, "total_pop")].isna().sum()
+            nan_2020_pop = result[(2020, "total_pop")].isna().sum()
+            nan_2015_income = result[(2015, "median_income")].isna().sum()
+            nan_2020_income = result[(2020, "median_income")].isna().sum()
+
+            # Population should have minimal NaN after interpolation
+            max_allowed_nan = int(result.shape[0] * 0.05)
+            assert nan_2015_pop <= max_allowed_nan, (
+                f"2015 interpolated population should have minimal NaN, "
+                f"found {nan_2015_pop}/{result.shape[0]}"
+            )
+            assert (
+                nan_2020_pop == 0
+            ), f"2020 base population should have no NaN, found {nan_2020_pop}"
+
+            # Income may have some legitimate NaN for tracts with no data
+            # Allow up to 10% NaN for income (some tracts may genuinely lack income data)
+            max_income_nan = int(result.shape[0] * 0.10)
+            assert (
+                nan_2015_income <= max_income_nan
+            ), f"2015 median_income has too many NaN: {nan_2015_income}/{result.shape[0]}"
+            assert (
+                nan_2020_income <= max_income_nan
+            ), f"2020 median_income has too many NaN: {nan_2020_income}/{result.shape[0]}"
+
+            # Verify geometry exists
+            assert "geometry" in result.columns, "Should have geometry column"
+            assert result.geometry.notna().all(), "All geometries should be valid"
+
+            print(
+                f"SUCCESS: ACS interpolation test passed. Shape: {result.shape}, "
+                f"NaN counts - 2015 pop: {nan_2015_pop}, 2020 pop: {nan_2020_pop}, "
+                f"2015 income: {nan_2015_income}, 2020 income: {nan_2020_income}"
+            )
+
+        except Exception as e:
+            pytest.fail(f"Integration test failed: {e}")
