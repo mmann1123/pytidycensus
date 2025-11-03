@@ -51,6 +51,7 @@ Key Features
 - **Simple API**: Clean, consistent interface for all Census datasets
 - **Pandas Integration**: Returns familiar pandas DataFrames
 - **Spatial Support**: Optional GeoPandas integration for mapping
+- **Time Series Analysis**: Automatic area interpolation for changing boundaries
 - **Multiple Datasets**: Support for ACS, Decennial Census, and Population Estimates
 - **Geographic Flexibility**: From national to block group level data
 - **Caching**: Built-in caching for variables and geography data
