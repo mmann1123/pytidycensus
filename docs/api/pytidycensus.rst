@@ -65,6 +65,14 @@ pytidycensus.variables module
    :undoc-members:
    :show-inheritance:
 
+pytidycensus.time_series module
+--------------------------------
+
+.. automodule:: pytidycensus.time_series
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 **Come study with us at The George Washington University**
 
 .. image:: ../static/GWU_GE.png
