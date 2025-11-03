@@ -67,3 +67,27 @@ data_2023["college_education_rate"] = data_2023["B15003_022E"] / data_2023["B150
 data_2023["unemployment_rate"] = data_2023["B23025_005E"] / data_2023["B23025_002E"]
 
 # %%
+from pytidycensus.time_series import get_time_series
+
+variables = {2010: {"total_pop": "P001001"}, 2020: {"total_pop": "P1_001N"}}
+
+data = get_time_series(
+    geography="tract",
+    variables=variables,
+    years=[2010, 2020],
+    dataset="decennial",
+    state="DC",
+    base_year=2020,
+    geometry=True,
+)
+data
+# %%
+
+
+# %%
+
+# %%
+
+# %%
+data
+# %%

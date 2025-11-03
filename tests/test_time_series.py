@@ -163,7 +163,7 @@ class TestTimeSeries:
     @patch("pytidycensus.time_series.get_acs")
     @patch("pytidycensus.time_series.TOBLER_AVAILABLE", False)
     def test_get_time_series_no_tobler(self, mock_get_acs):
-        """Test time series without tobler available."""
+        """Test that ImportError is raised when tobler is not available but needed."""
         # Mock return data for multiple years
         mock_data_2018 = pd.DataFrame(
             {"GEOID": ["123", "456"], "NAME": ["Tract A", "Tract B"], "total_pop": [1000, 2000]}
@@ -174,18 +174,15 @@ class TestTimeSeries:
 
         mock_get_acs.side_effect = [mock_data_2018, mock_data_2020]
 
-        with pytest.warns(UserWarning, match="Area interpolation requires"):
-            result = get_time_series(
+        # When TOBLER is not available and interpolation is needed, should raise ImportError
+        with pytest.raises(ImportError, match="Area interpolation requires the 'tobler' package"):
+            get_time_series(
                 geography="tract",  # Needs interpolation
                 variables={"total_pop": "B01003_001E"},
                 years=[2018, 2020],
                 dataset="acs5",
                 state="CA",
             )
-
-        # Should still return concatenated data
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2  # Same number of tracts
 
     @patch("pytidycensus.time_series.get_decennial")
     def test_get_time_series_decennial(self, mock_get_decennial):
@@ -202,10 +199,10 @@ class TestTimeSeries:
             state="DC",
         )
 
-        # Should call get_decennial with correct survey
+        # Should call get_decennial with correct sumfile
         mock_get_decennial.assert_called_once()
         call_args = mock_get_decennial.call_args[1]
-        assert call_args["survey"] == "pl"  # 2020 should use 'pl'
+        assert call_args["sumfile"] == "pl"  # 2020 should use 'pl'
 
     def test_get_time_series_validation_errors(self):
         """Test validation errors in get_time_series."""

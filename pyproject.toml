@@ -45,6 +45,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "matplotlib>=3.5.0",
     "pygris>=0.2.0",
+    "tobler>=0.12.1",
 ]
 
 [project.optional-dependencies]

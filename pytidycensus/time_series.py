@@ -144,12 +144,12 @@ def get_time_series(
     # Check if area interpolation is available and needed
     needs_interpolation = _needs_area_interpolation(geography, years)
     if needs_interpolation and not TOBLER_AVAILABLE:
-        warnings.warn(
-            "Area interpolation requires the 'tobler' package. "
-            "Install with: pip install tobler. "
-            "Proceeding without interpolation - results may not be accurate "
-            "for geographies with changing boundaries.",
-            UserWarning,
+        raise ImportError(
+            "Area interpolation requires the 'tobler' package, which is not installed. "
+            "Install it with: pip install tobler\n\n"
+            f"Time series analysis for '{geography}' geography across years {years} "
+            "requires area interpolation to handle boundary changes. "
+            "The tobler package provides the necessary spatial interpolation functionality."
         )
 
     # Collect data for all years
@@ -167,6 +167,20 @@ def get_time_series(
     # If no interpolation needed or available, just concatenate
     if not needs_interpolation or not TOBLER_AVAILABLE or not geometry:
         return _concatenate_yearly_data(yearly_data, output)
+
+    # Verify all data are GeoDataFrames before attempting area interpolation
+    import geopandas as gpd
+
+    for year, data in yearly_data.items():
+        if not isinstance(data, gpd.GeoDataFrame):
+            warnings.warn(
+                f"Cannot perform area interpolation - data for year {year} "
+                f"is a {type(data).__name__}, not a GeoDataFrame. "
+                f"This usually means the geometry merge failed. "
+                f"Returning data without interpolation.",
+                UserWarning,
+            )
+            return _concatenate_yearly_data(yearly_data, output)
 
     # Perform area interpolation
     interpolated_data = {}
@@ -255,7 +269,7 @@ def _get_single_year_data(
             geography=geography,
             variables=year_variables,
             year=year,
-            survey=survey,
+            sumfile=survey,
             geometry=geometry,
             output=output,
             **kwargs,

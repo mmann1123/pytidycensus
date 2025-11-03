@@ -32,10 +32,20 @@ try:
     from .mapping import flow_brushmap, quick_flow_map
 
     _MAPPING_AVAILABLE = True
-except ImportError:
+except Exception as e:
+    # Catch all exceptions (ImportError, CRSError, etc.) to prevent
+    # optional mapping dependencies from breaking the entire package
+    import warnings
+
     _MAPPING_AVAILABLE = False
     flow_brushmap = None
     quick_flow_map = None
+    warnings.warn(
+        f"Mapping functions unavailable due to import error: {type(e).__name__}. "
+        f"To use mapping features, ensure all dependencies are properly installed: "
+        f"pip install pytidycensus[map]",
+        stacklevel=2,
+    )
 
 __all__ = [
     "CensusAPI",

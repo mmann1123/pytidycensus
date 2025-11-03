@@ -9,9 +9,40 @@ import pygris
 from .utils import validate_county, validate_state
 
 
-def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = None, **kwargs):
+def _normalize_column_names(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Normalize column names from pygris to ensure consistent naming.
+
+    Different file types (cartographic vs TIGER/Line) and years may use
+    different column names. This function standardizes them.
+
+    Parameters
+    ----------
+    gdf : geopandas.GeoDataFrame
+        Geographic data from pygris
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        GeoDataFrame with normalized column names
     """
-    Call a pygris function with automatic fallback from cb=True to cb=False.
+    # Map alternate column names to standard names
+    column_mapping = {
+        "STATE": "STATEFP",
+        "COUNTY": "COUNTYFP",
+        "TRACT": "TRACTCE",
+        "BLKGRP": "BLKGRPCE",
+    }
+
+    # Apply mappings only if standard column doesn't exist
+    for alt_name, std_name in column_mapping.items():
+        if alt_name in gdf.columns and std_name not in gdf.columns:
+            gdf[std_name] = gdf[alt_name]
+
+    return gdf
+
+
+def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = None, **kwargs):
+    """Call a pygris function with automatic fallback from cb=True to cb=False.
 
     This handles the issue where Census Bureau's GENZ2020 cartographic boundary files
     are protected by Cloudflare and return HTML instead of shapefiles. If a download
@@ -45,9 +76,9 @@ def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = No
         # Check if this looks like the GENZ2020 HTML download issue
         error_msg = str(e).lower()
         is_html_error = (
-            'does not exist in the file system' in error_msg or
-            'not recognized as a supported dataset name' in error_msg or
-            'vsizip' in error_msg
+            "does not exist in the file system" in error_msg
+            or "not recognized as a supported dataset name" in error_msg
+            or "vsizip" in error_msg
         )
 
         # If cb=True failed with a file system error, try cb=False as fallback
@@ -57,7 +88,7 @@ def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = No
                 f"This is a known issue with Census Bureau's 2020 GENZ files. "
                 f"Automatically retrying with detailed TIGER/Line files (cb=False). "
                 f"Original error: {str(e)[:100]}",
-                UserWarning
+                UserWarning,
             )
             try:
                 return pygris_func(cb=False, year=year, **kwargs)
@@ -142,6 +173,7 @@ def get_geography(
     # Map pytidycensus geography names to pygris functions
     if geography_lower == "state":
         gdf = _get_states(year=year, cb=cb, **kwargs)
+        gdf = _normalize_column_names(gdf)
         if state:
             state_fips_list = validate_state(state)
             gdf = gdf[gdf["STATEFP"].isin(state_fips_list)]
@@ -157,6 +189,7 @@ def get_geography(
             # If multiple states, we'll download all and filter below
 
         gdf = _get_counties(state=state_arg, year=year, cb=cb, **kwargs)
+        gdf = _normalize_column_names(gdf)
 
         # Filter by multiple states if needed
         if state and len(validate_state(state)) > 1:
@@ -165,7 +198,11 @@ def get_geography(
 
         # Filter by county if specified
         if county and state:
-            state_for_county = validate_state(state)[0] if isinstance(state, (str, int)) else validate_state(state[0])[0]
+            state_for_county = (
+                validate_state(state)[0]
+                if isinstance(state, (str, int))
+                else validate_state(state[0])[0]
+            )
             county_fips_list = validate_county(county, state_for_county)
             gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
 
@@ -187,6 +224,7 @@ def get_geography(
                 county_arg = county_codes[0]
 
         gdf = _get_tracts(state=state_fips, county=county_arg, year=year, cb=cb, **kwargs)
+        gdf = _normalize_column_names(gdf)
 
         # Filter by multiple counties if needed
         if county and county_arg is None:
@@ -211,6 +249,7 @@ def get_geography(
                 county_arg = county_codes[0]
 
         gdf = _get_block_groups(state=state_fips, county=county_arg, year=year, cb=cb, **kwargs)
+        gdf = _normalize_column_names(gdf)
 
         # Filter by multiple counties if needed
         if county and county_arg is None:
@@ -266,11 +305,15 @@ def get_geography(
             and "BLKGRPCE" in gdf.columns
         ):
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
-        elif geography_lower in [
-            "metropolitan statistical area/micropolitan statistical area",
-            "cbsa",
-            "metro",
-        ] and "CBSAFP" in gdf.columns:
+        elif (
+            geography_lower
+            in [
+                "metropolitan statistical area/micropolitan statistical area",
+                "cbsa",
+                "metro",
+            ]
+            and "CBSAFP" in gdf.columns
+        ):
             gdf["GEOID"] = gdf["CBSAFP"]
         elif geography_lower in ["zcta", "zip code tabulation area"]:
             # pygris ZCTA files may use different column names depending on year
@@ -329,7 +372,7 @@ def _get_counties(
         lambda cb, year, **kw: pygris.counties(state=state, cb=cb, year=year, **kw),
         cb=cb,
         year=year,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -345,7 +388,7 @@ def _get_tracts(
         lambda cb, year, **kw: pygris.tracts(state=state, county=county, cb=cb, year=year, **kw),
         cb=cb,
         year=year,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -358,10 +401,12 @@ def _get_block_groups(
 ) -> gpd.GeoDataFrame:
     """Get block group boundaries using pygris with automatic fallback to cb=False on failure."""
     return _pygris_with_fallback(
-        lambda cb, year, **kw: pygris.block_groups(state=state, county=county, cb=cb, year=year, **kw),
+        lambda cb, year, **kw: pygris.block_groups(
+            state=state, county=county, cb=cb, year=year, **kw
+        ),
         cb=cb,
         year=year,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -378,7 +423,7 @@ def _get_places(
         lambda cb, year, **kw: pygris.places(state=state, cb=cb, year=year, **kw),
         cb=cb,
         year=year,
-        **kwargs
+        **kwargs,
     )
 
 
