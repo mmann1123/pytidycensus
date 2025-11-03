@@ -66,10 +66,12 @@ def get_time_series(
         All other years will be interpolated to these boundaries.
     extensive_variables : list of str, optional
         Variables representing counts/totals that should be redistributed proportionally
-        by area during interpolation. If None, all variables are assumed extensive.
+        by area during interpolation (e.g., population, housing units).
+        REQUIRED when area interpolation is needed (changing tract/block group boundaries).
     intensive_variables : list of str, optional
         Variables representing rates/densities that should be area-weighted during
-        interpolation (e.g., median income, poverty rate).
+        interpolation (e.g., median income, poverty rate, percentages).
+        REQUIRED when area interpolation is needed (changing tract/block group boundaries).
     geometry : bool, default True
         Whether to include geographic boundaries. Required for area interpolation.
     output : str, default "wide"
@@ -119,7 +121,11 @@ def get_time_series(
     - For geographies that don't change (state, county), interpolation is skipped
     - Decennial census variables may differ between years - use a dict to specify
     - When base_year is None, the most recent year is used as the base
-    - Intensive variables are handled differently than extensive variables during interpolation
+    - **IMPORTANT**: When area interpolation is needed, ALL variables must be classified
+      as either extensive or intensive. This ensures proper redistribution of values
+      across changing boundaries.
+        - Extensive: counts/totals (population, housing units) - redistributed by area
+        - Intensive: rates/medians/percentages (median income, poverty rate) - area-weighted
     """
     if not years:
         raise ValueError("At least one year must be specified")
@@ -151,6 +157,50 @@ def get_time_series(
             "requires area interpolation to handle boundary changes. "
             "The tobler package provides the necessary spatial interpolation functionality."
         )
+
+    # When interpolation is needed, require explicit variable classification
+    if needs_interpolation and geometry:
+        # Get variable names to check
+        if isinstance(variables, dict):
+            # Handle year-specific variables or named variables
+            if all(isinstance(k, int) for k in variables.keys()):
+                # Year-specific: {2010: {...}, 2020: {...}}
+                all_var_names = set()
+                for year_vars in variables.values():
+                    if isinstance(year_vars, dict):
+                        all_var_names.update(year_vars.keys())
+                    elif isinstance(year_vars, list):
+                        all_var_names.update(year_vars)
+                    elif isinstance(year_vars, str):
+                        all_var_names.add(year_vars)
+            else:
+                # Named variables: {"total_pop": "B01003_001E", ...}
+                all_var_names = set(variables.keys())
+        elif isinstance(variables, list):
+            all_var_names = set(variables)
+        else:
+            all_var_names = {variables}
+
+        # Check if all variables are classified
+        ext_set = set(extensive_variables) if extensive_variables else set()
+        int_set = set(intensive_variables) if intensive_variables else set()
+        classified = ext_set | int_set
+        unclassified = all_var_names - classified
+
+        if unclassified:
+            raise ValueError(
+                f"When using area interpolation, all variables must be explicitly classified "
+                f"as either 'extensive' or 'intensive'.\n\n"
+                f"Unclassified variables: {sorted(unclassified)}\n\n"
+                f"Use extensive_variables=[...] for counts/totals (e.g., population, housing units)\n"
+                f"Use intensive_variables=[...] for rates/ratios/medians (e.g., median income, density)\n\n"
+                f"Example:\n"
+                f"  get_time_series(\n"
+                f"      ...,\n"
+                f"      extensive_variables=['total_pop'],\n"
+                f"      intensive_variables=['median_income']\n"
+                f"  )"
+            )
 
     # Collect data for all years
     yearly_data = {}
@@ -221,6 +271,16 @@ def get_time_series(
         ext_vars, int_vars = _classify_variables(
             data_columns, extensive_variables, intensive_variables
         )
+
+        # Convert data columns to numeric before interpolation
+        # Census API returns strings, but tobler needs numeric types
+        print(f"DEBUG: Converting data columns to numeric types...")
+        all_data_vars = ext_vars + int_vars
+        for col in all_data_vars:
+            if col in source_data.columns:
+                source_data[col] = pd.to_numeric(source_data[col], errors="coerce")
+            if col in base_data_proj.columns:
+                base_data_proj[col] = pd.to_numeric(base_data_proj[col], errors="coerce")
 
         try:
             interpolated = area_interpolate(
@@ -527,19 +587,28 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
                 result = result.drop(columns=dup_cols)
 
         # Add back the base geographic/metadata columns from first year
+        # Keep geometry as a regular column (not part of MultiIndex)
         if base_geo_cols:
             first_year_data = yearly_data[min(yearly_data.keys())]
 
-            # Get columns to add back (excluding those already present)
-            cols_to_add = [
+            # Separate geometry from other metadata columns
+            geometry_cols = [
+                col
+                for col in ["geometry"]
+                if col in base_geo_cols and col in first_year_data.columns
+            ]
+            other_geo_cols = [
                 col
                 for col in base_geo_cols
-                if col not in result.columns and col in first_year_data.columns and col != merge_key
+                if col not in result.columns
+                and col in first_year_data.columns
+                and col != merge_key
+                and col not in geometry_cols
             ]
 
-            if cols_to_add:
+            if other_geo_cols:
                 # Create a temporary dataframe with just the merge key and columns to add
-                temp_df = first_year_data[[merge_key] + cols_to_add].copy()
+                temp_df = first_year_data[[merge_key] + other_geo_cols].copy()
 
                 # Only merge if we have valid merge keys in both dataframes
                 if merge_key in result.columns and merge_key in temp_df.columns:
@@ -556,6 +625,8 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
                         )
 
         # Create proper multi-index for data columns
+        # Note: geometry will be part of MultiIndex as ('geometry', '') but GeoDataFrame
+        # will still work correctly with it
         data_columns = [col for col in result.columns if isinstance(col, tuple)]
         if data_columns:
             # Set up multi-index
@@ -565,10 +636,17 @@ def _concatenate_yearly_data(yearly_data: Dict[int, pd.DataFrame], output: str) 
             )
 
         # Convert to GeoDataFrame if geometry is available
+        # Note: GeoDataFrame handles geometry columns with tuple names correctly
         if geometry_col is not None and gpd is not None:
             # Make sure geometry aligns with result
-            result[("", "geometry")] = geometry_col
-            result = gpd.GeoDataFrame(result, geometry=("", "geometry"))
+            if data_columns:
+                # With MultiIndex, geometry will be ('', 'geometry')
+                result[("", "geometry")] = geometry_col
+                result = gpd.GeoDataFrame(result, geometry=("", "geometry"))
+            else:
+                # Without MultiIndex, geometry is just 'geometry'
+                result["geometry"] = geometry_col
+                result = gpd.GeoDataFrame(result, geometry="geometry")
 
         return result
 

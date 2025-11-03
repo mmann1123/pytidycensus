@@ -1,6 +1,6 @@
 """Tests for geography module functionality."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import geopandas as gpd
 import pytest
@@ -124,9 +124,7 @@ class TestGetGeography:
 
     @patch("pytidycensus.geography.pygris.block_groups")
     @patch("pytidycensus.geography.validate_state")
-    def test_get_geography_block_group_requires_state(
-        self, mock_validate_state, mock_block_groups
-    ):
+    def test_get_geography_block_group_requires_state(self, mock_validate_state, mock_block_groups):
         """Test that block group geography requires state."""
         with pytest.raises(ValueError, match="State must be specified"):
             get_geography("block group", year=2022)
@@ -196,7 +194,9 @@ class TestGetGeography:
         )
         mock_cbsas.return_value = test_gdf
 
-        result = get_geography("metropolitan statistical area/micropolitan statistical area", year=2022)
+        result = get_geography(
+            "metropolitan statistical area/micropolitan statistical area", year=2022
+        )
 
         mock_cbsas.assert_called_once_with(cb=True, year=2022)
         assert "GEOID" in result.columns

@@ -107,6 +107,8 @@ dc_2023 = tc.get_acs(
 )
 
 dc_2023
+import pytidycensus as tc
+
 # %%
 from pytidycensus.time_series import get_time_series
 

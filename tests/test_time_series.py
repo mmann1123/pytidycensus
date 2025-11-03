@@ -222,6 +222,31 @@ class TestTimeSeries:
                 dataset="acs5",
             )
 
+        # Variables not classified when interpolation is needed
+        with pytest.raises(ValueError, match="all variables must be explicitly classified"):
+            get_time_series(
+                geography="tract",  # Requires interpolation
+                variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+                years=[2015, 2020],
+                dataset="acs5",
+                state="CA",
+                geometry=True,
+                # Missing extensive_variables and intensive_variables
+            )
+
+        # Partially classified variables when interpolation is needed
+        with pytest.raises(ValueError, match="Unclassified variables"):
+            get_time_series(
+                geography="tract",  # Requires interpolation
+                variables={"total_pop": "B01003_001E", "median_income": "B19013_001E"},
+                years=[2015, 2020],
+                dataset="acs5",
+                state="CA",
+                geometry=True,
+                extensive_variables=["total_pop"],
+                # median_income not classified
+            )
+
     def test_compare_time_periods_basic(self):
         """Test basic time period comparison."""
         # Create test data with multi-index columns
@@ -375,6 +400,7 @@ class TestTimeSeriesIntegration:
                 dataset="decennial",
                 state="DC",
                 base_year=2020,
+                extensive_variables=["total_pop"],  # Population is a count
                 geometry=True,
             )
 
@@ -400,7 +426,7 @@ class TestTimeSeriesIntegration:
             )
 
             # All rows should have 2020 boundaries (base year)
-            assert "geometry" in result.columns, "Should have geometry column"
+            assert hasattr(result, "geometry"), "Should have geometry attribute"
             assert result.geometry.notna().all(), "All geometries should be valid"
 
             print(
@@ -467,8 +493,9 @@ class TestTimeSeriesIntegration:
                 nan_2020_income <= max_income_nan
             ), f"2020 median_income has too many NaN: {nan_2020_income}/{result.shape[0]}"
 
-            # Verify geometry exists
-            assert "geometry" in result.columns, "Should have geometry column"
+            # Verify geometry exists (works with both regular and MultiIndex columns)
+            # GeoDataFrame handles geometry with tuple column names correctly
+            assert hasattr(result, "geometry"), "Should have geometry attribute"
             assert result.geometry.notna().all(), "All geometries should be valid"
 
             print(
