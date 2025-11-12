@@ -323,6 +323,153 @@ class TestSetCensusAPIKey:
         assert "Census API key has been set" in captured.out
 
 
+class TestTableTypeDetection:
+    """Test cases for Data Profile and Subject table type detection."""
+
+    def test_detect_table_type_data_profile(self):
+        """Test detection of Data Profile (DP) variables."""
+        api = CensusAPI(api_key="test")
+
+        # Single DP variable
+        table_type = api._detect_table_type(["DP04_0047E"])
+        assert table_type == "profile"
+
+        # Multiple DP variables
+        table_type = api._detect_table_type(["DP04_0047E", "DP05_0001E"])
+        assert table_type == "profile"
+
+    def test_detect_table_type_subject(self):
+        """Test detection of Subject (S) table variables."""
+        api = CensusAPI(api_key="test")
+
+        # Single S variable
+        table_type = api._detect_table_type(["S1701_C03_001E"])
+        assert table_type == "subject"
+
+        # Multiple S variables
+        table_type = api._detect_table_type(["S1701_C03_001E", "S1901_C01_012E"])
+        assert table_type == "subject"
+
+    def test_detect_table_type_comparison_profile(self):
+        """Test detection of Comparison Profile (CP) variables."""
+        api = CensusAPI(api_key="test")
+
+        table_type = api._detect_table_type(["CP02_2015_001E"])
+        assert table_type == "cprofile"
+
+    def test_detect_table_type_detailed(self):
+        """Test detection of detailed table (B/C) variables."""
+        api = CensusAPI(api_key="test")
+
+        # B tables
+        table_type = api._detect_table_type(["B01001_001E"])
+        assert table_type is None  # Detailed tables don't need special endpoint
+
+        # C tables
+        table_type = api._detect_table_type(["C17002_001E"])
+        assert table_type is None
+
+    def test_detect_table_type_empty_list(self):
+        """Test detection with empty variable list."""
+        api = CensusAPI(api_key="test")
+
+        table_type = api._detect_table_type([])
+        assert table_type is None
+
+    def test_build_url_with_data_profile(self):
+        """Test URL building for Data Profile tables."""
+        api = CensusAPI(api_key="test")
+
+        url = api._build_url(2023, "acs", "acs5", table_type="profile")
+        assert url == "https://api.census.gov/data/2023/acs/acs5/profile"
+
+    def test_build_url_with_subject_table(self):
+        """Test URL building for Subject tables."""
+        api = CensusAPI(api_key="test")
+
+        url = api._build_url(2023, "acs", "acs5", table_type="subject")
+        assert url == "https://api.census.gov/data/2023/acs/acs5/subject"
+
+    def test_build_url_with_comparison_profile(self):
+        """Test URL building for Comparison Profile tables."""
+        api = CensusAPI(api_key="test")
+
+        url = api._build_url(2023, "acs", "acs5", table_type="cprofile")
+        assert url == "https://api.census.gov/data/2023/acs/acs5/cprofile"
+
+    def test_build_url_without_table_type(self):
+        """Test URL building for regular detailed tables."""
+        api = CensusAPI(api_key="test")
+
+        url = api._build_url(2023, "acs", "acs5", table_type=None)
+        assert url == "https://api.census.gov/data/2023/acs/acs5"
+
+    def test_build_url_table_type_non_acs(self):
+        """Test that table_type is ignored for non-ACS datasets."""
+        api = CensusAPI(api_key="test")
+
+        # Decennial should ignore table_type
+        url = api._build_url(2020, "dec", "pl", table_type="profile")
+        assert url == "https://api.census.gov/data/2020/dec/pl"
+        assert "profile" not in url
+
+    @patch("pytidycensus.api.requests.Session.get")
+    def test_get_with_data_profile_detection(self, mock_get):
+        """Test that get() method correctly detects and uses Data Profile endpoint."""
+        api = CensusAPI(api_key="test")
+
+        # Mock successful response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            ["DP04_0047E", "DP04_0047M", "state"],
+            ["769", "299", "06"],
+        ]
+        mock_get.return_value = mock_response
+
+        # Call get with DP variable
+        result = api.get(
+            year=2023,
+            dataset="acs",
+            variables=["DP04_0047E", "DP04_0047M"],
+            geography={"for": "state:06"},
+            survey="acs5",
+        )
+
+        # Verify URL includes /profile
+        call_args = mock_get.call_args
+        assert "/profile" in call_args[0][0], "URL should include /profile for DP variables"
+        assert isinstance(result, list)
+
+    @patch("pytidycensus.api.requests.Session.get")
+    def test_get_with_subject_table_detection(self, mock_get):
+        """Test that get() method correctly detects and uses Subject table endpoint."""
+        api = CensusAPI(api_key="test")
+
+        # Mock successful response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            ["S1701_C03_001E", "S1701_C03_001M", "state"],
+            ["7.1", "0.5", "06"],
+        ]
+        mock_get.return_value = mock_response
+
+        # Call get with S variable
+        result = api.get(
+            year=2023,
+            dataset="acs",
+            variables=["S1701_C03_001E", "S1701_C03_001M"],
+            geography={"for": "state:06"},
+            survey="acs5",
+        )
+
+        # Verify URL includes /subject
+        call_args = mock_get.call_args
+        assert "/subject" in call_args[0][0], "URL should include /subject for S variables"
+        assert isinstance(result, list)
+
+
 @pytest.fixture(autouse=True)
 def cleanup_env():
     """Clean up environment variables after each test."""

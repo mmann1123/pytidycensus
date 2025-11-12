@@ -195,6 +195,15 @@ def get_acs(
             "Block data are not available in the ACS. Use `get_decennial()` to access block data from the 2010 Census."
         )
 
+    # Check for Data Profile/Subject tables with block group geography
+    # Based on R tidycensus: block groups not available for DP/S tables
+    if variables and geography == "block group":
+        vars_list = variables if isinstance(variables, list) else [variables]
+        if any(v.startswith(("DP", "S")) for v in vars_list):
+            raise ValueError(
+                "Block groups are not an available geography in the Data Profile and Subject Tables datasets."
+            )
+
     if shift_geo and not geometry:
         raise ValueError(
             "`shift_geo` is only available when requesting feature geometry with `geometry = TRUE`"
@@ -292,13 +301,79 @@ def get_acs(
     # Reserve space for geography variables by using 48 as chunk size
     MAX_VARIABLES_PER_REQUEST = 48
 
+    # Detect mixed table types (B/C, DP, S) and split if necessary
+    # Based on R tidycensus implementation: different table types require different endpoints
+    def _detect_table_prefix(var: str) -> str:
+        """Detect table type prefix from variable code."""
+        if var.startswith("DP"):
+            return "DP"
+        elif var.startswith("S"):
+            return "S"
+        elif var.startswith("CP"):
+            return "CP"
+        else:
+            return "BC"  # B or C tables (detailed tables)
+
+    # Group variables by table type
+    vars_by_type = {}
+    for var in all_variables:
+        table_prefix = _detect_table_prefix(var)
+        if table_prefix not in vars_by_type:
+            vars_by_type[table_prefix] = []
+        vars_by_type[table_prefix].append(var)
+
+    # Check if we have mixed table types
+    has_mixed_types = len(vars_by_type) > 1
+
     # Make API request
     try:
         # convert to wide if requesting geometry
         if geometry:
             output = "wide"
 
-        if len(all_variables) <= MAX_VARIABLES_PER_REQUEST:
+        if has_mixed_types:
+            # Handle mixed table types: make separate API calls for each type
+            if show_call:
+                print(
+                    f"Mixed table types detected: {list(vars_by_type.keys())}. Making separate API calls."
+                )
+
+            type_dfs = []
+            for table_type, type_vars in vars_by_type.items():
+                if show_call:
+                    print(f"Fetching {len(type_vars)} variables from {table_type} tables")
+
+                type_data = api.get(
+                    year=year,
+                    dataset="acs",
+                    variables=type_vars,
+                    geography=geo_params,
+                    survey=survey,
+                    show_call=show_call,
+                )
+
+                # Separate data variables from identifier variables like NAME
+                type_data_vars = [var for var in type_vars if var != "NAME"]
+                type_df = process_census_data(type_data, type_data_vars, output)
+                type_dfs.append(type_df)
+
+            # Merge all table type dataframes
+            if output == "tidy":
+                # For tidy format, concatenate all dataframes
+                df = pd.concat(type_dfs, ignore_index=True)
+            else:
+                # For wide format, merge on geography columns
+                df = type_dfs[0]
+                geo_cols = [
+                    col
+                    for col in df.columns
+                    if col in ["GEOID", "NAME", "state", "county", "tract", "block group"]
+                ]
+
+                for type_df in type_dfs[1:]:
+                    df = df.merge(type_df, on=geo_cols, how="outer")
+
+        elif len(all_variables) <= MAX_VARIABLES_PER_REQUEST:
             # Single API request for small variable lists
             data = api.get(
                 year=year,
@@ -420,8 +495,9 @@ def get_acs(
                 if original_code in df.columns:
                     rename_dict[original_code] = custom_name
                 # Also rename MOE columns
+                # MOE columns are named as base_variable (without E) + "_moe"
                 if processed_code.endswith("E"):
-                    moe_col = original_code + "_moe"
+                    moe_col = processed_code[:-1] + "_moe"  # Remove E, add _moe
                 else:
                     moe_col = processed_code + "_moe"
                 if moe_col in df.columns:
