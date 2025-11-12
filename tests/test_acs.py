@@ -761,3 +761,337 @@ class TestGetACSVariables:
 
         mock_load_vars.assert_called_once_with(2020, "acs", "acs1")
         assert isinstance(result, pd.DataFrame)
+
+
+class TestDataProfileAndSubjectTables:
+    """Test cases for Data Profile (DP) and Subject (S) table support."""
+
+    def test_block_group_restriction_data_profile(self):
+        """Test that Data Profile tables are blocked for block group geography."""
+        with pytest.raises(ValueError, match="Block groups are not an available geography"):
+            get_acs(
+                geography="block group",
+                variables="DP04_0047E",
+                state="06",
+                county="001",
+                year=2022,
+                api_key="test",
+            )
+
+    def test_block_group_restriction_subject_table(self):
+        """Test that Subject tables are blocked for block group geography."""
+        with pytest.raises(ValueError, match="Block groups are not an available geography"):
+            get_acs(
+                geography="block group",
+                variables="S1701_C03_001E",
+                state="06",
+                county="001",
+                year=2022,
+                api_key="test",
+            )
+
+    def test_block_group_allowed_for_detailed_tables(self):
+        """Test that block group geography works for regular detailed tables."""
+        with patch("pytidycensus.acs.CensusAPI") as mock_api_class, patch(
+            "pytidycensus.acs.process_census_data"
+        ) as mock_process, patch("pytidycensus.acs.add_margin_of_error") as mock_add_moe:
+            mock_api = Mock()
+            mock_api.get.return_value = []
+            mock_api_class.return_value = mock_api
+            mock_process.return_value = pd.DataFrame()
+            mock_add_moe.return_value = pd.DataFrame()
+
+            # Should not raise an error for B tables
+            get_acs(
+                geography="block group",
+                variables="B01001_001E",
+                state="06",
+                county="001",
+                year=2022,
+                api_key="test",
+            )
+
+    @patch("pytidycensus.acs.CensusAPI")
+    @patch("pytidycensus.acs.process_census_data")
+    @patch("pytidycensus.acs.add_margin_of_error")
+    def test_data_profile_table_url_construction(self, mock_add_moe, mock_process, mock_api_class):
+        """Test that Data Profile variables use the /profile endpoint."""
+        mock_api = Mock()
+        mock_api.get.return_value = []
+        mock_api_class.return_value = mock_api
+        mock_process.return_value = pd.DataFrame()
+        mock_add_moe.return_value = pd.DataFrame()
+
+        get_acs(geography="state", variables="DP04_0047E", year=2022, api_key="test")
+
+        # Verify the API was called (table type detection happens in api.py)
+        mock_api.get.assert_called_once()
+        call_args = mock_api.get.call_args[1]
+        assert "DP04_0047E" in call_args["variables"]
+
+    @patch("pytidycensus.acs.CensusAPI")
+    @patch("pytidycensus.acs.process_census_data")
+    @patch("pytidycensus.acs.add_margin_of_error")
+    def test_subject_table_url_construction(self, mock_add_moe, mock_process, mock_api_class):
+        """Test that Subject table variables use the /subject endpoint."""
+        mock_api = Mock()
+        mock_api.get.return_value = []
+        mock_api_class.return_value = mock_api
+        mock_process.return_value = pd.DataFrame()
+        mock_add_moe.return_value = pd.DataFrame()
+
+        get_acs(geography="state", variables="S1701_C03_001E", year=2022, api_key="test")
+
+        # Verify the API was called
+        mock_api.get.assert_called_once()
+        call_args = mock_api.get.call_args[1]
+        assert "S1701_C03_001E" in call_args["variables"]
+
+    @pytest.mark.integration
+    def test_data_profile_integration(self):
+        """Integration test: Actually fetch Data Profile data from Census API."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Test Data Profile variable: DP04_0047 - Median year structure built
+        result = get_acs(
+            geography="tract",
+            variables="DP04_0047E",
+            state="06",
+            county="081",
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape[0] > 0, "Should return at least one tract"
+        assert "DP04_0047E" in result.columns, "Should have the Data Profile variable"
+        assert "DP04_0047_moe" in result.columns, "Should have MOE column"
+        assert "GEOID" in result.columns, "Should have GEOID"
+
+        # Check that data values are reasonable
+        assert result["DP04_0047E"].notna().any(), "Should have some non-null values"
+
+    @pytest.mark.integration
+    def test_subject_table_integration(self):
+        """Integration test: Actually fetch Subject table data from Census API."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Test Subject table variable: S1701_C03_001 - Poverty rate
+        result = get_acs(
+            geography="tract",
+            variables="S1701_C03_001E",
+            state="06",
+            county="081",
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape[0] > 0, "Should return at least one tract"
+        assert "S1701_C03_001E" in result.columns, "Should have the Subject table variable"
+        assert "S1701_C03_001_moe" in result.columns, "Should have MOE column"
+        assert "GEOID" in result.columns, "Should have GEOID"
+
+        # Check that poverty rates are reasonable (0-100%)
+        poverty_values = pd.to_numeric(result["S1701_C03_001E"], errors="coerce")
+        # Filter out NaN values before checking range
+        valid_poverty_values = poverty_values.dropna()
+        assert len(valid_poverty_values) > 0, "Should have at least some valid poverty values"
+        assert (valid_poverty_values >= 0).all() and (
+            valid_poverty_values <= 100
+        ).all(), "Poverty rates should be between 0 and 100"
+
+    @pytest.mark.integration
+    def test_data_profile_with_geometry(self):
+        """Integration test: Fetch Data Profile data with geometry."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        result = get_acs(
+            geography="county",
+            variables="DP04_0047E",
+            state="06",
+            year=2023,
+            geometry=True,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, gpd.GeoDataFrame), "Should return GeoDataFrame"
+        assert result.shape[0] > 0, "Should return at least one county"
+        assert hasattr(result, "geometry"), "Should have geometry attribute"
+        assert result.geometry.notna().all(), "All geometries should be valid"
+
+    @pytest.mark.integration
+    def test_multiple_table_types_comparison(self):
+        """Integration test: Compare data from different table types."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Get population from detailed table
+        detailed_result = get_acs(
+            geography="state", variables="B01003_001E", state="06", year=2023, api_key=api_key
+        )
+
+        # Get population-related data from Data Profile
+        dp_result = get_acs(
+            geography="state",
+            variables="DP05_0001E",  # Total population from Data Profile
+            state="06",
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(detailed_result, pd.DataFrame)
+        assert isinstance(dp_result, pd.DataFrame)
+        assert detailed_result.shape[0] == 1, "Should return California only"
+        assert dp_result.shape[0] == 1, "Should return California only"
+
+        # Both should return population data (values may differ slightly between tables)
+        detailed_pop = pd.to_numeric(detailed_result["B01003_001E"].iloc[0], errors="coerce")
+        dp_pop = pd.to_numeric(dp_result["DP05_0001E"].iloc[0], errors="coerce")
+
+        assert detailed_pop > 30_000_000, "California population should be > 30 million"
+        assert dp_pop > 30_000_000, "California population should be > 30 million"
+
+    @pytest.mark.integration
+    def test_mixed_table_types_single_call(self):
+        """Integration test: Pull multiple table types (B and DP) in a single call."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Request both B (detailed) and DP (Data Profile) variables in one call
+        result = get_acs(
+            geography="county",
+            variables=["B01003_001E", "DP05_0001E"],  # Both should work together
+            state="06",
+            county="081",  # San Mateo County
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape[0] == 1, "Should return exactly one county"
+
+        # Both variables should be present
+        assert "B01003_001E" in result.columns, "Should have detailed table variable"
+        assert "DP05_0001E" in result.columns, "Should have Data Profile variable"
+
+        # Both should have MOE columns
+        assert "B01003_001_moe" in result.columns
+        assert "DP05_0001_moe" in result.columns
+
+        # Both should have reasonable population values
+        b_pop = pd.to_numeric(result["B01003_001E"].iloc[0], errors="coerce")
+        dp_pop = pd.to_numeric(result["DP05_0001E"].iloc[0], errors="coerce")
+
+        assert b_pop > 500_000, "San Mateo County population should be > 500k"
+        assert dp_pop > 500_000, "San Mateo County population should be > 500k"
+
+        # Values should be similar (from same census data)
+        assert (
+            abs(b_pop - dp_pop) / b_pop < 0.01
+        ), "Population values from B and DP tables should be within 1% of each other"
+
+    @pytest.mark.integration
+    def test_mixed_subject_and_detailed_tables(self):
+        """Integration test: Pull Subject table and detailed table variables together."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Request both S (Subject) and B (detailed) variables
+        result = get_acs(
+            geography="county",
+            variables=["S1701_C03_001E", "B01003_001E"],  # Poverty rate + population
+            state="06",
+            county="081",
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape[0] == 1
+
+        # Both variables should be present
+        assert "S1701_C03_001E" in result.columns, "Should have Subject table variable"
+        assert "B01003_001E" in result.columns, "Should have detailed table variable"
+
+        # Check GEOID is present (needed for merge)
+        assert "GEOID" in result.columns, "Should have GEOID for merging"
+
+        # No duplicate columns from merge
+        assert result.columns.duplicated().sum() == 0, "Should have no duplicate columns"
+
+    @pytest.mark.integration
+    def test_mixed_all_three_table_types(self):
+        """Integration test: Pull B, DP, and S variables in a single call."""
+        import os
+
+        api_key = os.environ.get("CENSUS_API_KEY")
+
+        if not api_key:
+            pytest.skip("CENSUS_API_KEY environment variable not set")
+
+        # Request variables from all three table types
+        result = get_acs(
+            geography="state",
+            variables={
+                "detailed_pop": "B01003_001E",  # Detailed table
+                "dp_pop": "DP05_0001E",  # Data Profile
+                "poverty_rate": "S1701_C03_001E",  # Subject table
+            },
+            state="06",
+            year=2023,
+            api_key=api_key,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.shape[0] == 1, "Should return California only"
+
+        # All three variables should be present (using custom names from dict)
+        assert "detailed_pop" in result.columns, "Should have detailed table variable"
+        assert "dp_pop" in result.columns, "Should have Data Profile variable"
+        assert "poverty_rate" in result.columns, "Should have Subject table variable"
+
+        # All should have MOE columns
+        assert "detailed_pop_moe" in result.columns
+        assert "dp_pop_moe" in result.columns
+        assert "poverty_rate_moe" in result.columns
+
+        # Check data quality
+        detailed_pop_val = pd.to_numeric(result["detailed_pop"].iloc[0], errors="coerce")
+        dp_pop_val = pd.to_numeric(result["dp_pop"].iloc[0], errors="coerce")
+        poverty_rate_val = pd.to_numeric(result["poverty_rate"].iloc[0], errors="coerce")
+
+        assert detailed_pop_val > 30_000_000, "CA population should be > 30M"
+        assert dp_pop_val > 30_000_000, "CA population should be > 30M"
+        assert 0 < poverty_rate_val < 30, "CA poverty rate should be reasonable"
+
+        # No duplicate GEOID or NAME columns from merging
+        geoid_count = sum(1 for col in result.columns if "GEOID" in str(col))
+        assert geoid_count == 1, "Should have exactly one GEOID column after merge"

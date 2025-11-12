@@ -84,7 +84,46 @@ class CensusAPI:
         }
         return dataset_mapping.get(dataset.lower(), dataset.lower())
 
-    def _build_url(self, year: int, dataset: str, survey: Optional[str] = None) -> str:
+    @staticmethod
+    def _detect_table_type(variables: List[str]) -> str:
+        """Detect ACS table type from variable prefixes.
+
+        Based on R tidycensus implementation.
+
+        Parameters
+        ----------
+        variables : List[str]
+            List of variable codes
+
+        Returns
+        -------
+        str
+            Table type: 'profile', 'subject', 'cprofile', or None for detailed tables
+        """
+        if not variables:
+            return None
+
+        # Check first variable to determine table type
+        # All variables in a single request should be from the same table type
+        first_var = variables[0]
+
+        if first_var.startswith("DP"):
+            return "profile"
+        elif first_var.startswith("S"):
+            return "subject"
+        elif first_var.startswith("CP"):
+            return "cprofile"
+        else:
+            # B or C tables (detailed tables) - no suffix needed
+            return None
+
+    def _build_url(
+        self,
+        year: int,
+        dataset: str,
+        survey: Optional[str] = None,
+        table_type: Optional[str] = None,
+    ) -> str:
         """Build Census API URL for given parameters.
 
         Parameters
@@ -95,6 +134,9 @@ class CensusAPI:
             Dataset name (e.g., 'acs', 'dec', 'decennial')
         survey : str, optional
             Survey type (e.g., 'acs5', 'acs1', 'sf1', 'pl')
+        table_type : str, optional
+            ACS table type ('profile', 'subject', 'cprofile') for Data Profile,
+            Subject Tables, or Comparison Profile
 
         Returns
         -------
@@ -105,7 +147,11 @@ class CensusAPI:
         normalized_dataset = self._normalize_dataset(dataset)
 
         if survey:
-            return f"{self.BASE_URL}/{year}/{normalized_dataset}/{survey}"
+            base_url = f"{self.BASE_URL}/{year}/{normalized_dataset}/{survey}"
+            # Append table type suffix if specified (for ACS only)
+            if table_type and normalized_dataset == "acs":
+                base_url = f"{base_url}/{table_type}"
+            return base_url
         else:
             return f"{self.BASE_URL}/{year}/{normalized_dataset}"
 
@@ -149,7 +195,12 @@ class CensusAPI:
         """
         self._rate_limit()
 
-        url = self._build_url(year, dataset, survey)
+        # Detect table type for ACS datasets
+        table_type = None
+        if dataset == "acs" and variables:
+            table_type = self._detect_table_type(variables)
+
+        url = self._build_url(year, dataset, survey, table_type)
 
         # Build query parameters
         params = {"get": ",".join(variables), "key": self.api_key}
