@@ -12,6 +12,8 @@ kernelspec:
   name: python3
 ---
 
+
+
 # Time Series Analysis with Census Data
 
 This guide provides a quick introduction to analyzing demographic changes over time using pytidycensus. For complete tutorials with detailed examples, see:
@@ -19,6 +21,17 @@ This guide provides a quick introduction to analyzing demographic changes over t
 - **Example 06**: Simple time series with stable geographies (states, counties)
 - **Example 07**: Advanced time series with changing boundaries (tracts, block groups)
 - **Example 10**: Interactive 3D visualization of time series data
+
+## Installation
+
+```bash
+# For time series with automatic boundary handling
+pip install pytidycensus[time]
+
+# Basic pytidycensus (manual comparison only)
+pip install pytidycensus
+```
+
 
 ## The Golden Rule
 
@@ -150,15 +163,7 @@ data = get_time_series(
 - **Tracts/Block Groups**: Boundaries change regularly - need interpolation
 - **ZIP codes**: Not recommended for time series (unstable boundaries)
 
-## Installation
 
-```bash
-# For time series with automatic boundary handling
-pip install pytidycensus[time]
-
-# Basic pytidycensus (manual comparison only)
-pip install pytidycensus
-```
 
 ## Complete Examples
 
