@@ -121,6 +121,9 @@ autosummary_generate = True
 # Google Analytics configuration
 googleanalytics_id = "G-5NFKHXMNYT"
 
+# Include robots.txt at site root
+html_extra_path = ["_static/robots.txt"]
+
 # Sitemap configuration
 html_baseurl = "https://mmann1123.github.io/pytidycensus/"
 sitemap_url_scheme = "{link}"
