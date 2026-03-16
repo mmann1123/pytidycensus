@@ -44,9 +44,10 @@ def _normalize_column_names(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = None, **kwargs):
     """Call a pygris function with automatic fallback from cb=True to cb=False.
 
-    This handles the issue where Census Bureau's GENZ2020 cartographic boundary files
-    are protected by Cloudflare and return HTML instead of shapefiles. If a download
-    fails with cb=True, we automatically retry with cb=False (detailed TIGER/Line files).
+    This handles cases where cartographic boundary (CB) files are unavailable,
+    including Census Bureau's GENZ2020 Cloudflare issues and years where CB files
+    were never published (e.g., 2012 tracts). If a download fails with cb=True,
+    we automatically retry with cb=False (detailed TIGER/Line files).
 
     Parameters
     ----------
@@ -73,23 +74,31 @@ def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = No
         # Try with the requested cb setting
         return pygris_func(cb=cb, year=year, **kwargs)
     except Exception as e:
-        # Check if this looks like the GENZ2020 HTML download issue
-        error_msg = str(e).lower()
-        is_html_error = (
-            "does not exist in the file system" in error_msg
-            or "not recognized as a supported dataset name" in error_msg
-            or "vsizip" in error_msg
-        )
-
-        # If cb=True failed with a file system error, try cb=False as fallback
-        if cb and is_html_error:
-            warnings.warn(
-                f"Failed to download cartographic boundary files (cb=True) for year {year}. "
-                f"This is a known issue with Census Bureau's 2020 GENZ files. "
-                f"Automatically retrying with detailed TIGER/Line files (cb=False). "
-                f"Original error: {str(e)[:100]}",
-                UserWarning,
+        # If cb=True failed, always try cb=False as fallback
+        if cb:
+            # Check if this looks like the GENZ2020 HTML download issue
+            error_msg = str(e).lower()
+            is_html_error = (
+                "does not exist in the file system" in error_msg
+                or "not recognized as a supported dataset name" in error_msg
+                or "vsizip" in error_msg
             )
+
+            if is_html_error:
+                warn_msg = (
+                    f"Failed to download cartographic boundary files (cb=True) for year {year}. "
+                    f"This is a known issue with Census Bureau's GENZ files. "
+                    f"Automatically retrying with detailed TIGER/Line files (cb=False). "
+                    f"Original error: {str(e)[:100]}"
+                )
+            else:
+                warn_msg = (
+                    f"Cartographic boundary files (cb=True) unavailable for year {year}. "
+                    f"Falling back to detailed TIGER/Line files (cb=False). "
+                    f"Original error: {str(e)[:100]}"
+                )
+
+            warnings.warn(warn_msg, UserWarning)
             try:
                 return pygris_func(cb=False, year=year, **kwargs)
             except Exception as fallback_error:
@@ -100,7 +109,7 @@ def _pygris_with_fallback(pygris_func, cb: bool = True, year: Optional[int] = No
                     f"cb=False error: {str(fallback_error)[:100]}..."
                 )
         else:
-            # Not the HTML error, or cb was already False - just re-raise
+            # cb was already False - just re-raise
             raise
 
 
