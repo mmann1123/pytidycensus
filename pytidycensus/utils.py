@@ -435,8 +435,8 @@ def validate_year(year: int, dataset: str) -> int:
         If year is not available for dataset
     """
     if dataset == "acs":
-        # ACS 5-year: 2009-2023, ACS 1-year: 2005-2023 (except 2020)
-        if year < 2005 or year > 2023:
+        # ACS 5-year: 2009-2024, ACS 1-year: 2005-2024 (except 2020)
+        if year < 2005 or year > 2024:
             raise ValueError(f"ACS data not available for year {year}")
     elif dataset == "dec":
         # Decennial census: 1990, 2000, 2010, 2020
@@ -444,7 +444,7 @@ def validate_year(year: int, dataset: str) -> int:
             raise ValueError(f"Decennial census data not available for year {year}")
     elif dataset == "estimates":
         # Population estimates: varies by type
-        if year < 2000 or year > 2023:
+        if year < 2000 or year > 2024:
             raise ValueError(f"Population estimates not available for year {year}")
 
     return year

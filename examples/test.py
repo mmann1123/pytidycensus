@@ -67,74 +67,75 @@ data_2023["college_education_rate"] = data_2023["B15003_022E"] / data_2023["B150
 data_2023["unemployment_rate"] = data_2023["B23025_005E"] / data_2023["B23025_002E"]
 
 # %%
-from pytidycensus.time_series import get_time_series
 
-variables = {2010: {"total_pop": "P001001"}, 2020: {"total_pop": "P1_001N"}}
-
-
-data = get_time_series(
-    geography="tract",
-    variables=variables,
-    years=[2010, 2020],
-    dataset="decennial",
-    extensive_variables=["total_pop"],
-    state="DC",
-    base_year=2020,
-    geometry=True,
-)
-data
-# %%
-
-
-# %%
-
-# %%
-
-
-# %%
-dc_2023 = tc.get_acs(
-    geography="tract",
-    variables={
-        "total_pop": "B01003_001E",  # Total population
-        "poverty_count": "B17001_002E",  # Population below poverty line
-        "poverty_total": "B17001_001E",  # Total population for poverty calculation
-    },
-    state="DC",
-    year=2023,
-    survey="acs5",
-    geometry=True,
-    output="wide",
-)
-
-dc_2023
 import pytidycensus as tc
+# Geography levels that are supported for population estimates
+geography_tests = [
+    ("us", {}, "United States"),
+    ("region", {}, "Census region"),
+    ("division", {}, "Census division"),
+    ("state", {"state": "VT"}, "State"),
+    ("county", {"state": "VT"}, "County"),
+    (
+        "metropolitan statistical area/micropolitan statistical area",
+        {},
+        "Metropolitan Statistical Area",
+    ),
+    ("place", {"state": "VT"}, "Incorporated place"),
+]
+
+for geography, params, description in geography_tests:
+    result = tc.get_estimates(
+        geography=geography,
+        variables="POP",  # Population estimate
+        year=2022,
+        **params,
+    )
+
+    assert isinstance(result, pd.DataFrame), f"Failed for {description}"
+    assert len(result) > 0, f"No data returned for {description}"
+
+    # Check for geographic identifier column (varies by geography level)
+    geo_id_cols = [
+        "GEOID",
+        "us",
+        "region",
+        "division",
+        "state",
+        "county",
+        "tract",
+        "block group",
+        "place",
+    ]
+    has_geo_id = any(col in result.columns for col in geo_id_cols)
+    assert (
+        has_geo_id
+    ), f"Missing geographic identifier for {description}, columns: {result.columns.tolist()}"
+
+    # Check for estimate column (varies by function)
+    estimate_cols = [
+        "estimate",
+        "POPESTIMATE2022",
+        "POPESTIMATE2021",
+        "POPESTIMATE2020",
+    ]
+    has_estimate = any(col in result.columns for col in estimate_cols)
+    assert (
+        has_estimate
+    ), f"Missing estimate column for {description}, columns: {result.columns.tolist()}"
+
+    print(f"✓ {description} geography works")
 
 # %%
-from pytidycensus.time_series import get_time_series
+from pytidycensus.llm_interface import CensusAssistant
 
-# Define years for time series (ACS 5-year data)
-# Using 2015-2022 for reliable geometry downloads
-years = [2019, 2020, 2021]
-
-print(f"Downloading median household income data for DC tracts...")
-print(f"Years: {years}")
-print(f"This will take a few minutes...\n")
-
-# Download time series data with automatic boundary alignment
-dc_income = tc.get_time_series(
-    geography="tract",
-    variables={"median_income": "B19013_001E"},
-    years=years,
-    dataset="acs5",
-    state="DC",
-    base_year=2021,  # Align all data to 2021 boundaries
-    intensive_variables=["median_income"],  # Median is an intensive variable
-    geometry=True,
-    output="wide",
+# Initialize assistant
+assistant = CensusAssistant(
+    census_api_key="your_census_api_key",
+    openai_api_key="your_openai_key"  # Optional
 )
-dc_income
-# %%
-dc_income
-# %%
-data
+
+# Ask for data (use await directly in Jupyter)
+response = await assistant.chat("Get median income by county in Texas")
+print(response)
 # %%
