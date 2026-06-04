@@ -113,6 +113,55 @@ class TestCensusAPI:
             )
 
     @patch("pytidycensus.api.requests.Session.get")
+    def test_invalid_variable_does_not_blame_api_key(self, mock_get):
+        """An invalid variable (HTTP 400) should not produce an API-key warning.
+
+        Regression test for issue #41.
+        """
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.text = "error: error: unknown variable 'B19013_001EXX'"
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "400 Client Error"
+        )
+        mock_get.return_value = mock_response
+
+        api = CensusAPI(api_key="test")
+
+        with pytest.raises(ValueError) as excinfo:
+            api.get(
+                year=2022,
+                dataset="acs",
+                variables=["B19013_001EXX"],
+                geography={"for": "state:*"},
+                survey="acs5",
+            )
+
+        message = str(excinfo.value)
+        assert "400" in message
+        assert "unknown variable" in message
+        assert "load_variables" in message
+        # The misleading API-key advice must not appear for a 400 error.
+        assert "valid API key set" not in message
+        assert "Please make sure you get a valid API key" not in message
+
+    @patch("pytidycensus.api.requests.Session.get")
+    def test_unauthorized_reports_api_key(self, mock_get):
+        """A 401/403 response should give specific API-key guidance."""
+        mock_response = Mock()
+        mock_response.status_code = 403
+        mock_response.text = "Invalid Key"
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "403 Client Error"
+        )
+        mock_get.return_value = mock_response
+
+        api = CensusAPI(api_key="test")
+
+        with pytest.raises(ValueError, match="unauthorized"):
+            api.get(2022, "acs", ["B01001_001E"], {"for": "state:*"}, "acs5")
+
+    @patch("pytidycensus.api.requests.Session.get")
     def test_show_call_parameter(self, mock_get, capsys):
         """Test that show_call parameter prints the URL."""
         mock_response = Mock()
@@ -261,7 +310,7 @@ class TestCensusAPI:
 
         api = CensusAPI(api_key="test")
 
-        with pytest.raises(ValueError, match="Census API returned invalid response"):
+        with pytest.raises(ValueError, match="Census API returned a non-JSON response"):
             api.get(2022, "acs", ["B01001_001E"], {"for": "state:*"}, "acs5")
 
     @patch("requests.Session.get")

@@ -147,14 +147,18 @@ class TestAPIEndpointFixes:
         api = CensusAPI()
 
         with patch.object(api, "session") as mock_session:
-            # Mock 404 error
+            # Mock 404 error (the status raise_for_status actually raises)
             mock_response = Mock()
-            mock_response.raise_for_status.side_effect = requests.RequestException(
+            mock_response.status_code = 404
+            mock_response.text = "not found"
+            mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
                 "404 Client Error"
             )
             mock_session.get.return_value = mock_response
 
-            with pytest.raises(requests.RequestException, match="Failed to fetch variables"):
+            # A 404 for a bad dataset/survey should name the combination, not
+            # blame the API key.
+            with pytest.raises(ValueError, match="does not exist: invalid_dataset"):
                 api.get_variables(2010, "invalid_dataset", "invalid_survey")
 
     @pytest.mark.integration

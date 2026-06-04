@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
@@ -55,6 +56,110 @@ class CensusAPI:
         # Rate limiting
         self.last_request_time = 0
         self.min_request_interval = 0.1  # 100ms between requests
+
+    @staticmethod
+    def _redact_key(text: str, api_key: Optional[str]) -> str:
+        """Remove the API key from a string before showing it to the user."""
+        if not text:
+            return text
+        if api_key:
+            text = text.replace(api_key, "<your-api-key>")
+        # Also redact a ``key=`` query parameter in case the key came from elsewhere.
+        return re.sub(r"(key=)[^&\s]+", r"\1<your-api-key>", text)
+
+    def _interpret_http_error(
+        self,
+        response: "requests.Response",
+        url: str,
+        year: int,
+        dataset: str,
+        survey: Optional[str],
+        variables: Optional[List[str]] = None,
+        context: str = "data",
+    ) -> Exception:
+        """Translate an HTTP error response into a specific, actionable exception.
+
+        The Census API usually returns a short plain-text description of what went
+        wrong (e.g. ``error: error: unknown variable 'B19013_001EXX'``). We surface
+        that text and add a targeted tip based on the HTTP status code instead of
+        always blaming the API key.
+
+        Parameters
+        ----------
+        context : str
+            What was being fetched, used to phrase messages (e.g. ``"data"``,
+            ``"variable metadata"``, ``"geography codes"``).
+        variables : list of str, optional
+            Requested variable codes, when applicable (data endpoint only).
+        """
+        status = getattr(response, "status_code", None)
+        body = self._redact_key((getattr(response, "text", "") or "").strip(), self.api_key)
+        detail = body[:500] + ("..." if len(body) > 500 else "") if body else ""
+        api_response = f"\nCensus API said: {detail}" if detail else ""
+        endpoint = self._redact_key(url, self.api_key)
+        combo = f"{dataset} {survey or ''} {year}".strip()
+        requested = f" Requested: {', '.join(variables)}." if variables else ""
+        low = body.lower()
+
+        if status in (401, 403):
+            return ValueError(
+                f"Census API rejected the request as unauthorized (HTTP {status}). "
+                "Your API key is likely invalid or not yet activated (activation can "
+                "take a few minutes after signup). Check the CENSUS_API_KEY environment "
+                "variable or the api_key argument, or request a key at "
+                "https://api.census.gov/data/key_signup.html." + api_response
+            )
+
+        if status == 400:
+            tips = []
+            if "unknown variable" in low or "not a variable" in low:
+                tips.append(
+                    "One or more variables are not valid for this dataset/year "
+                    f"({combo}).{requested} Verify codes with "
+                    "pytidycensus.load_variables() or search_variables()."
+                )
+            if "geography" in low or "fips" in low:
+                tips.append(
+                    "The geography request may be unsupported for this dataset/year. "
+                    "Check that the geography level and any state/county filters are valid."
+                )
+            if not tips:
+                tips.append(
+                    "The request was malformed. Common causes are an invalid variable "
+                    "code, an unsupported geography, or a variable/geography that does "
+                    f"not exist for this year ({combo})." + requested
+                )
+            return ValueError(
+                "Census API rejected the request (HTTP 400 Bad Request). "
+                + " ".join(tips)
+                + api_response
+            )
+
+        if status == 404:
+            return ValueError(
+                f"Census API endpoint not found (HTTP 404) while fetching {context}. "
+                "This usually means the dataset/year/survey combination does not "
+                f"exist: {combo}. Endpoint: {endpoint}." + api_response
+            )
+
+        if status == 204:
+            return ValueError(
+                f"Census API returned no {context} (HTTP 204) for this request. The "
+                "request is valid but no values are available for "
+                f"{combo} at the requested geography."
+            )
+
+        if status is not None and 500 <= status < 600:
+            return requests.RequestException(
+                f"Census API server error (HTTP {status}) while fetching {context}. "
+                "This is a problem on the Census Bureau's side, not your request. "
+                "Try again in a few minutes." + api_response
+            )
+
+        return requests.RequestException(
+            f"Failed to fetch {context} from Census API (HTTP {status}). Endpoint: "
+            f"{endpoint}." + api_response
+        )
 
     def _rate_limit(self) -> None:
         """Enforce rate limiting between API requests."""
@@ -212,40 +317,47 @@ class CensusAPI:
 
         try:
             response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-
-            try:
-                data = response.json()
-            except json.JSONDecodeError:
-                # API returned non-JSON content (likely HTML error page)
-                raise ValueError(
-                    f"Census API returned invalid response. "
-                    f"This usually indicates an invalid API key or malformed request. "
-                    f"Response content: {response.text[:200]}..."
-                )
-
-            # Handle API error responses
-            if isinstance(data, dict) and "error" in data:
-                raise ValueError(f"Census API error: {data['error']}")
-
-            # Convert to list of dictionaries with header as keys
-            if isinstance(data, list) and len(data) > 1:
-                headers = data[0]
-                rows = data[1:]
-                return [dict(zip(headers, row)) for row in rows]
-
-            return data
-
         except requests.RequestException as e:
+            # No HTTP response was received at all (DNS failure, timeout, no network).
             raise requests.RequestException(
-                f"""
-                Failed to fetch data from Census API  
-                =======================================
-                Please make sure you get a valid API key set
-                ========================================
-                {e}
-                """
+                "Failed to fetch data from Census API: could not reach the server. "
+                "Check your internet connection and try again.\n"
+                f"Original error: {e}"
             )
+
+        # Inspect the HTTP status before parsing so we can give a specific,
+        # actionable message instead of always blaming the API key.
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            raise self._interpret_http_error(
+                response, url, year, dataset, survey, variables=variables, context="data"
+            ) from None
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            # A 200 response with non-JSON content is how the Census API reports an
+            # invalid API key (it returns an HTML page rather than a JSON error).
+            body = self._redact_key((response.text or "").strip(), self.api_key)
+            raise ValueError(
+                "Census API returned a non-JSON response. This most often means the "
+                "API key is invalid or not yet activated. Verify CENSUS_API_KEY or "
+                "request a key at https://api.census.gov/data/key_signup.html.\n"
+                f"Response content: {body[:300]}..."
+            )
+
+        # Handle structured API error responses
+        if isinstance(data, dict) and "error" in data:
+            raise ValueError(f"Census API error: {data['error']}")
+
+        # Convert to list of dictionaries with header as keys
+        if isinstance(data, list) and len(data) > 1:
+            headers = data[0]
+            rows = data[1:]
+            return [dict(zip(headers, row)) for row in rows]
+
+        return data
 
     def get_geography_codes(
         self, year: int, dataset: str, survey: Optional[str] = None
@@ -270,18 +382,28 @@ class CensusAPI:
 
         try:
             response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-
-            try:
-                return response.json()
-            except json.JSONDecodeError:
-                raise ValueError(
-                    f"Census API returned invalid response for geography codes. "
-                    f"This usually indicates an invalid API key. "
-                    f"Response content: {response.text[:200]}..."
-                )
         except requests.RequestException as e:
-            raise requests.RequestException(f"Failed to fetch geography codes: {e}")
+            raise requests.RequestException(
+                "Failed to fetch geography codes: could not reach the Census API "
+                f"server. Check your internet connection.\nOriginal error: {e}"
+            )
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            raise self._interpret_http_error(
+                response, url, year, dataset, survey, context="geography codes"
+            ) from None
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            body = self._redact_key((response.text or "").strip(), self.api_key)
+            raise ValueError(
+                "Census API returned invalid response for geography codes. "
+                "This usually indicates an invalid API key. "
+                f"Response content: {body[:200]}..."
+            )
 
     def get_variables(
         self, year: int, dataset: str, survey: Optional[str] = None
@@ -306,18 +428,28 @@ class CensusAPI:
 
         try:
             response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-
-            try:
-                return response.json()
-            except json.JSONDecodeError:
-                raise ValueError(
-                    f"Census API returned invalid response for variables. "
-                    f"This usually indicates an invalid API key. "
-                    f"Response content: {response.text[:200]}..."
-                )
         except requests.RequestException as e:
-            raise requests.RequestException(f"Failed to fetch variables: {e}")
+            raise requests.RequestException(
+                "Failed to fetch variables: could not reach the Census API server. "
+                f"Check your internet connection.\nOriginal error: {e}"
+            )
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            raise self._interpret_http_error(
+                response, url, year, dataset, survey, context="variable metadata"
+            ) from None
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            body = self._redact_key((response.text or "").strip(), self.api_key)
+            raise ValueError(
+                "Census API returned invalid response for variables. "
+                "This usually indicates an invalid API key. "
+                f"Response content: {body[:200]}..."
+            )
 
 
 def set_census_api_key(api_key: str) -> None:
