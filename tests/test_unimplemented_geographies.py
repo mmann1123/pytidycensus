@@ -9,11 +9,6 @@ from pytidycensus.utils import build_geography_params, validate_geography
 class TestUnimplementedGeographyErrors:
     """Test that unimplemented geographies properly raise NotImplementedError."""
 
-    def test_validate_geography_raises_not_implemented_for_county_subdivision(self):
-        """Test that county subdivision raises NotImplementedError."""
-        with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
-            validate_geography("county subdivision")
-
     def test_validate_geography_raises_not_implemented_for_consolidated_city(self):
         """Test that consolidated city raises NotImplementedError."""
         with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
@@ -60,11 +55,6 @@ class TestUnimplementedGeographyErrors:
         ):
             validate_geography("necta")
 
-    def test_build_geography_params_raises_not_implemented_for_county_subdivision(self):
-        """Test that build_geography_params raises NotImplementedError for county subdivision."""
-        with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
-            build_geography_params("county subdivision", state="06")
-
     def test_build_geography_params_raises_not_implemented_for_metropolitan_division(self):
         """Test that build_geography_params raises NotImplementedError for metropolitan division."""
         with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
@@ -74,7 +64,7 @@ class TestUnimplementedGeographyErrors:
         """Test that get_acs raises NotImplementedError for unimplemented geographies."""
         with pytest.raises(NotImplementedError, match="recognized but not yet implemented"):
             get_acs(
-                geography="county subdivision",
+                geography="consolidated city",
                 variables="B01001_001E",
                 state="06",
                 year=2020,
@@ -106,6 +96,7 @@ class TestUnimplementedGeographyErrors:
         assert validate_geography("tract") == "tract"
         assert validate_geography("block group") == "block group"
         assert validate_geography("place") == "place"
+        assert validate_geography("county subdivision") == "county subdivision"
         assert validate_geography("zip code tabulation area") == "zip code tabulation area"
         assert (
             validate_geography("metropolitan statistical area/micropolitan statistical area")
@@ -143,7 +134,6 @@ class TestUnimplementedGeographyErrors:
     def test_unimplemented_but_recognized_geographies_list(self):
         """Test specific unimplemented geographies from the Census API documentation."""
         unimplemented_geographies = [
-            "county subdivision",
             "subminor civil division",
             "place/remainder (or part)",
             "county (or part)",

@@ -181,7 +181,7 @@ class TestBuildGeographyParams:
     def test_build_block_group_params(self):
         """Test building parameters for block group geography."""
         params = build_geography_params("block group", state="TX")
-        assert params == {"for": "block group:*", "in": "state:48"}
+        assert params == {"for": "block group:*", "in": "state:48 county:*"}
 
         params = build_geography_params("block group", state="TX", county="201")
         assert params == {"for": "block group:*", "in": "state:48 county:201"}

@@ -205,7 +205,7 @@ class TestACSAPICallGeneration:
             )
             call_kwargs = mock_api.get.call_args[1]
             assert call_kwargs["geography"]["for"] == "block group:*"
-            assert call_kwargs["geography"]["in"] == "state:06"
+            assert call_kwargs["geography"]["in"] == "state:06 county:*"
 
             # Test block groups in a state and county
             get_acs(
@@ -466,6 +466,31 @@ class TestACSAPICallGeneration:
             assert call_kwargs["geography"]["for"] == "school district (unified):*"
             assert call_kwargs["geography"]["in"] == "state:06"
 
+    @patch("pytidycensus.acs.CensusAPI")
+    def test_county_subdivision_api_call(self, mock_api_class):
+        """Test county subdivision geography API call generation."""
+        mock_api = Mock()
+        mock_api.get.return_value = []
+        mock_api_class.return_value = mock_api
+
+        with patch("pytidycensus.acs.process_census_data") as mock_process, patch(
+            "pytidycensus.acs.add_margin_of_error"
+        ) as mock_add_moe:
+            mock_process.return_value = []
+            mock_add_moe.return_value = []
+
+            get_acs(
+                geography="county subdivision",
+                state="48",
+                county="201",
+                variables="B01001_001E",
+                year=2023,
+                api_key="test",
+            )
+            call_kwargs = mock_api.get.call_args[1]
+            assert call_kwargs["geography"]["for"] == "county subdivision:*"
+            assert call_kwargs["geography"]["in"] == "state:48 county:201"
+
 
 class TestUnimplementedGeographies:
     """Tests for geographies that are not yet fully implemented.
@@ -475,12 +500,7 @@ class TestUnimplementedGeographies:
     """
 
     # COMMENTED OUT - These geographies are not yet implemented
-
-    # @patch("pytidycensus.acs.CensusAPI")
-    # def test_county_subdivision_api_call(self, mock_api_class):
-    #     """Test county subdivision geography API call generation."""
-    #     # Expected: for=county%20subdivision:*&in=state:48
-    #     pass
+    # (county subdivision is now implemented; see test_county_subdivision_api_call above)
 
     # @patch("pytidycensus.acs.CensusAPI")
     # def test_subminor_civil_division_api_call(self, mock_api_class):
