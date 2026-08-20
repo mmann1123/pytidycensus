@@ -198,7 +198,12 @@ def get_acs(
     # Check for Data Profile/Subject tables with block group geography
     # Based on R tidycensus: block groups not available for DP/S tables
     if variables and geography == "block group":
-        vars_list = variables if isinstance(variables, list) else [variables]
+        if isinstance(variables, dict):
+            vars_list = list(variables.values())
+        elif isinstance(variables, list):
+            vars_list = variables
+        else:
+            vars_list = [variables]
         if any(v.startswith(("DP", "S")) for v in vars_list):
             raise ValueError(
                 "Block groups are not an available geography in the Data Profile and Subject Tables datasets."

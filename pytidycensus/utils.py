@@ -733,6 +733,10 @@ def build_geography_params(
             if county:
                 county_fips = validate_county(county, state_fips[0])
                 params["in"] += f" county:{','.join(county_fips)}"
+            else:
+                # The Census API rejects block group queries that omit county
+                # entirely; an explicit wildcard is required.
+                params["in"] += " county:*"
     elif geography == "county subdivision":
         if not state:
             raise ValueError("State must be specified for county subdivision geography")

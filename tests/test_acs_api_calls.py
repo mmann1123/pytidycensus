@@ -205,7 +205,7 @@ class TestACSAPICallGeneration:
             )
             call_kwargs = mock_api.get.call_args[1]
             assert call_kwargs["geography"]["for"] == "block group:*"
-            assert call_kwargs["geography"]["in"] == "state:06"
+            assert call_kwargs["geography"]["in"] == "state:06 county:*"
 
             # Test block groups in a state and county
             get_acs(
