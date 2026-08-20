@@ -271,6 +271,7 @@ def get_acs(
         "state legislative district (lower chamber)",
         "public use microdata area",
         "place",
+        "county subdivision",
     ]
 
     if geography in special_name_geographies and "NAME" not in all_variables:

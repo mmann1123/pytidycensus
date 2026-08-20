@@ -554,6 +554,7 @@ def validate_geography(geography: str, dataset: str = None) -> str:
         "division",
         "state",
         "county",
+        "county subdivision",
         "tract",
         "block group",
         "place",
@@ -582,7 +583,6 @@ def validate_geography(geography: str, dataset: str = None) -> str:
 
     # Recognized but unimplemented geographies (regardless of dataset)
     unimplemented_geographies = [
-        "county subdivision",
         "subminor civil division",
         "place/remainder (or part)",
         "county (or part)",
@@ -733,6 +733,15 @@ def build_geography_params(
             if county:
                 county_fips = validate_county(county, state_fips[0])
                 params["in"] += f" county:{','.join(county_fips)}"
+    elif geography == "county subdivision":
+        if not state:
+            raise ValueError("State must be specified for county subdivision geography")
+        params["for"] = "county subdivision:*"
+        state_fips = validate_state(state)
+        params["in"] = f"state:{','.join(state_fips)}"
+        if county:
+            county_fips = validate_county(county, state_fips[0])
+            params["in"] += f" county:{','.join(county_fips)}"
     elif geography == "zip code tabulation area":
         # ZCTAs are national geographies that cannot be filtered by state
         params["for"] = "zip code tabulation area:*"
@@ -801,7 +810,6 @@ def build_geography_params(
 
     # Unimplemented geographies that are recognized in Census API
     elif geography in [
-        "county subdivision",
         "subminor civil division",
         "place/remainder (or part)",
         "county (or part)",
@@ -911,7 +919,9 @@ def process_census_data(
 
     # Create GEOID from geography columns
     geo_cols = [
-        col for col in df.columns if col in ["state", "county", "tract", "block group", "place"]
+        col
+        for col in df.columns
+        if col in ["state", "county", "tract", "block group", "place", "county subdivision"]
     ]
 
     # Handle special geography identifiers that are already GEOID-like

@@ -143,6 +143,66 @@ class TestGetGeography:
         mock_block_groups.assert_called_once_with(state="48", county=None, cb=True, year=2022)
         assert isinstance(result, gpd.GeoDataFrame)
 
+    @patch("pytidycensus.geography.pygris.county_subdivisions")
+    @patch("pytidycensus.geography.validate_state")
+    def test_get_geography_county_subdivision_requires_state(
+        self, mock_validate_state, mock_county_subdivisions
+    ):
+        """Test that county subdivision geography requires state."""
+        with pytest.raises(ValueError, match="State must be specified"):
+            get_geography("county subdivision", year=2022)
+
+    @patch("pytidycensus.geography.pygris.county_subdivisions")
+    @patch("pytidycensus.geography.validate_state")
+    def test_get_geography_county_subdivision_rejects_multiple_states(
+        self, mock_validate_state, mock_county_subdivisions
+    ):
+        """Test that county subdivision geography rejects multiple states."""
+        mock_validate_state.return_value = ["48", "06"]
+        with pytest.raises(ValueError, match="Only one state"):
+            get_geography("county subdivision", state=["TX", "CA"], year=2022)
+
+    @patch("pytidycensus.geography.pygris.county_subdivisions")
+    @patch("pytidycensus.geography.validate_state")
+    def test_get_geography_county_subdivision_with_state(
+        self, mock_validate_state, mock_county_subdivisions, mock_geodataframe
+    ):
+        """Test county subdivision geography with state."""
+        mock_validate_state.return_value = ["48"]
+        cousub_gdf = mock_geodataframe.copy()
+        cousub_gdf["COUSUBFP"] = ["00100", "00200", "00300"]
+        mock_county_subdivisions.return_value = cousub_gdf
+
+        result = get_geography("county subdivision", state="TX", year=2022)
+
+        mock_county_subdivisions.assert_called_once_with(
+            state="48", county=None, cb=True, year=2022
+        )
+        assert isinstance(result, gpd.GeoDataFrame)
+
+    @patch("pytidycensus.geography.pygris.county_subdivisions")
+    @patch("pytidycensus.geography.validate_state")
+    @patch("pytidycensus.geography.validate_county")
+    def test_get_geography_county_subdivision_with_county(
+        self,
+        mock_validate_county,
+        mock_validate_state,
+        mock_county_subdivisions,
+        mock_geodataframe,
+    ):
+        """Test county subdivision geography with county filter."""
+        mock_validate_state.return_value = ["48"]
+        mock_validate_county.return_value = ["201"]
+        cousub_gdf = mock_geodataframe.copy()
+        cousub_gdf["COUSUBFP"] = ["00100", "00200", "00300"]
+        mock_county_subdivisions.return_value = cousub_gdf
+
+        result = get_geography("county subdivision", state="TX", county="201", year=2022)
+
+        mock_county_subdivisions.assert_called_once_with(
+            state="48", county="201", cb=True, year=2022
+        )
+
     @patch("pytidycensus.geography.pygris.zctas")
     def test_get_geography_zcta(self, mock_zctas):
         """Test ZCTA geography."""

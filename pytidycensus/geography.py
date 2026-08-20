@@ -31,6 +31,7 @@ def _normalize_column_names(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         "COUNTY": "COUNTYFP",
         "TRACT": "TRACTCE",
         "BLKGRP": "BLKGRPCE",
+        "COUSUB": "COUSUBFP",
     }
 
     # Apply mappings only if standard column doesn't exist
@@ -265,6 +266,33 @@ def get_geography(
             county_fips_list = validate_county(county, state_fips)
             gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
 
+    elif geography_lower == "county subdivision":
+        if not state:
+            raise ValueError("State must be specified for county subdivision geography")
+
+        state_codes = validate_state(state)
+        if len(state_codes) > 1:
+            raise ValueError("Only one state can be specified for county subdivision geography")
+
+        state_fips = state_codes[0]
+        county_arg = None
+
+        # Handle county filtering
+        if county:
+            county_codes = validate_county(county, state_fips)
+            if len(county_codes) == 1:
+                county_arg = county_codes[0]
+
+        gdf = _get_county_subdivisions(
+            state=state_fips, county=county_arg, year=year, cb=cb, **kwargs
+        )
+        gdf = _normalize_column_names(gdf)
+
+        # Filter by multiple counties if needed
+        if county and county_arg is None:
+            county_fips_list = validate_county(county, state_fips)
+            gdf = gdf[gdf["COUNTYFP"].isin(county_fips_list)]
+
     elif geography_lower in ["zcta", "zip code tabulation area"]:
         gdf = _get_zctas(year=year, cb=cb, **kwargs)
 
@@ -289,8 +317,8 @@ def get_geography(
     else:
         raise ValueError(
             f"Geography '{geography}' not supported. "
-            f"Supported geographies: state, county, tract, block group, zcta, place, "
-            f"metropolitan statistical area/micropolitan statistical area"
+            f"Supported geographies: state, county, county subdivision, tract, block group, "
+            f"zcta, place, metropolitan statistical area/micropolitan statistical area"
         )
 
     # Standardize GEOID column if needed
@@ -314,6 +342,13 @@ def get_geography(
             and "BLKGRPCE" in gdf.columns
         ):
             gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["TRACTCE"] + gdf["BLKGRPCE"]
+        elif (
+            geography_lower == "county subdivision"
+            and "STATEFP" in gdf.columns
+            and "COUNTYFP" in gdf.columns
+            and "COUSUBFP" in gdf.columns
+        ):
+            gdf["GEOID"] = gdf["STATEFP"] + gdf["COUNTYFP"] + gdf["COUSUBFP"]
         elif (
             geography_lower
             in [
@@ -347,6 +382,8 @@ def get_geography(
             essential_cols.extend(["STATEFP", "COUNTYFP", "TRACTCE"])
             if geography_lower == "block group":
                 essential_cols.append("BLKGRPCE")
+        elif geography_lower == "county subdivision":
+            essential_cols.extend(["STATEFP", "COUNTYFP", "COUSUBFP", "NAMELSAD"])
         elif geography_lower in [
             "metropolitan statistical area/micropolitan statistical area",
             "cbsa",
@@ -411,6 +448,24 @@ def _get_block_groups(
     """Get block group boundaries using pygris with automatic fallback to cb=False on failure."""
     return _pygris_with_fallback(
         lambda cb, year, **kw: pygris.block_groups(
+            state=state, county=county, cb=cb, year=year, **kw
+        ),
+        cb=cb,
+        year=year,
+        **kwargs,
+    )
+
+
+def _get_county_subdivisions(
+    state: str,
+    county: Optional[str] = None,
+    year: Optional[int] = None,
+    cb: bool = True,
+    **kwargs,
+) -> gpd.GeoDataFrame:
+    """Get county subdivision boundaries using pygris with automatic fallback to cb=False on failure."""
+    return _pygris_with_fallback(
+        lambda cb, year, **kw: pygris.county_subdivisions(
             state=state, county=county, cb=cb, year=year, **kw
         ),
         cb=cb,
@@ -546,3 +601,35 @@ def get_block_group_boundaries(
         Block group boundaries
     """
     return get_geography("block group", year=year, state=state, county=county, cb=cb, **kwargs)
+
+
+def get_county_subdivision_boundaries(
+    state: Union[str, int],
+    county: Optional[Union[str, int, List[Union[str, int]]]] = None,
+    year: int = 2022,
+    cb: bool = True,
+    **kwargs,
+) -> gpd.GeoDataFrame:
+    """Get county subdivision boundaries for a state, optionally filtered by county.
+
+    Parameters
+    ----------
+    state : str or int
+        State to get county subdivisions for
+    county : str, int, or list, optional
+        County(ies) to filter by
+    year : int, default 2022
+        Census year for boundaries
+    cb : bool, default True
+        If True, download generalized cartographic boundary files
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        County subdivision boundaries
+    """
+    return get_geography(
+        "county subdivision", year=year, state=state, county=county, cb=cb, **kwargs
+    )
